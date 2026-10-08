@@ -3,9 +3,11 @@
 
 qt_add_library(paintcore STATIC
     include/paintcore/BrushLibrary.h
+    include/paintcore/BrushSelector.h
     include/paintcore/CanvasWidget.h
     src/Brush.cpp
     src/BrushLibrary.cpp
+    src/BrushSelector.cpp
     src/Brush.h
     src/CanvasWidget.cpp
     src/Surface.cpp

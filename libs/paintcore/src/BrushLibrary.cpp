@@ -15,6 +15,13 @@ Q_LOGGING_CATEGORY(lcBrushes, "paintcore.brushes")
 
 namespace paintcore {
 
+BrushPreset defaultBrushPreset()
+{
+    BrushPreset preset;
+    preset.name = QStringLiteral("Por defecto");
+    return preset;
+}
+
 qsizetype BrushLibrary::load(const QStringList& directories)
 {
     std::map<QString, BrushPreset> byName; // ordenado por nombre

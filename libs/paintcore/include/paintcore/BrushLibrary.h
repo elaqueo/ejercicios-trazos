@@ -13,8 +13,13 @@ struct BrushPreset {
     QString name;        // ruta relativa a su carpeta, sin extensión: "classic/pencil"
     QString filePath;    // ruta absoluta del .myb
     QString previewPath; // "<nombre>_prev.png" junto al .myb; vacío si no existe
-    QByteArray json;
+    QByteArray json;     // vacío: el pincel por defecto de paintcore
+
+    bool isDefault() const { return json.isEmpty(); }
 };
+
+// El pincel por defecto de paintcore (una birome con presión), que no viene de un .myb.
+BrushPreset defaultBrushPreset();
 
 // Colección de pinceles .myb (formato JSON de MyPaint 2.x, compatible con los
 // packs de Krita), cargados de una o más carpetas.

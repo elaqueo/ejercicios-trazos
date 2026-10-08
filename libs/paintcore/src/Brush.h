@@ -9,7 +9,7 @@ struct MyPaintBrush;
 
 namespace paintcore::detail {
 
-// Dueño de un MyPaintBrush (RAII). Arranca con los valores por defecto de libmypaint.
+// Dueño de un MyPaintBrush (RAII). Arranca con el pincel por defecto.
 class Brush {
 public:
     Brush();
@@ -20,10 +20,19 @@ public:
 
     MyPaintBrush* handle() const { return m_brush; }
 
+    // Pincel por defecto: una birome negra con grosor y opacidad según la presión.
+    void loadDefault();
+
+    // Carga un .myb (JSON). Si libmypaint lo rechaza, queda el pincel por defecto
+    // y devuelve false. En los dos casos la tinta queda negra.
+    bool loadJson(const QByteArray& json);
+
     // true si libmypaint acepta el JSON como pincel (.myb versión 3).
     static bool isValidJson(const QByteArray& json);
 
 private:
+    void forceBlackInk();
+
     MyPaintBrush* m_brush = nullptr;
 };
 

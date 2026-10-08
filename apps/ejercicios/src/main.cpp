@@ -1,4 +1,5 @@
 #include <appkit/AppWindow.h>
+#include <appkit/Config.h>
 #include <appkit/Log.h>
 #include <appkit/Paths.h>
 #include <paintcore/BrushLibrary.h>
@@ -11,11 +12,12 @@ int main(int argc, char* argv[])
     QApplication::setApplicationName(QStringLiteral("Ejercicios de trazos"));
     appkit::installFileLog(QStringLiteral("ejercicios"));
 
-    // El selector que los usa llega en HU-06; por ahora solo se cargan y se registran.
+    appkit::Config config(QStringLiteral("ejercicios"));
     paintcore::BrushLibrary brushes;
     brushes.load(appkit::brushDirectories());
 
     appkit::AppWindow window;
+    window.setupBrushes(&brushes, &config);
     window.setWindowTitle(QApplication::applicationName());
     window.resize(1280, 800);
     window.show();

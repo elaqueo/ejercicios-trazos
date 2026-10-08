@@ -6,12 +6,15 @@
 #include <mypaint-brush.h>
 
 #include <QInputDevice>
+#include <QLoggingCategory>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QTabletEvent>
 
 #include <optional>
+
+Q_LOGGING_CATEGORY(lcCanvas, "paintcore.canvas")
 
 namespace paintcore {
 
@@ -20,13 +23,26 @@ namespace {
 // Qt da la inclinación en grados (-60..60); libmypaint la espera en -1..1.
 constexpr float kMaxTiltDegrees = 60.0f;
 
+// dtime (s) de la muestra sin presión que ubica el pincel al empezar un trazo. Con
+// esto el suavizado de libmypaint (slow_tracking, hasta 10) llega a 1 - e^-100.
+constexpr double kStrokeStartDtime = 10.0;
+
 } // namespace
 
 struct CanvasWidget::Impl {
     detail::Brush brush;
     std::optional<detail::Surface> surface;
+    std::optional<BrushPreset> pendingBrush; // se aplica al empezar el próximo trazo
     bool stroking = false;
     quint64 lastTimestampMs = 0;
+
+    void applyBrush(const BrushPreset& preset)
+    {
+        if (preset.isDefault())
+            brush.loadDefault();
+        else if (!brush.loadJson(preset.json))
+            qCWarning(lcCanvas) << "No se pudo cargar el pincel" << preset.name << "; se usa el pincel por defecto";
+    }
 
     void ensureSurface(QSize size)
     {
@@ -34,10 +50,25 @@ struct CanvasWidget::Impl {
             surface.emplace(size);
     }
 
-    void beginStroke(quint64 timestampMs)
+    void beginStroke(QPointF pos, quint64 timestampMs)
     {
+        if (pendingBrush) {
+            applyBrush(*pendingBrush);
+            pendingBrush.reset();
+        }
         mypaint_brush_reset(brush.handle());
         mypaint_brush_new_stroke(brush.handle());
+
+        // Ubica el pincel en el punto de apoyo sin pintar. libmypaint aplica el
+        // suavizado (slow_tracking) ANTES del reset, con el dtime de la muestra: con
+        // dtime ≈ 0 la posición reseteada quedaría en el final del trazo anterior y
+        // el trazo nuevo arrancaría con una línea desde ahí. Con un dtime grande el
+        // suavizado salta al punto nuevo, y el reset vuelve sin pintar.
+        surface->beginAtomic();
+        mypaint_brush_stroke_to_2(brush.handle(), surface->handle(), float(pos.x()), float(pos.y()),
+                                  0.0f, 0.0f, 0.0f, kStrokeStartDtime, 1.0f, 0.0f, 0.0f);
+        surface->endAtomic();
+
         stroking = true;
         lastTimestampMs = timestampMs;
     }
@@ -67,6 +98,14 @@ CanvasWidget::CanvasWidget(QWidget* parent)
 
 CanvasWidget::~CanvasWidget() = default;
 
+void CanvasWidget::setBrush(const BrushPreset& preset)
+{
+    if (d->stroking)
+        d->pendingBrush = preset;
+    else
+        d->applyBrush(preset);
+}
+
 void CanvasWidget::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
@@ -91,7 +130,7 @@ void CanvasWidget::tabletEvent(QTabletEvent* event)
 
     switch (event->type()) {
     case QEvent::TabletPress:
-        d->beginStroke(event->timestamp());
+        d->beginStroke(event->position(), event->timestamp());
         break;
     case QEvent::TabletMove:
         if (!d->stroking)
@@ -127,7 +166,7 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
     if (!isRealMouse(event) || event->button() != Qt::LeftButton)
         return;
     d->ensureSurface(size());
-    d->beginStroke(event->timestamp());
+    d->beginStroke(event->position(), event->timestamp());
     update(d->strokeTo(event->position(), kMousePressure, 0.0f, 0.0f, event->timestamp()));
 }
 

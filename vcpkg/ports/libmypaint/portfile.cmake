@@ -3,6 +3,7 @@
 #   y así evitamos arrastrar glib (LGPL), gettext, pcre2 y libffi a un enlace estático.
 # - fix_unknown_ids_msvc.patch: con MSVC, un .myb con ajustes o entradas desconocidos
 #   corrompía el heap en vez de saltear ese ajuste (ver el encabezado del parche).
+#   Reportado upstream: https://github.com/mypaint/libmypaint/issues/209
 
 vcpkg_download_distfile(ARCHIVE
     URLS "https://github.com/mypaint/libmypaint/releases/download/v${VERSION}/libmypaint-${VERSION}.tar.xz"

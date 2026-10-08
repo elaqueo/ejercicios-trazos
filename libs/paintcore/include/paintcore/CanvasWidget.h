@@ -2,6 +2,8 @@
 
 #include <QWidget>
 
+#include "paintcore/BrushLibrary.h"
+
 #include <memory>
 
 namespace paintcore {
@@ -14,6 +16,10 @@ class CanvasWidget : public QWidget {
 public:
     explicit CanvasWidget(QWidget* parent = nullptr);
     ~CanvasWidget() override;
+
+    // Cambia el pincel. Si hay un trazo en curso, se aplica desde el siguiente.
+    // Un preset inválido deja el pincel por defecto (con un warning en el log).
+    void setBrush(const BrushPreset& preset);
 
     // Presión que se usa al pintar con mouse (0..1).
     static constexpr float kMousePressure = 0.5f;
