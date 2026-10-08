@@ -30,6 +30,10 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 - Espaciado 4 · 8 · 12 · 16 · 24 · 32. Radios: paneles 12, controles 8, teclas 6. Objetivo táctil ≥ 44 px.
 - Guías de 2 px; construcción de 1,5 px punteada.
 
+## Regla de ubicación
+
+**Todo lo que se toca con el lápiz va dentro del área útil**: la tableta solo alcanza ese rectángulo. Los paneles laterales se pegan al borde derecho del área útil (no de la pantalla) y los overlays centrados se centran en el área útil. La única excepción es la calibración, que cubre toda la pantalla porque justamente define el área.
+
 ## Decisiones por pantalla
 
 | Pantalla | Decisión | Historia |

@@ -31,6 +31,12 @@ QRect rectFromCorners(QPointF a, QPointF b)
     return QRect(QPoint(left, top), QPoint(right, bottom));
 }
 
+QRect sidePanelRect(const QRect& area, int width, int margin)
+{
+    const int w = qMax(0, qMin(width, area.width() - 2 * margin));
+    return QRect(area.right() + 1 - margin - w, area.top() + margin, w, qMax(0, area.height() - 2 * margin));
+}
+
 std::optional<QRect> loadUsableArea(const Config& config, const ScreenId& monitor)
 {
     const QVariantList areas = config.value(kAreasKey, {}, Config::Scope::Common).toList();

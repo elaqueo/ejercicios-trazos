@@ -18,6 +18,12 @@ class Config;
 // Rectángulo que tiene a a y b como esquinas opuestas, en cualquier orden.
 QRect rectFromCorners(QPointF a, QPointF b);
 
+// Rectángulo de un panel lateral (selector de pinceles, panel de configuración)
+// pegado al borde derecho DEL ÁREA ÚTIL, no de la ventana: fuera del área el lápiz no
+// llega. Ancho preferido width, separado margin del borde; si el área es angosta, se
+// achica para entrar.
+QRect sidePanelRect(const QRect& area, int width, int margin);
+
 std::optional<QRect> loadUsableArea(const Config& config, const ScreenId& monitor);
 void saveUsableArea(Config& config, const ScreenId& monitor, const QRect& rect);
 

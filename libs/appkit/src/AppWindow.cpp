@@ -100,9 +100,9 @@ void AppWindow::toggleBrushSelector()
 
 void AppWindow::placeBrushSelector()
 {
-    const int width = qMin(kSelectorWidth, this->width() - 2 * kSelectorMargin);
-    m_brushSelector->setGeometry(this->width() - width - kSelectorMargin, kSelectorMargin,
-                                 width, height() - 2 * kSelectorMargin);
+    // Dentro del área útil, al alcance del lápiz.
+    const QRect area(m_canvas->mapTo(this, m_canvas->canvasRect().topLeft()), m_canvas->canvasRect().size());
+    m_brushSelector->setGeometry(sidePanelRect(area, kSelectorWidth, kSelectorMargin));
 }
 
 void AppWindow::setupCanvasColors(Config* config)
@@ -153,6 +153,8 @@ void AppWindow::applyUsableArea()
         canvasRect = QRect(m_canvas->mapFromGlobal(screen()->geometry().topLeft() + area->topLeft()), area->size());
     if (canvasRect != m_canvas->canvasRect() || canvasRect.isEmpty())
         m_canvas->setCanvasRect(canvasRect);
+    if (m_brushSelector && m_brushSelector->isVisible())
+        placeBrushSelector();
 }
 
 void AppWindow::showOnSavedScreen(Config* config)
@@ -210,9 +212,9 @@ void AppWindow::moveToNextScreen()
 void AppWindow::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
+    applyUsableArea();
     if (m_brushSelector)
         placeBrushSelector();
-    applyUsableArea();
 }
 
 void AppWindow::moveEvent(QMoveEvent* event)

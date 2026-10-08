@@ -24,6 +24,20 @@ private slots:
         QCOMPARE(appkit::rectFromCorners({900, 650}, {100, 50}), appkit::rectFromCorners({100, 50}, {900, 650}));
     }
 
+    // El panel lateral queda dentro del área útil (pegado a su borde derecho), no
+    // contra el borde de la ventana, que puede estar fuera del alcance del lápiz.
+    void panelLateralDentroDelArea()
+    {
+        const QRect area(0, 0, 1734, 1080); // tableta mapeada a la izquierda del UltraWide
+        const QRect panel = appkit::sidePanelRect(area, 440, 16);
+        QCOMPARE(panel, QRect(1734 - 16 - 440, 16, 440, 1080 - 32));
+        QVERIFY(area.contains(panel));
+
+        // Área angosta: el panel se achica para entrar.
+        const QRect angosta(100, 50, 300, 400);
+        QVERIFY(angosta.contains(appkit::sidePanelRect(angosta, 440, 16)));
+    }
+
     void seGuardaPorMonitor()
     {
         QTemporaryDir dir;
