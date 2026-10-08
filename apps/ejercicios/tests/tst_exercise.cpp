@@ -2,6 +2,7 @@
 
 #include <appkit/Guides.h>
 
+#include <QLineF>
 #include <QPainter>
 #include <QRandomGenerator>
 #include <QTest>
@@ -47,12 +48,61 @@ private slots:
     {
         QCOMPARE(kZona.center, QPointF(867, 540));
         QCOMPARE(kZona.radius, 540.0);
-        // 1 px de margen: justo en el borde depende del redondeo de coma flotante.
-        QVERIFY(kZona.contains(kZona.pointAt(1.0, 539)));
+        // Justo en el borde cuenta como adentro (tolerancia al redondeo).
+        QVERIFY(kZona.contains(kZona.pointAt(1.0, 540)));
         QVERIFY(!kZona.contains(kZona.pointAt(1.0, 541)));
         // Ángulo 0 apunta a la derecha; pi/2 hacia abajo (eje Y de pantalla).
         QCOMPARE(kZona.pointAt(0, 100), QPointF(967, 540));
         QCOMPARE(kZona.pointAt(std::numbers::pi / 2, 100).y(), 640.0);
+    }
+
+    // HU-18: la orientación sale de la semilla, cubre 360° y rota lo que se genera.
+    void orientacionAleatoria()
+    {
+        const QRect area(0, 0, 1734, 1080);
+        const SafeZone a = SafeZone::withRandomOrientation(area, 1);
+        const SafeZone b = SafeZone::withRandomOrientation(area, 1);
+        const SafeZone c = SafeZone::withRandomOrientation(area, 2);
+        QCOMPARE(a.orientation, b.orientation);
+        QVERIFY(a.orientation != c.orientation);
+        QCOMPARE(a.center, kZona.center);
+        QCOMPARE(a.radius, kZona.radius);
+
+        // Cubre las cuatro mitades del círculo en pocas semillas.
+        bool cuadrante[4] = {};
+        for (quint32 seed = 0; seed < 64; ++seed) {
+            const qreal o = SafeZone::withRandomOrientation(area, seed).orientation;
+            QVERIFY(o >= 0 && o < 2 * std::numbers::pi);
+            cuadrante[int(o / (std::numbers::pi / 2))] = true;
+        }
+        QVERIFY(cuadrante[0] && cuadrante[1] && cuadrante[2] && cuadrante[3]);
+
+        // pointAt y toCanvas aplican la orientación: con pi/2, "a la derecha" es abajo.
+        const SafeZone rotada = SafeZone::fromRect(area, std::numbers::pi / 2);
+        QVERIFY(QLineF(rotada.pointAt(0, 100), QPointF(867, 640)).length() < 1e-9);
+        QVERIFY(QLineF(rotada.toCanvas({100, 0}), QPointF(867, 640)).length() < 1e-9);
+    }
+
+    // HU-18: toda la geometría ideal queda en la zona, con cualquier orientación.
+    void geometriaDentroDeLaZona()
+    {
+        const PuntoAlAzar ej;
+        const QRect area(0, 0, 1734, 1080);
+        for (quint32 seed = 0; seed < 200; ++seed) {
+            const SafeZone zone = SafeZone::withRandomOrientation(area, seed);
+            const Generated g = ej.generate(ej.defaults(), seed, zone);
+            for (const QPainterPath& path : g.ideal)
+                QVERIFY2(zone.contains(path), qPrintable(QStringLiteral("semilla %1").arg(seed)));
+        }
+
+        // Y la verificación discrimina: una ruta que sale del círculo no pasa.
+        QPainterPath afuera(kZona.center);
+        afuera.lineTo(kZona.center + QPointF(kZona.radius + 2, 0));
+        QVERIFY(!kZona.contains(afuera));
+        // Una curva con puntos de control adentro pasa.
+        QPainterPath curva(kZona.pointAt(0, 400));
+        curva.quadTo(kZona.center, kZona.pointAt(std::numbers::pi, 400));
+        QVERIFY(kZona.contains(curva));
     }
 
     // Misma semilla y parámetros → misma geometría; otra semilla → otra (RNF-08).
