@@ -30,10 +30,17 @@ public:
     // true si libmypaint acepta el JSON como pincel (.myb versión 3).
     static bool isValidJson(const QByteArray& json);
 
+    // Píxeles de superficie por píxel de pantalla (supersampling). El radio base se
+    // multiplica por scale, en este pincel y en los que se carguen después, para que
+    // el trazo tenga en pantalla el grosor que define el .myb.
+    void setPixelScale(float scale);
+
 private:
     void forceBlackInk();
+    void applyPixelScale(float logFactor);
 
     MyPaintBrush* m_brush = nullptr;
+    float m_logScale = 0.0f; // ln(scale)
 };
 
 } // namespace paintcore::detail

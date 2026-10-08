@@ -450,6 +450,21 @@ private slots:
                  qPrintable(QStringLiteral("parejos %1 px, agrupados %2 px").arg(parejos).arg(agrupados)));
     }
 
+    // Supersampling: el grosor en pantalla es el que define el .myb (radio e^2 ≈ 7,4 px,
+    // diámetro ≈ 15 px), aunque libmypaint pinte a más resolución.
+    void elGrosorEnPantallaRespetaElPincel()
+    {
+        paintcore::CanvasWidget canvas;
+        canvas.resize(200, 100);
+        canvas.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&canvas));
+        canvas.setBrush(presetFromJson(R"({"version": 3, "settings": {)"
+            R"("radius_logarithmic": {"base_value": 2.0, "inputs": {}}, "opaque": {"base_value": 1.0, "inputs": {}},)"
+            R"("hardness": {"base_value": 1.0, "inputs": {}}}})"));
+        const int grosor = inkThickness(drawHorizontalStroke(canvas), 100);
+        QVERIFY2(grosor >= 12 && grosor <= 17, qPrintable(QStringLiteral("grosor %1 px").arg(grosor)));
+    }
+
 };
 
 QTEST_MAIN(TestCanvasWidget)

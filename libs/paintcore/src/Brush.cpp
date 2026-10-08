@@ -2,6 +2,8 @@
 
 #include <mypaint-brush.h>
 
+#include <cmath>
+
 namespace paintcore::detail {
 
 Brush::Brush()
@@ -26,6 +28,7 @@ void Brush::loadDefault()
     mypaint_brush_set_mapping_point(m_brush, MYPAINT_BRUSH_SETTING_RADIUS_LOGARITHMIC, MYPAINT_BRUSH_INPUT_PRESSURE, 0, 0.0f, -0.8f);
     mypaint_brush_set_mapping_point(m_brush, MYPAINT_BRUSH_SETTING_RADIUS_LOGARITHMIC, MYPAINT_BRUSH_INPUT_PRESSURE, 1, 1.0f, 0.6f);
     forceBlackInk();
+    applyPixelScale(m_logScale);
 }
 
 bool Brush::loadJson(const QByteArray& json)
@@ -38,7 +41,23 @@ bool Brush::loadJson(const QByteArray& json)
         return false;
     }
     forceBlackInk();
+    applyPixelScale(m_logScale);
     return true;
+}
+
+void Brush::setPixelScale(float scale)
+{
+    const float logScale = std::log(scale);
+    applyPixelScale(logScale - m_logScale);
+    m_logScale = logScale;
+}
+
+void Brush::applyPixelScale(float logFactor)
+{
+    // El radio es logarítmico: multiplicarlo por scale es sumar ln(scale) a la base
+    // (las entradas como la presión se suman encima, así que escalan igual).
+    const float base = mypaint_brush_get_base_value(m_brush, MYPAINT_BRUSH_SETTING_RADIUS_LOGARITHMIC);
+    mypaint_brush_set_base_value(m_brush, MYPAINT_BRUSH_SETTING_RADIUS_LOGARITHMIC, base + logFactor);
 }
 
 void Brush::forceBlackInk()

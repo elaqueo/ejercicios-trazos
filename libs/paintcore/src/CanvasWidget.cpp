@@ -42,6 +42,14 @@ constexpr double kStrokeStartDtime = 10.0;
 // dtime ≈ 0, que concentra en una muestra el tiempo de dos.
 constexpr double kMinSampleDtimeMs = 4.0;
 
+// Supersampling: libmypaint pinta a 2× la resolución del lienzo y la imagen de
+// pantalla promedia cada bloque de 2×2. El grano de los pinceles tipo lápiz y los
+// bordes de los dabs quedan más finos que un píxel de pantalla.
+constexpr int kSupersample = 2;
+// viewzoom para libmypaint: pantalla / superficie. Con eso la velocidad (entradas
+// speed1/speed2, offset_by_speed) se mide en píxeles de pantalla, como sin supersampling.
+constexpr float kViewZoom = 1.0f / kSupersample;
+
 
 // Ángulo (grados, horario) de p alrededor de center.
 double pointerAngle(QPointF p, QPointF center)
@@ -70,7 +78,8 @@ struct CanvasWidget::Impl {
     double strokeClockMs = 0.0;  // tiempo del trazo, con las muestras repetidas repartidas
 
     // Área útil: rectángulo del widget que ocupa el lienzo. La superficie mide lo
-    // mismo y sus coordenadas arrancan en su esquina; vacío = todo el widget.
+    // mismo (a kSupersample de resolución) y sus coordenadas arrancan en su esquina;
+    // vacío = todo el widget.
     QRect configuredRect;
     QRect canvasRect;
     QPicture guides;
@@ -103,7 +112,7 @@ struct CanvasWidget::Impl {
     void ensureSurface(QSize size)
     {
         if (!surface || surface->size() != size)
-            surface.emplace(size);
+            surface.emplace(size, kSupersample);
     }
 
     void updateGeometry(const QRect& widgetRect)
@@ -134,9 +143,10 @@ struct CanvasWidget::Impl {
         // dtime ≈ 0 la posición reseteada quedaría en el final del trazo anterior y
         // el trazo nuevo arrancaría con una línea desde ahí. Con un dtime grande el
         // suavizado salta al punto nuevo, y el reset vuelve sin pintar.
+        const QPointF p = pos * kSupersample;
         surface->beginAtomic();
-        mypaint_brush_stroke_to_2(brush.handle(), surface->handle(), float(pos.x()), float(pos.y()),
-                                  0.0f, 0.0f, 0.0f, kStrokeStartDtime, 1.0f, viewRotationRadians(), 0.0f);
+        mypaint_brush_stroke_to_2(brush.handle(), surface->handle(), float(p.x()), float(p.y()),
+                                  0.0f, 0.0f, 0.0f, kStrokeStartDtime, kViewZoom, viewRotationRadians(), 0.0f);
         surface->endAtomic();
 
         stroking = true;
@@ -144,8 +154,8 @@ struct CanvasWidget::Impl {
         strokeClockMs = double(timestampMs);
     }
 
-    // Manda una muestra (en coordenadas del lienzo) a libmypaint y devuelve el
-    // rectángulo del lienzo que cambió.
+    // Manda una muestra (en coordenadas del lienzo; libmypaint las recibe ×
+    // kSupersample) y devuelve el rectángulo del lienzo que cambió.
     QRect strokeTo(QPointF pos, float pressure, float xTilt, float yTilt, quint64 timestampMs)
     {
         // Reloj del trazo: si el timestamp avanzó, se usa el tiempo real transcurrido
@@ -164,11 +174,12 @@ struct CanvasWidget::Impl {
 
         // La inclinación llega en ejes de pantalla; libmypaint la refiere al lienzo
         // con viewrotation (igual que la dirección del trazo y el ángulo del dab).
+        const QPointF p = pos * kSupersample;
         surface->beginAtomic();
         mypaint_brush_stroke_to_2(brush.handle(), surface->handle(),
-                                  float(pos.x()), float(pos.y()), pressure,
+                                  float(p.x()), float(p.y()), pressure,
                                   xTilt / kMaxTiltDegrees, yTilt / kMaxTiltDegrees, dtime,
-                                  1.0f /*viewzoom*/, viewRotationRadians(), 0.0f /*barrel_rotation*/);
+                                  kViewZoom, viewRotationRadians(), 0.0f /*barrel_rotation*/);
         return surface->endAtomic();
     }
 
@@ -180,6 +191,7 @@ CanvasWidget::CanvasWidget(QWidget* parent)
     , d(std::make_unique<Impl>())
 {
     setAttribute(Qt::WA_OpaquePaintEvent);
+    d->brush.setPixelScale(kSupersample);
     setFocusPolicy(Qt::StrongFocus); // para la tecla de reset de la rotación
 }
 
