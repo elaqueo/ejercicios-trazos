@@ -23,6 +23,12 @@ public:
     // Un preset inválido deja el pincel por defecto (con un warning en el log).
     void setBrush(const BrushPreset& preset);
 
+    // Área útil: rectángulo del widget (en sus coordenadas) que ocupa el lienzo. Fuera
+    // se ve un gris neutro, y la rotación gira alrededor de su centro. Vacío (por
+    // defecto): todo el widget. Cambiarlo reinicia el lienzo.
+    void setCanvasRect(const QRect& rect);
+    QRect canvasRect() const;
+
     // Borra todo lo pintado (el lienzo queda en blanco). Si hay un trazo en curso,
     // las muestras siguientes pintan sobre el lienzo limpio.
     void clear();

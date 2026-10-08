@@ -115,6 +115,73 @@ private slots:
                  qPrintable(ink.name()));
     }
 
+    // Área útil: fuera se ve gris neutro; adentro, blanco, y el trazo cae bajo la punta.
+    void areaUtilAcotaElLienzo()
+    {
+        paintcore::CanvasWidget canvas;
+        canvas.resize(300, 200);
+        canvas.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&canvas));
+        canvas.setCanvasRect(QRect(50, 40, 200, 120));
+        QCOMPARE(canvas.canvasRect(), QRect(50, 40, 200, 120));
+
+        QTest::mousePress(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(70, 100));
+        for (int x = 90; x <= 230; x += 20)
+            QTest::mouseMove(&canvas, QPoint(x, 100), 5);
+        QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(230, 100), 5);
+
+        const QImage image = canvas.grab().toImage();
+        const QColor outside = image.pixelColor(10, 10);
+        QVERIFY2(outside.red() < 100 && outside.red() == outside.blue(), qPrintable(outside.name()));
+        QCOMPARE(image.pixelColor(290, 190), outside);
+        QCOMPARE(image.pixelColor(60, 50), QColor(Qt::white));
+        QVERIFY(qGray(image.pixel(150, 100)) < 200); // el trazo, bajo la punta
+    }
+
+    // Regresión: un área útil que arranca en la esquina (0, 0) no tiene corrimiento,
+    // pero igual tiene que verse el gris fuera de ella.
+    void areaUtilEnLaEsquina()
+    {
+        paintcore::CanvasWidget canvas;
+        canvas.resize(300, 200);
+        canvas.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&canvas));
+        canvas.setCanvasRect(QRect(0, 0, 200, 120));
+
+        const QImage image = canvas.grab().toImage();
+        QCOMPARE(image.pixelColor(10, 10), QColor(Qt::white));
+        const QColor outside = image.pixelColor(290, 190);
+        QVERIFY2(outside != QColor(Qt::white), qPrintable(outside.name()));
+        QCOMPARE(image.pixelColor(250, 10), outside);
+    }
+
+    // La rotación gira alrededor del centro del área útil, no del widget.
+    void laRotacionGiraAlrededorDelAreaUtil()
+    {
+        paintcore::CanvasWidget canvas;
+        canvas.resize(300, 200);
+        canvas.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&canvas));
+        canvas.setCanvasRect(QRect(0, 0, 160, 160)); // centro en (80, 80), lejos del (150, 100)
+        canvas.setBrush(presetFromJson(R"({"version": 3, "settings": {)"
+            R"("radius_logarithmic": {"base_value": 1.0, "inputs": {}}, "opaque": {"base_value": 1.0, "inputs": {}}}})"));
+
+        // Trazo horizontal por el centro del área útil; al rotar 90° queda vertical
+        // y sigue pasando por (80, 80).
+        QTest::mousePress(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(40, 80));
+        for (int x = 50; x <= 120; x += 10)
+            QTest::mouseMove(&canvas, QPoint(x, 80), 5);
+        QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(120, 80), 5);
+        canvas.setViewRotation(90);
+
+        const QImage image = canvas.grab().toImage();
+        QVERIFY(qGray(image.pixel(80, 80)) < 200);
+        QVERIFY(qGray(image.pixel(80, 50)) < 200);
+        QVERIFY(qGray(image.pixel(80, 110)) < 200);
+        QCOMPARE(image.pixelColor(50, 80), QColor(Qt::white));
+        QCOMPARE(image.pixelColor(110, 80), QColor(Qt::white));
+    }
+
     // Tras clear() no queda ningún píxel del trazo anterior, y se puede seguir pintando.
     void clearDejaElLienzoEnBlanco()
     {

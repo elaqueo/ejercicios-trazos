@@ -51,6 +51,8 @@ El comando configura, compila y corre las pruebas. El ejecutable queda en `build
 
 La app abre a pantalla completa en el monitor guardado (F10 pasa al siguiente y lo recuerda; Alt+F4 sale). Para desarrollar, `ejercicios.exe --ventana` abre en una ventana común.
 
+**Área útil:** F9 la calibra tocando con el lápiz la esquina superior izquierda y la inferior derecha de la superficie activa de la tableta. El lienzo ocupa ese rectángulo y fuera se ve gris. Se guarda por monitor.
+
 ## Pruebas
 
 Qt Test + CTest. Cada biblioteca o app tiene su carpeta `tests/`; un test nuevo se declara con `et_add_qt_test(tst_nombre SOURCES tst_nombre.cpp LIBS <target>)`. Los tests corren con la plataforma `offscreen` (sin abrir ventanas).

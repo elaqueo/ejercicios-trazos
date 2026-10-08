@@ -13,9 +13,11 @@ class CanvasWidget;
 namespace appkit {
 
 class Config;
+namespace detail {
+class CalibrationOverlay;
+}
 
 // Ventana principal de una app de la familia, con el lienzo como contenido.
-// El área útil llega en HU-10.
 class AppWindow : public QWidget {
     Q_OBJECT
 
@@ -29,6 +31,12 @@ public:
     // library y config deben vivir más que la ventana.
     void setupBrushes(const paintcore::BrushLibrary* library, Config* config);
 
+    // Activa el área útil: el lienzo ocupa el rectángulo calibrado para el monitor
+    // actual (fuera se ve gris neutro) y F9 lo calibra tocando dos esquinas de la
+    // tableta con el lápiz. Sin calibrar, el lienzo ocupa toda la ventana.
+    // config debe vivir más que la ventana.
+    void setupUsableArea(Config* config);
+
     // Muestra la ventana a pantalla completa en el monitor guardado ("monitor" en la
     // sección común: la tableta se mapea a un monitor y vale para toda la familia),
     // o en el principal si no hay guardado o no está conectado. F10 pasa al monitor
@@ -40,9 +48,12 @@ public:
     static constexpr Qt::Key kBrushSelectorKey = Qt::Key_F5;
     // Tecla que pasa la ventana al monitor siguiente.
     static constexpr Qt::Key kNextScreenKey = Qt::Key_F10;
+    // Tecla que inicia la calibración del área útil.
+    static constexpr Qt::Key kCalibrateKey = Qt::Key_F9;
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    void moveEvent(QMoveEvent* event) override;
 
 private:
     void applyBrush(const QString& name);
@@ -50,9 +61,14 @@ private:
     void placeBrushSelector();
     void moveToScreen(QScreen* screen);
     void moveToNextScreen();
+    void closeOverlay();
+    void startCalibration();
+    void finishCalibration(const QRect& rectInWindow);
+    void applyUsableArea();
 
     paintcore::CanvasWidget* m_canvas = nullptr;
     paintcore::BrushSelector* m_brushSelector = nullptr;
+    detail::CalibrationOverlay* m_calibration = nullptr;
     const paintcore::BrushLibrary* m_library = nullptr;
     Config* m_config = nullptr;
 };

@@ -2,6 +2,9 @@
 
 #include "appkit/Config.h"
 #include "appkit/ScreenChoice.h"
+#include "appkit/UsableArea.h"
+
+#include "CalibrationOverlay.h"
 
 #include <paintcore/BrushLibrary.h>
 #include <paintcore/BrushSelector.h>
@@ -33,6 +36,19 @@ AppWindow::AppWindow(QWidget* parent)
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_canvas);
+
+    // Un solo atajo para Esc: cierra el overlay que esté abierto. Dos QShortcut con la
+    // misma tecla serían ambiguos y Qt no dispararía ninguno.
+    auto* escape = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    connect(escape, &QShortcut::activated, this, &AppWindow::closeOverlay);
+}
+
+void AppWindow::closeOverlay()
+{
+    if (m_calibration && m_calibration->isVisible())
+        m_calibration->cancel();
+    else if (m_brushSelector)
+        m_brushSelector->hide();
 }
 
 void AppWindow::setupBrushes(const paintcore::BrushLibrary* library, Config* config)
@@ -54,8 +70,6 @@ void AppWindow::setupBrushes(const paintcore::BrushLibrary* library, Config* con
 
     auto* toggle = new QShortcut(QKeySequence(kBrushSelectorKey), this);
     connect(toggle, &QShortcut::activated, this, &AppWindow::toggleBrushSelector);
-    auto* close = new QShortcut(QKeySequence(Qt::Key_Escape), this);
-    connect(close, &QShortcut::activated, m_brushSelector, &QWidget::hide);
 
     applyBrush(m_config->value(kBrushKey, paintcore::defaultBrushPreset().name).toString());
 }
@@ -87,6 +101,44 @@ void AppWindow::placeBrushSelector()
     const int width = qMin(kSelectorWidth, this->width() - 2 * kSelectorMargin);
     m_brushSelector->setGeometry(this->width() - width - kSelectorMargin, kSelectorMargin,
                                  width, height() - 2 * kSelectorMargin);
+}
+
+void AppWindow::setupUsableArea(Config* config)
+{
+    m_config = config;
+    m_calibration = new detail::CalibrationOverlay(this);
+    connect(m_calibration, &detail::CalibrationOverlay::finished, this, &AppWindow::finishCalibration);
+    auto* calibrate = new QShortcut(QKeySequence(kCalibrateKey), this);
+    connect(calibrate, &QShortcut::activated, this, &AppWindow::startCalibration);
+    applyUsableArea();
+}
+
+void AppWindow::startCalibration()
+{
+    if (m_brushSelector)
+        m_brushSelector->hide();
+    m_calibration->start();
+}
+
+void AppWindow::finishCalibration(const QRect& rectInWindow)
+{
+    // Se guarda relativo a la esquina del monitor: así no depende de dónde esté la
+    // ventana (pantalla completa o --ventana).
+    const QRect onScreen(mapToGlobal(rectInWindow.topLeft()) - screen()->geometry().topLeft(), rectInWindow.size());
+    saveUsableArea(*m_config, ScreenId::of(screen()), onScreen);
+    qCInfo(lcWindow) << "Área útil calibrada en" << ScreenId::of(screen()).describe() << onScreen;
+    applyUsableArea();
+}
+
+void AppWindow::applyUsableArea()
+{
+    if (!m_calibration || !screen())
+        return;
+    QRect canvasRect; // vacío: todo el lienzo
+    if (const auto area = loadUsableArea(*m_config, ScreenId::of(screen())))
+        canvasRect = QRect(m_canvas->mapFromGlobal(screen()->geometry().topLeft() + area->topLeft()), area->size());
+    if (canvasRect != m_canvas->canvasRect() || canvasRect.isEmpty())
+        m_canvas->setCanvasRect(canvasRect);
 }
 
 void AppWindow::showOnSavedScreen(Config* config)
@@ -146,6 +198,13 @@ void AppWindow::resizeEvent(QResizeEvent* event)
     QWidget::resizeEvent(event);
     if (m_brushSelector)
         placeBrushSelector();
+    applyUsableArea();
+}
+
+void AppWindow::moveEvent(QMoveEvent* event)
+{
+    QWidget::moveEvent(event);
+    applyUsableArea();
 }
 
 } // namespace appkit

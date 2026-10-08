@@ -71,7 +71,15 @@ struct CanvasWidget::Impl {
     quint64 lastTimestampMs = 0; // timestamp crudo de la última muestra (para el log)
     double strokeClockMs = 0.0;  // tiempo del trazo, con las muestras repetidas repartidas
 
+    // Área útil: rectángulo del widget que ocupa el lienzo. La superficie mide lo
+    // mismo y sus coordenadas arrancan en su esquina; vacío = todo el widget.
+    QRect configuredRect;
+    QRect canvasRect;
+    // Lienzo → pantalla: corrimiento a la esquina del área útil + rotación de la vista
+    // alrededor de su centro.
     ViewTransform view;
+    QTransform toView;
+    QTransform toCanvas;
     bool rotationSnap = true;
     bool rotating = false;
     double rotateStartViewAngle = 0.0;
@@ -94,6 +102,20 @@ struct CanvasWidget::Impl {
     {
         if (!surface || surface->size() != size)
             surface.emplace(size);
+    }
+
+    void updateGeometry(const QRect& widgetRect)
+    {
+        canvasRect = configuredRect.isEmpty() ? widgetRect : configuredRect.intersected(widgetRect);
+        view.setCenter(QRectF(canvasRect).center());
+        updateTransform();
+        ensureSurface(canvasRect.size());
+    }
+
+    void updateTransform()
+    {
+        toView = QTransform::fromTranslate(canvasRect.x(), canvasRect.y()) * view.matrix();
+        toCanvas = toView.inverted();
     }
 
     void beginStroke(QPointF pos, quint64 timestampMs)
@@ -169,6 +191,18 @@ void CanvasWidget::setBrush(const BrushPreset& preset)
         d->applyBrush(preset);
 }
 
+void CanvasWidget::setCanvasRect(const QRect& rect)
+{
+    d->configuredRect = rect;
+    d->updateGeometry(this->rect());
+    update();
+}
+
+QRect CanvasWidget::canvasRect() const
+{
+    return d->canvasRect;
+}
+
 void CanvasWidget::clear()
 {
     if (d->surface)
@@ -187,6 +221,7 @@ void CanvasWidget::setViewRotation(double degrees)
     if (qFuzzyCompare(angle + 1.0, d->view.angle() + 1.0))
         return;
     d->view.setAngle(angle);
+    d->updateTransform();
     update();
     emit viewRotationChanged(angle);
 }
@@ -207,17 +242,18 @@ void CanvasWidget::paintEvent(QPaintEvent* event)
     timer.start();
 
     QPainter painter(this);
-    if (d->view.angle() == 0.0) {
-        // Sin rotación: copia directa, sin transformar.
+    if (d->toView.isIdentity() && d->canvasRect == rect()) {
+        // Sin rotación y con el lienzo en todo el widget: copia directa.
         painter.fillRect(event->rect(), Qt::white);
         if (d->surface)
             painter.drawImage(event->rect(), d->surface->image(), event->rect());
     } else {
+        // Fuera del área útil (y en las esquinas que deja la rotación): gris neutro.
         painter.fillRect(event->rect(), kOutsideColor);
         // Mientras se rota se prioriza la fluidez; en reposo, la calidad.
-        painter.setRenderHint(QPainter::SmoothPixmapTransform, !d->rotating);
-        painter.setTransform(d->view.matrix());
-        painter.fillRect(rect(), Qt::white);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, d->view.angle() != 0.0 && !d->rotating);
+        painter.setTransform(d->toView);
+        painter.fillRect(QRect(QPoint(0, 0), d->canvasRect.size()), Qt::white);
         if (d->surface)
             painter.drawImage(QPointF(0, 0), d->surface->image());
     }
@@ -233,8 +269,7 @@ void CanvasWidget::paintEvent(QPaintEvent* event)
 void CanvasWidget::resizeEvent(QResizeEvent* event)
 {
     // El lienzo es fijo a pantalla completa (HU-09); un cambio de tamaño lo reinicia.
-    d->ensureSurface(size());
-    d->view.setCenter(QRectF(rect()).center());
+    d->updateGeometry(rect());
     QWidget::resizeEvent(event);
 }
 
@@ -251,15 +286,16 @@ void CanvasWidget::updateCanvasRect(const QRect& canvasRect)
 {
     if (canvasRect.isEmpty())
         return;
-    if (d->view.angle() == 0.0)
+    if (d->toView.isIdentity())
         update(canvasRect);
     else
-        update(d->view.matrix().mapRect(canvasRect).adjusted(-2, -2, 2, 2));
+        update(d->toView.mapRect(canvasRect).adjusted(-2, -2, 2, 2));
 }
 
 void CanvasWidget::handlePointer(Phase phase, const Sample& sample)
 {
-    d->ensureSurface(size());
+    if (!d->surface)
+        d->updateGeometry(rect());
 
     // Gesto de rotación: modificador + arrastre. Rota según el ángulo que recorre
     // la punta alrededor del centro de la vista.
@@ -289,7 +325,7 @@ void CanvasWidget::handlePointer(Phase phase, const Sample& sample)
         return;
     }
 
-    const QPointF canvasPos = d->view.toCanvas(sample.viewPos);
+    const QPointF canvasPos = d->toCanvas.map(sample.viewPos);
     qCDebug(lcInput).nospace() << "fase=" << int(phase) << " trazo=" << d->stroking << " pos=" << sample.viewPos.x()
                                << "," << sample.viewPos.y() << " p=" << sample.pressure << " tilt=" << sample.xTilt
                                << "," << sample.yTilt << " ts=" << sample.timestampMs

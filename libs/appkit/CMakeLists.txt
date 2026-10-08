@@ -6,11 +6,15 @@ qt_add_library(appkit STATIC
     include/appkit/Log.h
     include/appkit/Paths.h
     include/appkit/ScreenChoice.h
+    include/appkit/UsableArea.h
     src/AppWindow.cpp
+    src/CalibrationOverlay.cpp
+    src/CalibrationOverlay.h
     src/Config.cpp
     src/Log.cpp
     src/Paths.cpp
     src/ScreenChoice.cpp
+    src/UsableArea.cpp
 )
 target_include_directories(appkit PUBLIC include)
 target_link_libraries(appkit PUBLIC paintcore Qt6::Widgets)
