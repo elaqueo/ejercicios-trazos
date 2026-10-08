@@ -115,6 +115,30 @@ private slots:
                  qPrintable(ink.name()));
     }
 
+    // Tras clear() no queda ningún píxel del trazo anterior, y se puede seguir pintando.
+    void clearDejaElLienzoEnBlanco()
+    {
+        paintcore::CanvasWidget canvas;
+        canvas.resize(200, 100);
+        canvas.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&canvas));
+        canvas.setViewRotation(30); // también con la vista rotada
+        canvas.setBrush(presetFromJson(R"({"version": 3, "settings": {)"
+            R"("radius_logarithmic": {"base_value": 2.0, "inputs": {}}, "opaque": {"base_value": 1.0, "inputs": {}}}})"));
+        drawHorizontalStroke(canvas);
+        canvas.resetViewRotation();
+        QVERIFY(inkThickness(canvas.grab().toImage(), 100) > 0);
+
+        canvas.clear();
+        const QImage limpio = canvas.grab().toImage();
+        for (int y = 0; y < limpio.height(); ++y)
+            for (int x = 0; x < limpio.width(); ++x)
+                QVERIFY2(limpio.pixel(x, y) == qRgb(255, 255, 255),
+                         qPrintable(QStringLiteral("quedó tinta en (%1, %2)").arg(x).arg(y)));
+
+        QVERIFY(inkThickness(drawHorizontalStroke(canvas), 100) > 0);
+    }
+
     // Regresión: con pinceles con suavizado (slow_tracking), un trazo nuevo no debe
     // unirse con una línea al final del anterior.
     void trazosSeparadosNoSeUnen()

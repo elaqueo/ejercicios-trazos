@@ -23,6 +23,10 @@ public:
     // Un preset inválido deja el pincel por defecto (con un warning en el log).
     void setBrush(const BrushPreset& preset);
 
+    // Borra todo lo pintado (el lienzo queda en blanco). Si hay un trazo en curso,
+    // las muestras siguientes pintan sobre el lienzo limpio.
+    void clear();
+
     // Rotación de la vista en grados, [0, 360), horaria.
     double viewRotation() const;
     void setViewRotation(double degrees);

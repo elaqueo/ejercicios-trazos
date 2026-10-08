@@ -169,6 +169,13 @@ void CanvasWidget::setBrush(const BrushPreset& preset)
         d->applyBrush(preset);
 }
 
+void CanvasWidget::clear()
+{
+    if (d->surface)
+        d->surface->clear();
+    update();
+}
+
 double CanvasWidget::viewRotation() const
 {
     return d->view.angle();
