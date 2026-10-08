@@ -19,6 +19,9 @@
 #include <optional>
 
 Q_LOGGING_CATEGORY(lcCanvas, "paintcore.canvas")
+// Cada muestra de input, para diagnosticar problemas de trazo. Apagado por defecto;
+// se activa con QT_LOGGING_RULES="paintcore.input.debug=true".
+Q_LOGGING_CATEGORY(lcInput, "paintcore.input", QtWarningMsg)
 
 namespace paintcore {
 
@@ -31,6 +34,13 @@ constexpr float kMaxTiltDegrees = 60.0f;
 // esto el suavizado de libmypaint (slow_tracking, hasta 10) llega a 1 - e^-100.
 constexpr double kStrokeStartDtime = 10.0;
 
+// dtime (ms) que recibe una muestra cuyo timestamp no avanzó respecto de la anterior.
+// Windows Ink entrega timestamps con resolución de ~15,6 ms (el reloj del sistema),
+// así que llegan varias muestras seguidas con el mismo valor, y en algún caso podría
+// llegar uno menor. Sin esto, un timestamp menor daba un dtime gigante (resta sin
+// signo) y libmypaint reseteaba el pincel en mitad del trazo; y los repetidos daban
+// dtime ≈ 0, que concentra en una muestra el tiempo de dos.
+constexpr double kMinSampleDtimeMs = 4.0;
 
 // Lo que se ve fuera del lienzo cuando la vista está rotada.
 const QColor kOutsideColor(0x3a, 0x3a, 0x3a);
@@ -58,7 +68,8 @@ struct CanvasWidget::Impl {
     std::optional<detail::Surface> surface;
     std::optional<BrushPreset> pendingBrush; // se aplica al empezar el próximo trazo
     bool stroking = false;
-    quint64 lastTimestampMs = 0;
+    quint64 lastTimestampMs = 0; // timestamp crudo de la última muestra (para el log)
+    double strokeClockMs = 0.0;  // tiempo del trazo, con las muestras repetidas repartidas
 
     ViewTransform view;
     bool rotationSnap = true;
@@ -106,15 +117,26 @@ struct CanvasWidget::Impl {
 
         stroking = true;
         lastTimestampMs = timestampMs;
+        strokeClockMs = double(timestampMs);
     }
 
     // Manda una muestra (en coordenadas del lienzo) a libmypaint y devuelve el
     // rectángulo del lienzo que cambió.
     QRect strokeTo(QPointF pos, float pressure, float xTilt, float yTilt, quint64 timestampMs)
     {
-        // libmypaint protege dtime <= 0 (eventos con el mismo milisegundo).
-        const double dtime = (timestampMs - lastTimestampMs) / 1000.0;
+        // Reloj del trazo: si el timestamp avanzó, se usa el tiempo real transcurrido
+        // desde el reloj; si no (timestamp repetido o fuera de orden), la muestra recibe
+        // kMinSampleDtimeMs y el reloj se adelanta, así la próxima muestra con
+        // timestamp nuevo descuenta ese tiempo y el total del trazo no cambia.
+        double dtimeMs = double(timestampMs) - strokeClockMs;
+        if (dtimeMs > 0.0) {
+            strokeClockMs = double(timestampMs);
+        } else {
+            dtimeMs = kMinSampleDtimeMs;
+            strokeClockMs += kMinSampleDtimeMs;
+        }
         lastTimestampMs = timestampMs;
+        const double dtime = dtimeMs / 1000.0;
 
         // La inclinación llega en ejes de pantalla; libmypaint la refiere al lienzo
         // con viewrotation (igual que la dirección del trazo y el ángulo del dab).
@@ -261,6 +283,10 @@ void CanvasWidget::handlePointer(Phase phase, const Sample& sample)
     }
 
     const QPointF canvasPos = d->view.toCanvas(sample.viewPos);
+    qCDebug(lcInput).nospace() << "fase=" << int(phase) << " trazo=" << d->stroking << " pos=" << sample.viewPos.x()
+                               << "," << sample.viewPos.y() << " p=" << sample.pressure << " tilt=" << sample.xTilt
+                               << "," << sample.yTilt << " ts=" << sample.timestampMs
+                               << " dt_ms=" << qint64(sample.timestampMs) - qint64(d->lastTimestampMs);
     switch (phase) {
     case Phase::Press:
         d->beginStroke(canvasPos, sample.timestampMs);

@@ -1,6 +1,8 @@
 #include <paintcore/CanvasWidget.h>
 
 #include <QImage>
+#include <QPointingDevice>
+#include <QTabletEvent>
 #include <QTest>
 
 namespace {
@@ -217,6 +219,55 @@ private slots:
         QVERIFY2(qAbs(sinRotar - rotada) <= 2,
                  qPrintable(QStringLiteral("sin rotar %1 px, rotada 45° %2 px").arg(sinRotar).arg(rotada)));
     }
+
+    // Windows Ink entrega los timestamps con resolución de ~15,6 ms, así que llegan de
+    // a pares (o más) con el mismo valor. El mismo trazo con timestamps agrupados tiene
+    // que verse igual que con timestamps parejos.
+    void timestampsAgrupadosPintanIgualQueParejos()
+    {
+        const char* segunVelocidad = R"({"version": 3, "settings": {)"
+            R"("radius_logarithmic": {"base_value": 1.2, "inputs": {"speed1": [[0.0, 0.0], [4.0, 1.5]]}},)"
+            R"("opaque": {"base_value": 1.0, "inputs": {}}}})";
+        QPointingDevice stylus(QStringLiteral("lápiz de prueba"), 1, QInputDevice::DeviceType::Stylus,
+                               QPointingDevice::PointerType::Pen,
+                               QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 1);
+
+        // Trazo lento y parejo: 2,5 px por muestra, una muestra cada 7,8 ms (~320 px/s).
+        // timestampOf(i) da el timestamp (ms) de la muestra i.
+        auto medianThickness = [&](auto timestampOf) {
+            paintcore::CanvasWidget canvas;
+            canvas.resize(300, 100);
+            canvas.show();
+            if (!QTest::qWaitForWindowExposed(&canvas))
+                return -1;
+            canvas.setBrush(presetFromJson(segunVelocidad));
+            auto send = [&](QEvent::Type type, QPointF pos, qreal pressure, quint64 ts) {
+                QTabletEvent event(type, &stylus, pos, canvas.mapToGlobal(pos), pressure, 0, 0, 0, 0, 0,
+                                   Qt::NoModifier, Qt::LeftButton,
+                                   type == QEvent::TabletRelease ? Qt::NoButton : Qt::LeftButton);
+                event.setTimestamp(ts);
+                QCoreApplication::sendEvent(&canvas, &event);
+            };
+            send(QEvent::TabletPress, {20, 50}, 0.5, timestampOf(0));
+            for (int i = 1; i <= 100; ++i)
+                send(QEvent::TabletMove, {20 + i * 2.5, 50}, 0.5, timestampOf(i));
+            send(QEvent::TabletRelease, {270, 50}, 0.0, timestampOf(101));
+
+            const QImage image = canvas.grab().toImage();
+            QList<int> thickness;
+            for (int x = 40; x <= 250; ++x)
+                thickness.append(inkThickness(image, x));
+            std::sort(thickness.begin(), thickness.end());
+            return thickness[thickness.size() / 2];
+        };
+
+        const int parejos = medianThickness([](int i) { return quint64(1000 + i * 7.8); });
+        // Como Windows Ink: el timestamp avanza 15,6 ms cada dos muestras.
+        const int agrupados = medianThickness([](int i) { return quint64(1000 + (i / 2) * 15.6); });
+        QVERIFY2(parejos > 0 && qAbs(agrupados - parejos) <= 1,
+                 qPrintable(QStringLiteral("parejos %1 px, agrupados %2 px").arg(parejos).arg(agrupados)));
+    }
+
 };
 
 QTEST_MAIN(TestCanvasWidget)
