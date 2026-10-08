@@ -1,5 +1,6 @@
 #include "CalibrationOverlay.h"
 
+#include "appkit/Theme.h"
 #include "appkit/UsableArea.h"
 
 #include <QMouseEvent>
@@ -57,7 +58,9 @@ void CalibrationOverlay::cancel()
 void CalibrationOverlay::paintEvent(QPaintEvent*)
 {
     QPainter painter(this);
-    painter.fillRect(rect(), QColor(20, 20, 20, 225));
+    QColor fondo = theme::kFondo;
+    fondo.setAlpha(235);
+    painter.fillRect(rect(), fondo);
     painter.setRenderHint(QPainter::Antialiasing);
 
     const bool first = m_corners.isEmpty();
@@ -68,19 +71,19 @@ void CalibrationOverlay::paintEvent(QPaintEvent*)
     QFont font = painter.font();
     font.setPointSizeF(font.pointSizeF() * 1.6);
     painter.setFont(font);
-    painter.setPen(Qt::white);
+    painter.setPen(theme::kTexto);
     painter.drawText(rect(), Qt::AlignCenter, text);
 
     // Flecha hacia la esquina que se pide.
     const QPointF corner = first ? QPointF(24, 24) : QPointF(width() - 24, height() - 24);
     const QPointF tail = first ? corner + QPointF(90, 90) : corner - QPointF(90, 90);
-    painter.setPen(QPen(QColor(255, 200, 0), 6, Qt::SolidLine, Qt::RoundCap));
+    painter.setPen(QPen(theme::kEnfasis, 6, Qt::SolidLine, Qt::RoundCap));
     painter.drawLine(tail, corner);
     painter.drawEllipse(corner, 10, 10);
 
     // La primera esquina ya marcada.
     if (!first) {
-        painter.setPen(QPen(QColor(0, 200, 255), 3));
+        painter.setPen(QPen(theme::kGuiaSuave, 3));
         painter.drawEllipse(m_corners[0], 12, 12);
     }
 }

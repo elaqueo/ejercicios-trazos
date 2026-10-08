@@ -6,6 +6,7 @@ qt_add_library(appkit STATIC
     include/appkit/Log.h
     include/appkit/Paths.h
     include/appkit/ScreenChoice.h
+    include/appkit/Theme.h
     include/appkit/UsableArea.h
     src/AppWindow.cpp
     src/CalibrationOverlay.cpp
