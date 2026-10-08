@@ -29,6 +29,12 @@ public:
     void setCanvasRect(const QRect& rect);
     QRect canvasRect() const;
 
+    // Color de la hoja (debajo del trazo; la superficie de libmypaint es transparente y
+    // premultiplicada, así que el trazo se compone sobre ella sin halos) y de lo que
+    // queda fuera del área útil. Por defecto, blanco y gris oscuro.
+    void setPaperColor(const QColor& color);
+    void setOutsideColor(const QColor& color);
+
     // Borra todo lo pintado (el lienzo queda en blanco). Si hay un trazo en curso,
     // las muestras siguientes pintan sobre el lienzo limpio.
     void clear();

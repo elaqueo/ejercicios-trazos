@@ -18,6 +18,7 @@ int main(int argc, char* argv[])
 
     appkit::AppWindow window;
     window.setupBrushes(&brushes, &config);
+    window.setupCanvasColors(&config);
     window.setupUsableArea(&config);
     window.setWindowTitle(QApplication::applicationName());
     // --ventana: abre en una ventana común, para desarrollar y depurar sin tapar todo.

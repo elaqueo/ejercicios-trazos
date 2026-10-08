@@ -31,6 +31,11 @@ public:
     // library y config deben vivir más que la ventana.
     void setupBrushes(const paintcore::BrushLibrary* library, Config* config);
 
+    // Colores del lienzo: la hoja ("paperColor" en la sección común, por defecto
+    // theme::kHoja, para que el panel la pueda cambiar) y la zona fuera del área útil
+    // (theme::kFuera). config debe vivir más que la ventana.
+    void setupCanvasColors(Config* config);
+
     // Activa el área útil: el lienzo ocupa el rectángulo calibrado para el monitor
     // actual (fuera se ve gris neutro) y F9 lo calibra tocando dos esquinas de la
     // tableta con el lápiz. Sin calibrar, el lienzo ocupa toda la ventana.

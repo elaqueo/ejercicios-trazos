@@ -182,6 +182,38 @@ private slots:
         QCOMPARE(image.pixelColor(110, 80), QColor(Qt::white));
     }
 
+    // HU-41: la hoja y la zona de afuera toman los colores pedidos, y el trazo se
+    // compone sobre la hoja sin halos (ningún píxel queda más claro que la hoja).
+    void coloresDeHojaYFueraSinHalos()
+    {
+        const QColor hoja(0xF5, 0xF0, 0xE6);
+        const QColor fuera(0x30, 0x33, 0x38);
+        paintcore::CanvasWidget canvas;
+        canvas.resize(300, 200);
+        canvas.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&canvas));
+        canvas.setCanvasRect(QRect(50, 40, 200, 120));
+        canvas.setPaperColor(hoja);
+        canvas.setOutsideColor(fuera);
+        canvas.setBrush(presetFromJson(R"({"version": 3, "settings": {)"
+            R"("radius_logarithmic": {"base_value": 2.0, "inputs": {}}, "opaque": {"base_value": 1.0, "inputs": {}}}})"));
+        QTest::mousePress(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(70, 100));
+        for (int x = 90; x <= 230; x += 20)
+            QTest::mouseMove(&canvas, QPoint(x, 100), 5);
+        QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(230, 100), 5);
+
+        const QImage image = canvas.grab().toImage();
+        QCOMPARE(image.pixelColor(60, 50), hoja);
+        QCOMPARE(image.pixelColor(10, 10), fuera);
+        QVERIFY(qGray(image.pixel(150, 100)) < 200); // tinta (al 50 %: el mouse pinta con presión 0,5)
+        // Borde suavizado del trazo: mezcla de tinta y hoja, nunca más claro que la hoja.
+        for (int y = 80; y <= 120; ++y) {
+            const QColor c = image.pixelColor(150, y);
+            QVERIFY2(c.red() <= hoja.red() && c.green() <= hoja.green() && c.blue() <= hoja.blue(),
+                     qPrintable(QStringLiteral("halo en (150, %1): %2").arg(y).arg(c.name())));
+        }
+    }
+
     // Tras clear() no queda ningún píxel del trazo anterior, y se puede seguir pintando.
     void clearDejaElLienzoEnBlanco()
     {

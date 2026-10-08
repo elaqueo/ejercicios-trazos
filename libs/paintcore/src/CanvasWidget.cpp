@@ -42,8 +42,6 @@ constexpr double kStrokeStartDtime = 10.0;
 // dtime ≈ 0, que concentra en una muestra el tiempo de dos.
 constexpr double kMinSampleDtimeMs = 4.0;
 
-// Lo que se ve fuera del lienzo cuando la vista está rotada.
-const QColor kOutsideColor(0x3a, 0x3a, 0x3a);
 
 // Ángulo (grados, horario) de p alrededor de center.
 double pointerAngle(QPointF p, QPointF center)
@@ -75,6 +73,8 @@ struct CanvasWidget::Impl {
     // mismo y sus coordenadas arrancan en su esquina; vacío = todo el widget.
     QRect configuredRect;
     QRect canvasRect;
+    QColor paperColor = Qt::white;
+    QColor outsideColor{0x3a, 0x3a, 0x3a};
     // Lienzo → pantalla: corrimiento a la esquina del área útil + rotación de la vista
     // alrededor de su centro.
     ViewTransform view;
@@ -203,6 +203,18 @@ QRect CanvasWidget::canvasRect() const
     return d->canvasRect;
 }
 
+void CanvasWidget::setPaperColor(const QColor& color)
+{
+    d->paperColor = color;
+    update();
+}
+
+void CanvasWidget::setOutsideColor(const QColor& color)
+{
+    d->outsideColor = color;
+    update();
+}
+
 void CanvasWidget::clear()
 {
     if (d->surface)
@@ -244,16 +256,16 @@ void CanvasWidget::paintEvent(QPaintEvent* event)
     QPainter painter(this);
     if (d->toView.isIdentity() && d->canvasRect == rect()) {
         // Sin rotación y con el lienzo en todo el widget: copia directa.
-        painter.fillRect(event->rect(), Qt::white);
+        painter.fillRect(event->rect(), d->paperColor);
         if (d->surface)
             painter.drawImage(event->rect(), d->surface->image(), event->rect());
     } else {
         // Fuera del área útil (y en las esquinas que deja la rotación): gris neutro.
-        painter.fillRect(event->rect(), kOutsideColor);
+        painter.fillRect(event->rect(), d->outsideColor);
         // Mientras se rota se prioriza la fluidez; en reposo, la calidad.
         painter.setRenderHint(QPainter::SmoothPixmapTransform, d->view.angle() != 0.0 && !d->rotating);
         painter.setTransform(d->toView);
-        painter.fillRect(QRect(QPoint(0, 0), d->canvasRect.size()), Qt::white);
+        painter.fillRect(QRect(QPoint(0, 0), d->canvasRect.size()), d->paperColor);
         if (d->surface)
             painter.drawImage(QPointF(0, 0), d->surface->image());
     }

@@ -2,6 +2,7 @@
 
 #include "appkit/Config.h"
 #include "appkit/ScreenChoice.h"
+#include "appkit/Theme.h"
 #include "appkit/UsableArea.h"
 
 #include "CalibrationOverlay.h"
@@ -26,6 +27,7 @@ constexpr int kSelectorWidth = 440;
 constexpr int kSelectorMargin = 16;
 const QString kBrushKey = QStringLiteral("brush");
 const QString kMonitorKey = QStringLiteral("monitor");
+const QString kPaperColorKey = QStringLiteral("paperColor");
 
 } // namespace
 
@@ -101,6 +103,18 @@ void AppWindow::placeBrushSelector()
     const int width = qMin(kSelectorWidth, this->width() - 2 * kSelectorMargin);
     m_brushSelector->setGeometry(this->width() - width - kSelectorMargin, kSelectorMargin,
                                  width, height() - 2 * kSelectorMargin);
+}
+
+void AppWindow::setupCanvasColors(Config* config)
+{
+    m_config = config;
+    QColor paper(m_config->value(kPaperColorKey, theme::kHoja.name(), Config::Scope::Common).toString());
+    if (!paper.isValid()) {
+        qCWarning(lcWindow) << "Color de hoja inválido en la configuración; se usa" << theme::kHoja.name();
+        paper = theme::kHoja;
+    }
+    m_canvas->setPaperColor(paper);
+    m_canvas->setOutsideColor(theme::kFuera);
 }
 
 void AppWindow::setupUsableArea(Config* config)
