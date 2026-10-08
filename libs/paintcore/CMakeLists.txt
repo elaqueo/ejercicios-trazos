@@ -5,6 +5,7 @@ qt_add_library(paintcore STATIC
     include/paintcore/BrushLibrary.h
     include/paintcore/BrushSelector.h
     include/paintcore/CanvasWidget.h
+    include/paintcore/ViewTransform.h
     src/Brush.cpp
     src/BrushLibrary.cpp
     src/BrushSelector.cpp
@@ -12,6 +13,7 @@ qt_add_library(paintcore STATIC
     src/CanvasWidget.cpp
     src/Surface.cpp
     src/Surface.h
+    src/ViewTransform.cpp
 )
 target_include_directories(paintcore PUBLIC include PRIVATE src)
 target_link_libraries(paintcore
