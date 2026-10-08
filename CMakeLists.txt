@@ -28,7 +28,8 @@ list(PREPEND CMAKE_PREFIX_PATH "${ET_QT_PREFIX}")
 find_package(Qt6 ${ET_QT_VERSION} EXACT REQUIRED COMPONENTS Widgets)
 qt_standard_project_setup()
 
-include(cmake/EtTargetDefaults.cmake)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(EtTargetDefaults)
 
 add_subdirectory(libs/paintcore)
 add_subdirectory(libs/appkit)

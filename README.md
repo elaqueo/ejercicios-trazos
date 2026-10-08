@@ -21,6 +21,15 @@ scripts/          build.ps1 (comando único) y vsenv.ps1 (entorno de MSVC)
 
 - VS 2022 Build Tools con MSVC v143 (incluyen CMake ≥ 3.25 y Ninja).
 - Qt 6.11.2 `msvc2022_64` en `%USERPROFILE%\Qt\6.11.2\msvc2022_64` (otra ubicación: `-DET_QT_ROOT=...`).
+- [vcpkg](https://github.com/microsoft/vcpkg) con la variable `VCPKG_ROOT` apuntando a su carpeta.
+
+## Dependencias (vcpkg)
+
+`vcpkg.json` declara libmypaint en modo manifiesto, con el `builtin-baseline` fijado. El primer configure la compila (y baja las herramientas de MSYS2 que vcpkg usa para autotools); después sale del caché binario de vcpkg.
+
+- `vcpkg/ports/libmypaint/`: overlay del port oficial que compila **sin glib**. glib solo hace falta para GEGL e introspection, y nos evita arrastrar glib, gettext, pcre2 y libffi.
+- `vcpkg/triplets/x64-windows-static-md-rel.cmake`: bibliotecas estáticas con CRT `/MD`, solo Release.
+- Solo `paintcore` ve los headers de libmypaint; el resto del código no sabe que existe.
 
 ## Compilar
 

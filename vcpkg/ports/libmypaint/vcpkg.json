@@ -1,0 +1,15 @@
+{
+  "name": "libmypaint",
+  "version": "1.6.1",
+  "port-version": 100,
+  "description": "Brush library used by MyPaint (overlay sin glib)",
+  "homepage": "https://github.com/mypaint/libmypaint",
+  "license": "ISC",
+  "dependencies": [
+    "json-c",
+    {
+      "name": "vcpkg-make",
+      "host": true
+    }
+  ]
+}
