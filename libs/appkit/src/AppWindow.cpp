@@ -151,8 +151,10 @@ void AppWindow::applyUsableArea()
     QRect canvasRect; // vacío: todo el lienzo
     if (const auto area = loadUsableArea(*m_config, ScreenId::of(screen())))
         canvasRect = QRect(m_canvas->mapFromGlobal(screen()->geometry().topLeft() + area->topLeft()), area->size());
-    if (canvasRect != m_canvas->canvasRect() || canvasRect.isEmpty())
+    if (canvasRect != m_canvas->canvasRect() || canvasRect.isEmpty()) {
         m_canvas->setCanvasRect(canvasRect);
+        emit usableAreaChanged();
+    }
     if (m_brushSelector && m_brushSelector->isVisible())
         placeBrushSelector();
 }

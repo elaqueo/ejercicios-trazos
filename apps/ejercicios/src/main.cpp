@@ -1,3 +1,4 @@
+#include "ExerciseSession.h"
 #include "exercises/Recta.h"
 
 #include <appkit/AppWindow.h>
@@ -5,24 +6,9 @@
 #include <appkit/Log.h>
 #include <appkit/Paths.h>
 #include <paintcore/BrushLibrary.h>
-#include <paintcore/CanvasWidget.h>
 
 #include <QApplication>
-#include <QRandomGenerator>
-#include <QTimer>
-
-namespace {
-
-// Genera el ejercicio para la zona segura del lienzo actual y muestra sus guías.
-void showExercise(paintcore::CanvasWidget* canvas, const ejercicios::Exercise& exercise, quint32 seed)
-{
-    // Coordenadas del lienzo: el origen es la esquina del área útil.
-    const QRect area(QPoint(0, 0), canvas->canvasRect().size());
-    const auto zone = ejercicios::SafeZone::withRandomOrientation(area, seed);
-    canvas->setGuides(exercise.generate(exercise.defaults(), seed, zone).guides);
-}
-
-} // namespace
+#include <QShortcut>
 
 int main(int argc, char* argv[])
 {
@@ -39,6 +25,15 @@ int main(int argc, char* argv[])
     window.setupCanvasColors(&config);
     window.setupUsableArea(&config);
     window.setWindowTitle(QApplication::applicationName());
+
+    // El ejercicio se genera cuando el área útil queda aplicada (primer resize) y se
+    // regenera, con la misma semilla, si cambia. → pasa al siguiente.
+    const ejercicios::Recta recta;
+    ejercicios::ExerciseSession session(window.canvas(), &recta);
+    QObject::connect(&window, &appkit::AppWindow::usableAreaChanged, &session, &ejercicios::ExerciseSession::regenerate);
+    auto* nextShortcut = new QShortcut(Qt::Key_Right, &window);
+    QObject::connect(nextShortcut, &QShortcut::activated, &session, &ejercicios::ExerciseSession::next);
+
     // --ventana: abre en una ventana común, para desarrollar y depurar sin tapar todo.
     if (QApplication::arguments().contains(QStringLiteral("--ventana"))) {
         window.resize(1280, 800);
@@ -46,10 +41,6 @@ int main(int argc, char* argv[])
     } else {
         window.showOnSavedScreen(&config);
     }
-
-    // Después del primer resize, cuando el área útil ya está aplicada.
-    const ejercicios::Recta recta;
-    QTimer::singleShot(0, &window, [&] { showExercise(window.canvas(), recta, QRandomGenerator::global()->generate()); });
 
     return QApplication::exec();
 }

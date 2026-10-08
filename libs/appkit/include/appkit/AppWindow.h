@@ -56,6 +56,11 @@ public:
     // Tecla que inicia la calibración del área útil.
     static constexpr Qt::Key kCalibrateKey = Qt::Key_F9;
 
+signals:
+    // El área útil del lienzo cambió (primer resize, recalibración, otro monitor). El
+    // lienzo ya se reinició; la app regenera lo que dependa del área, como las guías.
+    void usableAreaChanged();
+
 protected:
     void resizeEvent(QResizeEvent* event) override;
     void moveEvent(QMoveEvent* event) override;

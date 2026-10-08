@@ -1,6 +1,8 @@
 # La lógica de la app va en una biblioteca estática para que los tests la enlacen;
 # el ejecutable es solo main.cpp.
 qt_add_library(ejercicios_core STATIC
+    src/ExerciseSession.h
+    src/ExerciseSession.cpp
     src/exercises/Exercise.h
     src/exercises/Exercise.cpp
     src/exercises/Recta.h
