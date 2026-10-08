@@ -38,7 +38,16 @@ pwsh scripts/build.ps1                  # Debug
 pwsh scripts/build.ps1 -Preset release
 ```
 
-El ejecutable queda en `build/<preset>/ejercicios.exe`, con Qt desplegado al lado.
+El comando configura, compila y corre las pruebas. El ejecutable queda en `build/<preset>/ejercicios.exe`, con Qt desplegado al lado.
+
+## Pruebas
+
+Qt Test + CTest. Cada biblioteca o app tiene su carpeta `tests/`; un test nuevo se declara con `et_add_qt_test(tst_nombre SOURCES tst_nombre.cpp LIBS <target>)`. Los tests corren con la plataforma `offscreen` (sin abrir ventanas).
+
+```powershell
+pwsh scripts/build.ps1                  # también corre las pruebas
+ctest --preset debug                    # solo las pruebas (con MSVC cargado)
+```
 
 ## Licencia
 

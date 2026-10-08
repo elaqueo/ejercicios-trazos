@@ -11,6 +11,23 @@ function(et_target_defaults target)
     endif()
 endfunction()
 
+# Crea un ejecutable de Qt Test y lo registra en CTest.
+#   et_add_qt_test(tst_algo SOURCES tst_algo.cpp LIBS paintcore)
+# Los tests van a build/<preset>/tests/ y no a la raíz, donde windeployqt deja solo el
+# plugin qwindows: así cargan Qt desde su instalación (PATH) y usan la plataforma
+# offscreen, que no abre ventanas.
+function(et_add_qt_test name)
+    cmake_parse_arguments(PARSE_ARGV 1 arg "" "" "SOURCES;LIBS")
+    qt_add_executable(${name} ${arg_SOURCES})
+    target_link_libraries(${name} PRIVATE Qt6::Test ${arg_LIBS})
+    set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+    et_target_defaults(${name})
+    add_test(NAME ${name} COMMAND ${name})
+    set_tests_properties(${name} PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${ET_QT_PREFIX}/bin")
+endfunction()
+
 # Copia el Qt Release y sus plugins junto al ejecutable, para correrlo desde build/.
 function(et_deploy_qt target)
     find_program(ET_WINDEPLOYQT windeployqt HINTS "${ET_QT_PREFIX}/bin" NO_DEFAULT_PATH REQUIRED)

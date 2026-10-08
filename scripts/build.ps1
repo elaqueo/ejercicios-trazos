@@ -1,4 +1,5 @@
-# Comando único de build (RNF-07): carga MSVC y corre el workflow de CMake.
+# Comando único de build (RNF-07): carga MSVC y corre el workflow de CMake
+# (configure, build y tests).
 #   pwsh scripts/build.ps1                  # Debug
 #   pwsh scripts/build.ps1 -Preset release
 #   pwsh scripts/build.ps1 -Fresh           # reconfigura desde cero

@@ -25,11 +25,18 @@ set(ET_QT_VERSION "6.11.2" CACHE STRING "Versión de Qt a usar")
 file(TO_CMAKE_PATH "${ET_QT_ROOT}/${ET_QT_VERSION}/msvc2022_64" ET_QT_PREFIX)
 list(PREPEND CMAKE_PREFIX_PATH "${ET_QT_PREFIX}")
 
-find_package(Qt6 ${ET_QT_VERSION} EXACT REQUIRED COMPONENTS Widgets)
+find_package(Qt6 ${ET_QT_VERSION} EXACT REQUIRED COMPONENTS Widgets Test)
 qt_standard_project_setup()
+
+enable_testing()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(EtTargetDefaults)
+
+# libmypaint (vcpkg). Se busca acá y no en libs/paintcore porque los targets
+# importados tienen alcance de directorio: las apps enlazan paintcore estática y
+# necesitan ver LibMyPaint::LibMyPaint. Solo paintcore la enlaza (PRIVATE).
+find_package(LibMyPaint REQUIRED)
 
 add_subdirectory(libs/paintcore)
 add_subdirectory(libs/appkit)
