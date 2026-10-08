@@ -5,7 +5,7 @@ App de escritorio para practicar control de trazo con tableta digitalizadora: ge
 Es la primera app de una familia: `libs/paintcore` (motor de pinceles) y `libs/appkit` (framework de app) se comparten entre apps.
 
 - [Alcance de la v1](docs/alcance-v1.md)
-- [Requerimientos y backlog](docs/requerimientos-backlog.md) · [issues](https://github.com/elaqueo/ejercicios-trazos/issues) (una por historia) · [sprints](https://github.com/elaqueo/ejercicios-trazos/milestones)
+- [Requerimientos y backlog](docs/requerimientos-backlog.md) · [issues](https://github.com/elaqueo/ejercicios-trazos/issues) (una por historia) · [sprints](https://github.com/elaqueo/ejercicios-trazos/milestones) · [tablero](https://github.com/users/elaqueo/projects/3)
 
 ## Estructura
 
