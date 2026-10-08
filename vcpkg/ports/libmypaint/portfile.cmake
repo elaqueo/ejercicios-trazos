@@ -4,8 +4,9 @@
 # - fix_unknown_ids_msvc.patch: con MSVC, un .myb con ajustes o entradas desconocidos
 #   corrompía el heap en vez de saltear ese ajuste (ver el encabezado del parche).
 #   Reportado upstream: https://github.com/mypaint/libmypaint/issues/209
-# - fix_uninitialized_brush.patch: el primer dab de un pincel nuevo leía memoria sin
-#   inicializar y a veces el trazo no se pintaba (ver el encabezado del parche).
+# - backport_489e994a_initial_stroke.patch: fix de upstream (mypaint/libmypaint#138),
+#   en master desde 2020 pero nunca publicado en 1.x. Sin él, el primer dab de un
+#   pincel nuevo leía memoria sin inicializar y a veces el trazo no se pintaba.
 
 vcpkg_download_distfile(ARCHIVE
     URLS "https://github.com/mypaint/libmypaint/releases/download/v${VERSION}/libmypaint-${VERSION}.tar.xz"
@@ -21,7 +22,7 @@ vcpkg_extract_source_archive(
         win_math.patch
         disable_tests.diff
         fix_unknown_ids_msvc.patch    # propio: ver el encabezado del parche
-        fix_uninitialized_brush.patch # propio: ver el encabezado del parche
+        backport_489e994a_initial_stroke.patch # de upstream master (#138)
 )
 
 # El tarball trae un config.h pregenerado CON glib (MYPAINT_CONFIG_USE_GLIB 1). MSVC

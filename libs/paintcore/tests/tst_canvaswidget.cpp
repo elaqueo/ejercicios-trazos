@@ -93,7 +93,7 @@ private slots:
             R"("radius_logarithmic": {"base_value": 2.5, "inputs": {}}, "opaque": {"base_value": 1.0, "inputs": {}}}})"));
         const int wideThickness = inkThickness(drawHorizontalStroke(grueso), 100);
 
-        // Además es regresión de fix_uninitialized_brush.patch: sin él, ~1 de cada 70
+        // Además es regresión de backport_489e994a_initial_stroke.patch: sin él, ~1 de cada 70
         // corridas el primer trazo de un pincel nuevo no se pintaba (ancho 0 px).
         QVERIFY2(wideThickness > 2 * defaultThickness,
                  qPrintable(QStringLiteral("por defecto %1 px, ancho %2 px").arg(defaultThickness).arg(wideThickness)));
