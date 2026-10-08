@@ -6,6 +6,8 @@ qt_add_library(paintcore STATIC
     src/Brush.cpp
     src/Brush.h
     src/CanvasWidget.cpp
+    src/Surface.cpp
+    src/Surface.h
 )
 target_include_directories(paintcore PUBLIC include PRIVATE src)
 target_link_libraries(paintcore
