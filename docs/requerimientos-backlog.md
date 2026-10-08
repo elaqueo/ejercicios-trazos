@@ -232,11 +232,11 @@ Una historia entra al sprint solo si está lista, y se cierra solo si está term
 4. No introduce código específico de ejercicios en `paintcore` ni en `appkit` (RNF-05, RNF-06).
 5. Está integrada en la rama principal.
 
-## Preguntas abiertas
+## Decisiones (antes preguntas abiertas)
 
-Cuatro definiciones pendientes antes del sprint 0.
+Las cuatro definiciones pendientes se resolvieron el 8 de octubre de 2026, durante el sprint 0.
 
-1. ¿Qué sistema operativo tiene la PC de desarrollo? Define cómo se integra libmypaint (HU-02).
-2. ¿Cómo se trae libmypaint: gestor de paquetes (vcpkg o Conan), submódulo compilado desde fuente o paquete del sistema?
-3. ¿Dónde se gestiona el backlog: GitHub Issues/Projects, un tablero propio u otra herramienta?
-4. ¿La duración de 2 semanas por sprint es realista según el tiempo disponible para el proyecto?
+1. **Sistema operativo:** Windows 10 con MSVC 14.44 (VS 2022 Build Tools), CMake y Ninja de las Build Tools, y Qt 6.11.2 `msvc2022_64` compartido con anim-sandbox.
+2. **libmypaint:** vcpkg en modo manifiesto con un overlay del port oficial que compila sin glib, en el triplet `x64-windows-static-md-rel` (estático, CRT `/MD`, solo Release). Detalle en el README.
+3. **Backlog:** GitHub Issues, una por historia, con el mismo número que la historia (`#5` = HU-05); labels para épica, prioridad MoSCoW y `enabler`; un milestone por sprint. Las historias nuevas que surjan de las reviews se cargan como issues.
+4. **Duración del sprint:** 2 semanas, confirmada.
