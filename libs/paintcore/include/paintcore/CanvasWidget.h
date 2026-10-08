@@ -2,6 +2,7 @@
 
 #include "paintcore/BrushLibrary.h"
 
+#include <QPicture>
 #include <QWidget>
 
 #include <memory>
@@ -34,6 +35,14 @@ public:
     // queda fuera del área útil. Por defecto, blanco y gris oscuro.
     void setPaperColor(const QColor& color);
     void setOutsideColor(const QColor& color);
+
+    // Capa de guías: un dibujo en coordenadas del lienzo que se pinta entre la hoja y
+    // la tinta, con la rotación de la vista, sin pasar por libmypaint. Ocultarla o
+    // cambiarla no toca la superficie del trazo.
+    void setGuides(const QPicture& guides);
+    void clearGuides();
+    void setGuidesVisible(bool visible);
+    bool guidesVisible() const;
 
     // Borra todo lo pintado (el lienzo queda en blanco). Si hay un trazo en curso,
     // las muestras siguientes pintan sobre el lienzo limpio.

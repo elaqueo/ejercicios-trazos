@@ -73,6 +73,8 @@ struct CanvasWidget::Impl {
     // mismo y sus coordenadas arrancan en su esquina; vacío = todo el widget.
     QRect configuredRect;
     QRect canvasRect;
+    QPicture guides;
+    bool guidesVisible = true;
     QColor paperColor = Qt::white;
     QColor outsideColor{0x3a, 0x3a, 0x3a};
     // Lienzo → pantalla: corrimiento a la esquina del área útil + rotación de la vista
@@ -215,6 +217,30 @@ void CanvasWidget::setOutsideColor(const QColor& color)
     update();
 }
 
+void CanvasWidget::setGuides(const QPicture& guides)
+{
+    d->guides = guides;
+    update();
+}
+
+void CanvasWidget::clearGuides()
+{
+    setGuides(QPicture());
+}
+
+void CanvasWidget::setGuidesVisible(bool visible)
+{
+    if (d->guidesVisible == visible)
+        return;
+    d->guidesVisible = visible;
+    update();
+}
+
+bool CanvasWidget::guidesVisible() const
+{
+    return d->guidesVisible;
+}
+
 void CanvasWidget::clear()
 {
     if (d->surface)
@@ -257,6 +283,13 @@ void CanvasWidget::paintEvent(QPaintEvent* event)
     if (d->toView.isIdentity() && d->canvasRect == rect()) {
         // Sin rotación y con el lienzo en todo el widget: copia directa.
         painter.fillRect(event->rect(), d->paperColor);
+        if (d->guidesVisible && !d->guides.isNull()) {
+            painter.save();
+            painter.setClipRect(event->rect());
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.drawPicture(0, 0, d->guides);
+            painter.restore();
+        }
         if (d->surface)
             painter.drawImage(event->rect(), d->surface->image(), event->rect());
     } else {
@@ -265,7 +298,15 @@ void CanvasWidget::paintEvent(QPaintEvent* event)
         // Mientras se rota se prioriza la fluidez; en reposo, la calidad.
         painter.setRenderHint(QPainter::SmoothPixmapTransform, d->view.angle() != 0.0 && !d->rotating);
         painter.setTransform(d->toView);
-        painter.fillRect(QRect(QPoint(0, 0), d->canvasRect.size()), d->paperColor);
+        const QRect sheet(QPoint(0, 0), d->canvasRect.size());
+        painter.fillRect(sheet, d->paperColor);
+        if (d->guidesVisible && !d->guides.isNull()) {
+            painter.save();
+            painter.setClipRect(sheet, Qt::IntersectClip); // las guías no salen de la hoja
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.drawPicture(0, 0, d->guides);
+            painter.restore();
+        }
         if (d->surface)
             painter.drawImage(QPointF(0, 0), d->surface->image());
     }

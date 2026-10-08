@@ -1,6 +1,8 @@
 #include <paintcore/CanvasWidget.h>
 
 #include <QImage>
+#include <QPainter>
+#include <QPicture>
 #include <QPointingDevice>
 #include <QTabletEvent>
 #include <QTest>
@@ -212,6 +214,63 @@ private slots:
             QVERIFY2(c.red() <= hoja.red() && c.green() <= hoja.green() && c.blue() <= hoja.blue(),
                      qPrintable(QStringLiteral("halo en (150, %1): %2").arg(y).arg(c.name())));
         }
+    }
+
+    // HU-19: las guías se dibujan en su propia capa, debajo de la tinta, sin pasar por
+    // libmypaint; ocultarlas y volver a mostrarlas no cambia ningún píxel del trazo.
+    void capaDeGuiasIndependienteDelTrazo()
+    {
+        paintcore::CanvasWidget canvas;
+        canvas.resize(200, 100);
+        canvas.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&canvas));
+
+        QPicture guias;
+        {
+            QPainter p(&guias);
+            p.setPen(QPen(QColor(0x25, 0x63, 0xEB), 4));
+            p.drawLine(QPointF(100, 0), QPointF(100, 100)); // vertical, cruza el trazo
+            p.drawLine(QPointF(20, 20), QPointF(60, 20));   // lejos del trazo
+        }
+        canvas.setGuides(guias);
+        QVERIFY(canvas.guidesVisible());
+        const QImage conGuias = drawHorizontalStroke(canvas);
+
+        // La guía se ve donde no hay tinta, y la tinta queda encima donde se cruzan.
+        QCOMPARE(conGuias.pixelColor(40, 20), QColor(0x25, 0x63, 0xEB));
+        QVERIFY(qGray(conGuias.pixel(100, 50)) < qGray(conGuias.pixel(100, 80)));
+
+        canvas.setGuidesVisible(false);
+        const QImage sinGuias = canvas.grab().toImage();
+        QCOMPARE(sinGuias.pixelColor(40, 20), QColor(Qt::white));
+        canvas.setGuidesVisible(true);
+        canvas.setGuidesVisible(false);
+        QCOMPARE(canvas.grab().toImage(), sinGuias); // el trazo, intacto
+
+        canvas.clearGuides();
+        canvas.setGuidesVisible(true);
+        QCOMPARE(canvas.grab().toImage(), sinGuias);
+    }
+
+    // Las guías están en coordenadas del lienzo: siguen la rotación de la vista.
+    void lasGuiasSiguenLaRotacion()
+    {
+        paintcore::CanvasWidget canvas;
+        canvas.resize(200, 200);
+        canvas.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&canvas));
+        QPicture guias;
+        {
+            QPainter p(&guias);
+            p.setPen(Qt::NoPen);
+            p.setBrush(QColor(0x25, 0x63, 0xEB));
+            p.drawEllipse(QPointF(150, 100), 8, 8); // a la derecha del centro (100, 100)
+        }
+        canvas.setGuides(guias);
+        canvas.setViewRotation(90);
+        const QImage image = canvas.grab().toImage();
+        QCOMPARE(image.pixelColor(100, 150), QColor(0x25, 0x63, 0xEB)); // quedó abajo
+        QCOMPARE(image.pixelColor(150, 100), QColor(Qt::white));
     }
 
     // Tras clear() no queda ningún píxel del trazo anterior, y se puede seguir pintando.
