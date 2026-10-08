@@ -19,8 +19,13 @@ int main(int argc, char* argv[])
     appkit::AppWindow window;
     window.setupBrushes(&brushes, &config);
     window.setWindowTitle(QApplication::applicationName());
-    window.resize(1280, 800);
-    window.show();
+    // --ventana: abre en una ventana común, para desarrollar y depurar sin tapar todo.
+    if (QApplication::arguments().contains(QStringLiteral("--ventana"))) {
+        window.resize(1280, 800);
+        window.show();
+    } else {
+        window.showOnSavedScreen(&config);
+    }
 
     return QApplication::exec();
 }
