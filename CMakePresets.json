@@ -1,0 +1,51 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "architecture": { "value": "x64", "strategy": "external" },
+      "toolset": { "value": "host=x64", "strategy": "external" },
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "cl",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "debug",
+      "inherits": "base",
+      "displayName": "Debug (MSVC + Ninja; código propio sin optimizar, Qt Release)",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "displayName": "Release (MSVC + Ninja)",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "release", "configurePreset": "release" }
+  ],
+  "workflowPresets": [
+    {
+      "name": "debug",
+      "steps": [
+        { "type": "configure", "name": "debug" },
+        { "type": "build", "name": "debug" }
+      ]
+    },
+    {
+      "name": "release",
+      "steps": [
+        { "type": "configure", "name": "release" },
+        { "type": "build", "name": "release" }
+      ]
+    }
+  ]
+}
