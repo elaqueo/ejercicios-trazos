@@ -1,0 +1,26 @@
+Evita corromper el heap con ajustes o entradas desconocidos en un .myb (MSVC).
+mypaint_brush_*_from_cname devuelve -1 para un nombre desconocido. Con GCC el enum es
+unsigned y el control '>= COUNT' lo atrapa; con MSVC es signed, -1 pasa el control y
+se escribe fuera del arreglo. Con el parche, el ajuste afectado se saltea como en
+Linux. Pasa con los .myb de libmypaint 2.0 (por ejemplo surfacemap_x/y en Dieterle).
+
+--- a/mypaint-brush.c
++++ b/mypaint-brush.c
+@@ -1566,7 +1566,7 @@
+ {
+     MyPaintBrushSetting setting_id = mypaint_brush_setting_from_cname(setting_name);
+ 
+-    if (setting_id >= MYPAINT_BRUSH_SETTINGS_COUNT) {
++    if ((int)setting_id < 0 || setting_id >= MYPAINT_BRUSH_SETTINGS_COUNT) {
+         fprintf(stderr, "Warning: Unknown setting_id: %d for setting: %s\n",
+                 setting_id, setting_name);
+         return FALSE;
+@@ -1600,7 +1600,7 @@
+             return FALSE;
+         }
+ 
+-        if (input_id >= MYPAINT_BRUSH_INPUTS_COUNT) {
++        if ((int)input_id < 0 || input_id >= MYPAINT_BRUSH_INPUTS_COUNT) {
+             fprintf(stderr, "Warning: Unknown input_id: %d for input: %s\n",
+                     input_id, input_name);
+             return FALSE;

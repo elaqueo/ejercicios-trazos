@@ -28,6 +28,19 @@ function(et_add_qt_test name)
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${ET_QT_PREFIX}/bin")
 endfunction()
 
+# Copia los pinceles de fábrica (port mypaint-brushes, CC0) a <carpeta del exe>/brushes,
+# donde los busca appkit::brushDirectories().
+function(et_deploy_brushes target)
+    set(source "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/mypaint-brushes/mypaint-data/2.0/brushes")
+    if(NOT IS_DIRECTORY "${source}")
+        message(FATAL_ERROR "No se encontraron los pinceles de mypaint-brushes en ${source}")
+    endif()
+    add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory_if_different "${source}" "$<TARGET_FILE_DIR:${target}>/brushes"
+        COMMENT "Copiando los pinceles de fábrica junto a $<TARGET_FILE_NAME:${target}>"
+        VERBATIM)
+endfunction()
+
 # Copia el Qt Release y sus plugins junto al ejecutable, para correrlo desde build/.
 function(et_deploy_qt target)
     find_program(ET_WINDEPLOYQT windeployqt HINTS "${ET_QT_PREFIX}/bin" NO_DEFAULT_PATH REQUIRED)

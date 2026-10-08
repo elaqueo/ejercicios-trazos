@@ -1,6 +1,8 @@
-# Overlay del port oficial de vcpkg (tag 2026.07.29): idéntico salvo que compila
-# SIN glib. libmypaint solo usa glib para GEGL/introspection, que no usamos, y así
-# evitamos arrastrar glib (LGPL), gettext, pcre2 y libffi a un enlace estático.
+# Overlay del port oficial de vcpkg (tag 2026.07.29). Difiere en dos cosas:
+# - Compila SIN glib. libmypaint solo usa glib para GEGL/introspection, que no usamos,
+#   y así evitamos arrastrar glib (LGPL), gettext, pcre2 y libffi a un enlace estático.
+# - fix_unknown_ids_msvc.patch: con MSVC, un .myb con ajustes o entradas desconocidos
+#   corrompía el heap en vez de saltear ese ajuste (ver el encabezado del parche).
 
 vcpkg_download_distfile(ARCHIVE
     URLS "https://github.com/mypaint/libmypaint/releases/download/v${VERSION}/libmypaint-${VERSION}.tar.xz"
@@ -15,6 +17,7 @@ vcpkg_extract_source_archive(
         fix_i18n.diff
         win_math.patch
         disable_tests.diff
+        fix_unknown_ids_msvc.patch # propio: ver el encabezado del parche
 )
 
 # El tarball trae un config.h pregenerado CON glib (MYPAINT_CONFIG_USE_GLIB 1). MSVC

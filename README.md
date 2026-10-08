@@ -25,11 +25,20 @@ scripts/          build.ps1 (comando único) y vsenv.ps1 (entorno de MSVC)
 
 ## Dependencias (vcpkg)
 
-`vcpkg.json` declara libmypaint en modo manifiesto, con el `builtin-baseline` fijado. El primer configure la compila (y baja las herramientas de MSYS2 que vcpkg usa para autotools); después sale del caché binario de vcpkg.
+`vcpkg.json` declara libmypaint y mypaint-brushes en modo manifiesto, con el `builtin-baseline` fijado. El primer configure las compila (y baja las herramientas de MSYS2 que vcpkg usa para autotools); después salen del caché binario de vcpkg.
 
-- `vcpkg/ports/libmypaint/`: overlay del port oficial que compila **sin glib**. glib solo hace falta para GEGL e introspection, y nos evita arrastrar glib, gettext, pcre2 y libffi.
+- `vcpkg/ports/libmypaint/`: overlay del port oficial que compila **sin glib** (solo hace falta para GEGL e introspection, y nos evita arrastrar glib, gettext, pcre2 y libffi) y con `fix_unknown_ids_msvc.patch`, que evita una corrupción del heap con MSVC al cargar `.myb` con ajustes que libmypaint 1.6 no conoce.
 - `vcpkg/triplets/x64-windows-static-md-rel.cmake`: bibliotecas estáticas con CRT `/MD`, solo Release.
 - Solo `paintcore` ve los headers de libmypaint; el resto del código no sabe que existe.
+
+## Pinceles y datos
+
+Los pinceles `.myb` (formato JSON de MyPaint 2.x, también usado por Krita) se cargan de dos carpetas, en orden:
+
+1. `build/<preset>/brushes/`: los de fábrica, del port `mypaint-brushes` (CC0), copiados por el build.
+2. `%LOCALAPPDATA%\trazos\brushes\`: carpeta compartida por todas las apps de la familia, para packs propios. Un pincel con el mismo nombre reemplaza al de fábrica.
+
+Los `.myb` inválidos se ignoran y quedan registrados en `%LOCALAPPDATA%\trazos\ejercicios.log`, que se reescribe en cada arranque.
 
 ## Compilar
 

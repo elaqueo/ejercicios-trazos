@@ -2,8 +2,10 @@
 # libmypaint en sus headers públicos.
 
 qt_add_library(paintcore STATIC
+    include/paintcore/BrushLibrary.h
     include/paintcore/CanvasWidget.h
     src/Brush.cpp
+    src/BrushLibrary.cpp
     src/Brush.h
     src/CanvasWidget.cpp
     src/Surface.cpp

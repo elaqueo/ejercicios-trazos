@@ -23,4 +23,13 @@ Brush::~Brush()
     mypaint_brush_unref(m_brush);
 }
 
+bool Brush::isValidJson(const QByteArray& json)
+{
+    // libmypaint escribe el motivo del rechazo en stderr; el llamador lo registra en el log.
+    MyPaintBrush* probe = mypaint_brush_new();
+    const bool valid = mypaint_brush_from_string(probe, json.constData());
+    mypaint_brush_unref(probe);
+    return valid;
+}
+
 } // namespace paintcore::detail
