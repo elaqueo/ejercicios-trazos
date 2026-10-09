@@ -17,9 +17,65 @@
 #include <QSlider>
 #include <QTest>
 
+#include <algorithm>
+#include <cmath>
 #include <thread>
 
 using namespace lienzo;
+
+namespace {
+
+// Relieve medio por píxel de la hoja, como lo ve la pantalla (HU-75): el detalle del grano.
+std::vector<double> meanRelief(const drymedia::Paper& paper, const SheetMapping& m)
+{
+    std::vector<double> mean(size_t(m.sheetWidth) * size_t(m.sheetHeight));
+    for (int y = 0; y < m.sheetHeight; ++y) {
+        int cy0, cy1;
+        m.cellsOfRow(m.sheetY + y, cy0, cy1);
+        for (int x = 0; x < m.sheetWidth; ++x) {
+            int cx0, cx1;
+            m.cellsOfColumn(m.sheetX + x, cx0, cx1);
+            double s = 0;
+            for (int cy = cy0; cy < cy1; ++cy)
+                for (int cx = cx0; cx < cx1; ++cx)
+                    s += paper.reliefAt(cx, cy);
+            mean[size_t(y) * size_t(m.sheetWidth) + size_t(x)] = s / ((cx1 - cx0) * (cy1 - cy0));
+        }
+    }
+    // Solo el detalle, como la textura: menos el promedio del cuadrado alrededor.
+    const int w = m.sheetWidth, h = m.sheetHeight, r = PaperTexture::kDetailRadius;
+    std::vector<double> detail(mean.size());
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x) {
+            double s = 0;
+            int count = 0;
+            for (int yy = std::max(y - r, 0); yy < std::min(y + r + 1, h); ++yy)
+                for (int xx = std::max(x - r, 0); xx < std::min(x + r + 1, w); ++xx, ++count)
+                    s += mean[size_t(yy) * size_t(w) + size_t(xx)];
+            detail[size_t(y) * size_t(w) + size_t(x)] = mean[size_t(y) * size_t(w) + size_t(x)] - s / count;
+        }
+    return detail;
+}
+
+double correlation(const std::vector<double>& a, const std::vector<double>& b)
+{
+    double ma = 0, mb = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        ma += a[i];
+        mb += b[i];
+    }
+    ma /= double(a.size());
+    mb /= double(b.size());
+    double ab = 0, aa = 0, bb = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        ab += (a[i] - ma) * (b[i] - mb);
+        aa += (a[i] - ma) * (a[i] - ma);
+        bb += (b[i] - mb) * (b[i] - mb);
+    }
+    return ab / std::sqrt(aa * bb);
+}
+
+} // namespace
 
 class TestLienzo : public QObject {
     Q_OBJECT
@@ -118,6 +174,95 @@ private slots:
         QCOMPARE(image[size_t(m.sheetY + 10) * 200 + size_t(m.sheetX + 10)], kGraphiteColor);
         QCOMPARE(image[size_t(m.sheetY + 10) * 200 + size_t(m.sheetX + 11)], kPaperColor);
         QCOMPARE(image[size_t(m.sheetY + 11) * 200 + size_t(m.sheetX + 10)], kPaperColor);
+    }
+
+    // Textura del papel (HU-75), con 0 % la imagen de siempre: sin factor, y un factor
+    // neutro (4096) da exactamente lo mismo.
+    void texturaEnCeroEsLaImagenDeHoy()
+    {
+        drymedia::Paper paper({.seed = 1, .widthMm = 40, .heightMm = 30});
+        const SheetMapping m = SheetMapping::fit(200, 150, paper.width(), paper.height());
+        PaperTexture texture;
+        texture.build(paper, m);
+        texture.setLight(225, 0);
+        QVERIFY(texture.shade() == nullptr);
+
+        std::vector<uint32_t> plain(size_t(200) * 150), neutral(plain.size());
+        const std::vector<uint16_t> one(plain.size(), 4096);
+        paper.depositTile(1, 1)[100] = 30000;
+        renderTone(paper, m, 0, 0, 200, 150, plain.data());
+        renderTone(paper, m, 0, 0, 200, 150, neutral.data(), nullptr, one.data());
+        QCOMPARE(neutral, plain);
+    }
+
+    // El brillo sigue al relieve del lápiz: la cara que mira a la luz se aclara (al dar
+    // vuelta la luz se invierte) y, con luz de los dos lados, las crestas quedan más claras.
+    void brilloSigueAlRelieve()
+    {
+        drymedia::Paper paper({.seed = 3, .widthMm = 40, .heightMm = 30});
+        const SheetMapping m = SheetMapping::fit(200, 150, paper.width(), paper.height());
+        const std::vector<double> mean = meanRelief(paper, m);
+        PaperTexture texture;
+        texture.build(paper, m);
+        const auto factors = [&](double degrees) {
+            texture.setLight(degrees, 1.0);
+            std::vector<double> f(mean.size());
+            for (int y = 0; y < m.sheetHeight; ++y)
+                for (int x = 0; x < m.sheetWidth; ++x)
+                    f[size_t(y) * size_t(m.sheetWidth) + size_t(x)] =
+                        texture.shade()[size_t(m.sheetY + y) * 200 + size_t(m.sheetX + x)];
+            return f;
+        };
+        const std::vector<double> right = factors(0), left = factors(180);
+
+        // Luz a la derecha: se aclara donde el relieve baja hacia la derecha.
+        std::vector<double> difference, fallsRight, sumLights, inner;
+        for (int y = 1; y + 1 < m.sheetHeight; ++y)
+            for (int x = 1; x + 1 < m.sheetWidth; ++x) {
+                const size_t i = size_t(y) * size_t(m.sheetWidth) + size_t(x);
+                difference.push_back(right[i] - left[i]);
+                fallsRight.push_back(mean[i - 1] - mean[i + 1]);
+                sumLights.push_back(right[i] + left[i]);
+                inner.push_back(mean[i]);
+            }
+        const double slope = correlation(difference, fallsRight), height = correlation(sumLights, inner);
+        qInfo() << "correlación pendiente" << slope << "altura" << height;
+        QVERIFY(slope > 0.9);
+        QVERIFY(height > 0.9);
+        // Y se nota: al 100 % el brillo varía más de un 10 %.
+        const auto [lo, hi] = std::minmax_element(right.begin(), right.end());
+        QVERIFY(*hi - *lo > 0.1 * 4096);
+    }
+
+    // El grafito tapa la textura: saturado, el píxel es grafito con cualquier luz; a medio
+    // llenar, la textura se ve menos que en la hoja limpia.
+    void grafitoSaturadoApagaLaTextura()
+    {
+        drymedia::Paper paper({.seed = 1, .widthMm = 40, .heightMm = 30});
+        const SheetMapping m = SheetMapping::fit(200, 150, paper.width(), paper.height());
+        PaperTexture texture;
+        texture.build(paper, m);
+        texture.setLight(225, 1.0);
+        const auto spread = [&](uint16_t deposit) {
+            for (int ty = 0; ty < paper.tilesY(); ++ty)
+                for (int tx = 0; tx < paper.tilesX(); ++tx)
+                    std::fill_n(paper.depositTile(tx, ty), drymedia::kTileCells, deposit);
+            std::vector<uint32_t> image(size_t(200) * 150);
+            renderTone(paper, m, 0, 0, 200, 150, image.data(), nullptr, texture.shade());
+            int lo = 255, hi = 0;
+            for (int y = m.sheetY; y < m.sheetY + m.sheetHeight; ++y)
+                for (int x = m.sheetX; x < m.sheetX + m.sheetWidth; ++x) {
+                    const int g = int((image[size_t(y) * 200 + size_t(x)] >> 8) & 0xFF);
+                    lo = std::min(lo, g);
+                    hi = std::max(hi, g);
+                }
+            return hi - lo;
+        };
+        const int clean = spread(0), half = spread(32768), full = spread(65535);
+        qInfo() << "rango del verde: limpia" << clean << "media" << half << "saturada" << full;
+        QVERIFY(clean >= 10);
+        QVERIFY(half < clean);
+        QCOMPARE(full, 0);
     }
 
     void colaEntreHilos()

@@ -2,8 +2,10 @@
 
 #include "lienzo/Media.h"
 #include "lienzo/SheetMapping.h"
+#include "lienzo/Tone.h"
 #include "lienzo/ViewRotation.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <mutex>
@@ -86,11 +88,24 @@ public:
     // Pinta toda la imagen (hoja y afuera). Llamar antes de start().
     void renderAll();
 
+    // Textura del papel (HU-75), de 0 a 100 %. La luz está fija al escritorio: viene de
+    // arriba a la izquierda de la pantalla, así que al girar la vista cambia sobre la hoja.
+    void setTexture(int percent)
+    {
+        m_texturePercent = std::clamp(percent, 0, 100);
+        wake();
+    }
+    int texture() const { return m_texturePercent; }
+    static constexpr double kLightDegrees = 225.0; // hacia arriba a la izquierda, en pantalla
+
     // Rotación de la vista (HU-40): las muestras se llevan a la imagen sin rotar.
     void setRotation(const ViewRotation& rotation)
     {
-        std::lock_guard lock(m_rotationMutex);
-        m_rotation = rotation;
+        {
+            std::lock_guard lock(m_rotationMutex);
+            m_rotation = rotation;
+        }
+        wake(); // la luz de la textura (HU-75) se recalcula con el giro
     }
 
     // Capa de guías (HU-64): BGRA premultiplicado del tamaño de la imagen, o vacía para
@@ -111,6 +126,8 @@ private:
                                                                                                 : nullptr;
     }
     void wake(); // despierta al hilo aunque no haya muestras
+    bool updateLight(); // true si cambió la luz de la textura (hay que repintar todo)
+    void repaintAllInStrips();
 
     drymedia::Paper& m_paper;
     SampleQueue& m_queue;
@@ -138,6 +155,10 @@ private:
     std::atomic<int> m_grade{kHbIndex};
     std::atomic<bool> m_sharpenRequested{false};
     std::atomic<int> m_wearPercent{0};
+    PaperTexture m_texture;
+    std::atomic<int> m_texturePercent{0};
+    int m_lightPercent = -1;   // con qué intensidad y giro se calculó el factor de la textura
+    double m_lightView = 0;
 };
 
 } // namespace lienzo

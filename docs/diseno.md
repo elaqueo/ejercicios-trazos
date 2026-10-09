@@ -58,6 +58,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | I | Costado sí o no: apagado, la punta es siempre la vertical (HU-73) | Igual |
 | E | Punta seca o mina: la punta seca hunde el papel sin grafito, para líneas blancas (HU-61) | Igual |
 | A | Afilar la mina activa: la punta se gasta al dibujar, cada dureza por su cuenta (HU-62) | Igual |
+| Ctrl+[ / Ctrl+] | Menos o más textura del papel, de a 10 % (0 % = hoja lisa; arranca en 20 %, común a las dos apps; HU-75) | Igual |
 | G | Mostrar u ocultar las guías (comparar) | — |
 | F4 / F2 | Menú / panel | — |
 | F5 | Selector de lápices | Selector de lápices |

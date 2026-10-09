@@ -37,7 +37,7 @@ try {
     $seen = 0
     function Take() {
         Start-Sleep -Milliseconds 400
-        $lines = @(Get-Content $log -Encoding utf8 | Where-Object { $_ -match 'Menú:|Ejercicio:|Repetir:|Guías:|Panel:|Costado:|Punta seca:|Afilada:' })
+        $lines = @(Get-Content $log -Encoding utf8 | Where-Object { $_ -match 'Menú:|Ejercicio:|Repetir:|Guías:|Panel:|Costado:|Punta seca:|Afilada:|Textura del papel:' })
         $new = $lines | Select-Object -Skip $script:seen
         $script:seen = $lines.Count
         return @($new)
@@ -70,6 +70,11 @@ try {
     Send 'a'
     $l = Take
     Check 'A afila la mina' ($l -match 'Afilada:').Count ($l -join ' | ')
+
+    Send '^{]}'
+    Send '^{[}'
+    $l = Take
+    Check 'Ctrl+] y Ctrl+[ suben y bajan la textura del papel' (($l -match 'Textura del papel:').Count -eq 2) ($l -join ' | ')
 
     # Menú: subir de más se frena en el modo mixto (antes daba la vuelta).
     Send '{F4}' 1 600

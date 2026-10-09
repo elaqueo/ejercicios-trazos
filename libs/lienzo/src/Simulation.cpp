@@ -24,6 +24,7 @@ Simulation::Simulation(drymedia::Paper& paper, SampleQueue& queue, DisplayImage&
     , m_lead(factoryGrades()[kHbIndex].pack())
     , m_eraser(Eraser{}.pack())
 {
+    m_texture.build(m_paper, m_mapping);
 }
 
 Simulation::~Simulation()
@@ -60,6 +61,23 @@ void Simulation::setGuides(std::vector<uint32_t> guides)
     wake();
 }
 
+bool Simulation::updateLight()
+{
+    double view;
+    {
+        std::lock_guard rotationLock(m_rotationMutex);
+        view = m_rotation.degrees;
+    }
+    const int percent = m_texturePercent;
+    if (percent == m_lightPercent && (percent == 0 || view == m_lightView))
+        return false;
+    m_lightPercent = percent;
+    m_lightView = view;
+    // La luz gira al revés que la vista para quedar fija en la pantalla.
+    m_texture.setLight(kLightDegrees - view, percent / 100.0);
+    return true;
+}
+
 void Simulation::renderAll()
 {
     if (m_guidesChanged.exchange(false)) {
@@ -67,9 +85,24 @@ void Simulation::renderAll()
         m_guides = std::move(m_pendingGuides);
         m_pendingGuides.clear();
     }
+    updateLight();
     std::lock_guard lock(m_image.mutex);
-    renderTone(m_paper, m_mapping, 0, 0, m_image.width, m_image.height, m_image.pixels.data(), guides());
+    renderTone(m_paper, m_mapping, 0, 0, m_image.width, m_image.height, m_image.pixels.data(), guides(),
+               m_texture.shade());
     m_image.markDirty(0, 0, m_image.width, m_image.height);
+}
+
+// Toda la imagen de a franjas: el candado se suelta entre una y otra para que el render no
+// pierda frames (como repaintTiles).
+void Simulation::repaintAllInStrips()
+{
+    constexpr int kStrip = 16;
+    for (int y = 0; y < m_image.height; y += kStrip) {
+        const int y1 = std::min(y + kStrip, m_image.height);
+        std::lock_guard lock(m_image.mutex);
+        renderTone(m_paper, m_mapping, 0, y, m_image.width, y1, m_image.pixels.data(), guides(), m_texture.shade());
+        m_image.markDirty(0, y, m_image.width, y1);
+    }
 }
 
 void Simulation::run()
@@ -121,7 +154,7 @@ void Simulation::run()
                 continue;
             std::lock_guard lock(m_image.mutex);
             const Stopwatch held;
-            renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides());
+            renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides(), m_texture.shade());
             m_image.markDirty(px0, py0, px1, py1);
             if (m_timings)
                 m_timings->simLockHeld.add(held.ms());
@@ -136,6 +169,8 @@ void Simulation::run()
 
         if (m_guidesChanged)
             renderAll(); // guías nuevas: repintar todo una vez
+        if (updateLight())
+            repaintAllInStrips(); // otra intensidad de textura, o la vista giró bajo la luz
         if (m_clearRequested.exchange(false)) {
             endStroke();
             m_paper.clear();
@@ -220,7 +255,7 @@ void Simulation::run()
             std::lock_guard lock(m_image.mutex);
             const Stopwatch held;
             if (any) {
-                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides());
+                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides(), m_texture.shade());
                 m_image.markDirty(px0, py0, px1, py1);
             }
             if (newest) {

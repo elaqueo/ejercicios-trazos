@@ -143,6 +143,7 @@ struct Lienzo::Impl {
     QPicture guides;                          // las últimas guías (se reubican al calibrar)
     double viewDegrees = 0;                   // rotación de la vista (HU-40)
     bool tilt = true;                         // costado (HU-73)
+    int texture = 20;                         // textura del papel en % (HU-75)
     double gestureStartDegrees = 0, gestureStartPointer = 0;
     std::function<void()> onSheetChanged;
     std::unique_ptr<QWidget> calibrationHost; // F9 (HU-66): ventana propia que cubre el monitor
@@ -209,6 +210,7 @@ struct Lienzo::Impl {
             sim->setRecording(recording);
         applyMedia();
         sim->setTilt(tilt);
+        sim->setTexture(texture);
         sim->setGuides(guideLayer());
         sim->setRotation(rotation());
         if (render)
@@ -241,7 +243,8 @@ struct Lienzo::Impl {
         config->setValue(QStringLiteral("lead"), QString::fromLatin1(media.activeName()));
     }
 
-    // Lo guardado en config.json (HU-13): la mina activa, el giro de la vista y el costado. Va antes de
+    // Lo guardado en config.json (HU-13): la mina activa, el giro de la vista, el costado y la
+    // textura (común a la familia). Va antes de
     // crear la simulación, que los toma.
     void restoreState()
     {
@@ -251,6 +254,16 @@ struct Lienzo::Impl {
                 media.active = g;
         viewDegrees = ViewRotation::normalized(config->value(QStringLiteral("viewRotation"), 0.0).toDouble());
         tilt = config->value(QStringLiteral("tilt"), true).toBool();
+        texture = std::clamp(config->value(QStringLiteral("paperTexture"), 20, appkit::Config::Scope::Common).toInt(), 0, 100);
+    }
+
+    // Textura del papel (HU-75): de a 10 %, común a las apps de la familia.
+    void stepTexture(bool up)
+    {
+        texture = std::clamp(texture + (up ? 10 : -10), 0, 100);
+        sim->setTexture(texture);
+        config->setValue(QStringLiteral("paperTexture"), texture, appkit::Config::Scope::Common);
+        qInfo() << "Textura del papel:" << texture << "%";
     }
 
     // Afilar (HU-62): la mina activa vuelve a la punta cónica nueva.
@@ -433,28 +446,30 @@ struct Lienzo::Impl {
 
     std::wstring overlayText() const
     {
-        wchar_t text[512];
+        wchar_t text[768];
         const wchar_t* warning =
             area ? L"" : L"\nSin área calibrada en este monitor: calibrala con F9.";
         if (!sim->erasing() && sim->stylus()) {
-            swprintf(text, 512, L"punta seca: hunde el papel sin dejar grafito (E vuelve a la mina)   ·   costado %ls (I)%ls",
-                     tilt ? L"sí" : L"no", warning);
+            swprintf(text, 768, L"punta seca: hunde el papel sin dejar grafito (E vuelve a la mina)   ·   costado %ls (I)",
+                     tilt ? L"sí" : L"no");
         } else if (sim->erasing()) {
             const Eraser eraser = sim->eraser();
             const bool unsaved = media.eraserUnsaved;
-            swprintf(text, 512, L"goma%ls   ·   fuerza %d (, .)   ·   %.1f mm ([ ])%ls%ls", unsaved ? L"*" : L"",
-                     eraser.strength, eraser.diameter / 100.0, unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
+            swprintf(text, 768, L"goma%ls   ·   fuerza %d (, .)   ·   %.1f mm ([ ])%ls", unsaved ? L"*" : L"",
+                     eraser.strength, eraser.diameter / 100.0, unsaved ? L"   ·   Ctrl+S guarda" : L"");
         } else {
             const Lead lead = sim->lead();
             const bool unsaved = media.leadUnsaved;
-            swprintf(text, 512,
-                     options.gradeKeys ? L"mina %hs%ls (F5, 1-0)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   punta %d %% gastada (A afila)   ·   costado %ls (I)%ls%ls"
-                                       : L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   punta %d %% gastada (A afila)   ·   costado %ls (I)%ls%ls",
+            swprintf(text, 768,
+                     options.gradeKeys ? L"mina %hs%ls (F5, 1-0)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   punta %d %% gastada (A afila)   ·   costado %ls (I)%ls"
+                                       : L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   punta %d %% gastada (A afila)   ·   costado %ls (I)%ls",
                      media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
                      int(std::lround(lead.ceiling * 100.0 / 65535)), sim->wearPercent(), tilt ? L"sí" : L"no",
-                     unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
+                     unsaved ? L"   ·   Ctrl+S guarda" : L"");
         }
-        return text;
+        std::wstring out = text;
+        swprintf(text, 768, L"   ·   textura %d %% (Ctrl+[ ])%ls", texture, warning);
+        return out + text;
     }
 };
 
@@ -563,6 +578,8 @@ void Lienzo::registerShortcuts()
     keys.add(QStringLiteral("Costado sí o no"), {{'I'}}, [impl] { impl->toggleTilt(); }); // HU-73
     keys.add(QStringLiteral("Punta seca o mina"), {{'E'}}, [impl] { impl->toggleStylus(); }); // HU-61
     keys.add(QStringLiteral("Afilar"), {{'A'}}, [impl] { impl->sharpen(); });                 // HU-62
+    keys.add(QStringLiteral("Menos textura del papel"), {{VK_OEM_4, true}}, [impl] { impl->stepTexture(false); }); // HU-75
+    keys.add(QStringLiteral("Más textura del papel"), {{VK_OEM_6, true}}, [impl] { impl->stepTexture(true); });
     keys.add(QStringLiteral("Calibrar el área útil"), {{VK_F9}}, [impl] { impl->startCalibration(); }); // HU-66
     keys.add(QStringLiteral("Monitor siguiente"), {{VK_F10}}, [impl] { impl->nextScreen(); }); // HU-66
     keys.add(QStringLiteral("Imagen de pantalla"), {{VK_F12}}, [impl] { impl->saveScreenImage(); }); // diagnóstico
