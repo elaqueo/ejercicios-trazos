@@ -247,7 +247,8 @@ Primero se valida la latencia y la entrada con un lienzo trivial; recién despu�
     2. Salida: funcionan técnicas reales (línea blanca, capa bruñida que rechaza grafito, sombreado de costado).
 4. **Fase 3 — Papel real**
     1. Relieve por fotometría estéreo del papel que se usa sobre la tableta, iluminación con brillo del grafito, rotación de la hoja, modo 1:1 calibrado.
-    2. Salida: el grano que se ve coincide con el que se siente.
+    2. Hecho: textura del papel visible y ajustable (HU-75). Pendiente: rueda táctil de la tableta (HU-74), decidido el 9 de octubre de 2026: solo rotación libre de la vista, sin snap, y sin zoom (el zoom no existe en el lienzo y por ahora no se agrega).
+    3. Salida: el grano que se ve coincide con el que se siente.
 5. **Fase 4 — Persistencia y replay**
     1. Log de muestras, snapshots, re-simulación con parámetros nuevos, pruebas de regresión por hash.
     2. Salida: un dibujo reabierto en la otra máquina da el mismo hash.
