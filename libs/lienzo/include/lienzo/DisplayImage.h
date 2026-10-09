@@ -6,7 +6,7 @@
 #include <mutex>
 #include <vector>
 
-namespace cartuchera {
+namespace lienzo {
 
 // Imagen de pantalla (BGRA, tamaño del cliente) que escribe la simulación y lee el
 // render. Lleva la unión de lo que cambió desde la última vez que el render la tomó y
@@ -34,4 +34,4 @@ struct DisplayImage {
     }
 };
 
-} // namespace cartuchera
+} // namespace lienzo

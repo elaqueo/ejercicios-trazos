@@ -1,12 +1,12 @@
-#include "CanvasWindow.h"
+#include "lienzo/CanvasWindow.h"
 
-#include "SampleQueue.h"
+#include "lienzo/SampleQueue.h"
 
-namespace cartuchera {
+namespace lienzo {
 
 namespace {
 
-const wchar_t* kClassName = L"CartucheraCanvas";
+const wchar_t* kClassName = L"LienzoCanvas";
 
 } // namespace
 
@@ -90,4 +90,4 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProcW(m_hwnd, msg, wParam, lParam);
 }
 
-} // namespace cartuchera
+} // namespace lienzo

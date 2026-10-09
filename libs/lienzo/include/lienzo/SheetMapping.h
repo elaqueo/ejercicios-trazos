@@ -1,6 +1,6 @@
 #pragma once
 
-namespace cartuchera {
+namespace lienzo {
 
 // Dónde se dibuja la hoja dentro de la ventana y cómo se pasa de píxeles a celdas de
 // simulación. Escala propia en cada eje: el área calibrada no tiene por qué tener
@@ -41,4 +41,4 @@ struct SheetMapping {
     }
 };
 
-} // namespace cartuchera
+} // namespace lienzo

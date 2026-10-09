@@ -1,9 +1,9 @@
-#include "Simulation.h"
+#include "lienzo/Simulation.h"
 
-#include "DisplayImage.h"
-#include "SampleQueue.h"
-#include "Timing.h"
-#include "Tone.h"
+#include "lienzo/DisplayImage.h"
+#include "lienzo/SampleQueue.h"
+#include "lienzo/Timing.h"
+#include "lienzo/Tone.h"
 
 #include <drymedia/History.h>
 #include <drymedia/Paper.h>
@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace cartuchera {
+namespace lienzo {
 
 Simulation::Simulation(drymedia::Paper& paper, SampleQueue& queue, DisplayImage& image, const SheetMapping& mapping)
     : m_paper(paper)
@@ -65,11 +65,14 @@ void Simulation::run()
     // de cada tile en un trazo, y el historial guarda cómo estaba.
     drymedia::History history(kUndoLimit);
     const auto observer = [&history](int tile, const uint16_t* before) { history.beforeTileWrite(tile, before); };
-    pencil.setTileObserver(observer);
-    eraser.setTileObserver(observer);
+    if (m_undoEnabled) {
+        pencil.setTileObserver(observer);
+        eraser.setTileObserver(observer);
+    }
     drymedia::Pencil* active = nullptr; // herramienta del trazo en curso
     const auto beginStroke = [&](drymedia::Pencil& tool, const drymedia::PencilSample& p) {
-        history.beginStroke();
+        if (m_undoEnabled)
+            history.beginStroke();
         tool.beginStroke(p);
         active = &tool;
     };
@@ -78,7 +81,8 @@ void Simulation::run()
             return;
         active->endStroke();
         active = nullptr;
-        history.endStroke(m_paper);
+        if (m_undoEnabled)
+            history.endStroke(m_paper);
     };
     // Vuelve a pintar el tono de los tiles que cambió el deshacer o el rehacer. El
     // candado de la imagen se toma y se suelta en cada tile (~0,1 ms): tomarlo una vez para
@@ -194,4 +198,4 @@ void Simulation::run()
     }
 }
 
-} // namespace cartuchera
+} // namespace lienzo

@@ -1,10 +1,10 @@
-#include "Tone.h"
+#include "lienzo/Tone.h"
 
 #include <drymedia/Paper.h>
 
 #include <algorithm>
 
-namespace cartuchera {
+namespace lienzo {
 
 namespace {
 
@@ -62,4 +62,4 @@ void renderTone(const drymedia::Paper& paper, const SheetMapping& m, int px0, in
     }
 }
 
-} // namespace cartuchera
+} // namespace lienzo

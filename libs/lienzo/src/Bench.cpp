@@ -1,7 +1,7 @@
-#include "Bench.h"
+#include "lienzo/Bench.h"
 
-#include "SampleQueue.h"
-#include "Simulation.h"
+#include "lienzo/SampleQueue.h"
+#include "lienzo/Simulation.h"
 
 #include <tabletinput/PenReader.h>
 
@@ -14,7 +14,7 @@
 #define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
 #endif
 
-namespace cartuchera {
+namespace lienzo {
 
 namespace {
 
@@ -80,4 +80,4 @@ void runBench(SampleQueue& queue, Simulation& sim, const SheetMapping& m, bool w
     QMetaObject::invokeMethod(QCoreApplication::instance(), &QCoreApplication::quit, Qt::QueuedConnection);
 }
 
-} // namespace cartuchera
+} // namespace lienzo

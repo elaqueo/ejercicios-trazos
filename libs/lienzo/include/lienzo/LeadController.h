@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace cartuchera {
+namespace lienzo {
 
 // Adelanto del render justo a tiempo (spike HU-44): cuánto antes del vsync se toman las
 // muestras y se dibuja. Poco adelanto baja la latencia, pero si el frame llega tarde a la
@@ -38,4 +38,4 @@ private:
     int m_missed = 0;
 };
 
-} // namespace cartuchera
+} // namespace lienzo

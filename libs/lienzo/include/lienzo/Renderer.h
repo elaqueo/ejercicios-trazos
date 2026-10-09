@@ -7,7 +7,7 @@
 #include <string>
 #include <thread>
 
-namespace cartuchera {
+namespace lienzo {
 
 struct DisplayImage;
 
@@ -49,4 +49,4 @@ private:
     std::string m_summary;
 };
 
-} // namespace cartuchera
+} // namespace lienzo

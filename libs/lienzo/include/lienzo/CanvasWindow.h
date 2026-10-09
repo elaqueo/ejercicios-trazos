@@ -7,7 +7,7 @@
 #include <functional>
 #include <vector>
 
-namespace cartuchera {
+namespace lienzo {
 
 class SampleQueue;
 
@@ -39,4 +39,4 @@ private:
     std::vector<tabletinput::PenSample> m_samples;
 };
 
-} // namespace cartuchera
+} // namespace lienzo

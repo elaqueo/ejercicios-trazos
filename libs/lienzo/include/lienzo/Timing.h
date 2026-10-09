@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace cartuchera {
+namespace lienzo {
 
 // Medición de tiempos para diagnosticar la latencia: muestras en ms con mediana, p95 y
 // máximo. Segura entre hilos (la escriben la simulación y el render).
@@ -66,4 +66,4 @@ struct SessionTimings {
     TimingStat renderUploadPixels;   // render: píxeles subidos a la GPU por frame (no ms)
 };
 
-} // namespace cartuchera
+} // namespace lienzo

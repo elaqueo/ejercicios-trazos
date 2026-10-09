@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SheetMapping.h"
+#include "lienzo/SheetMapping.h"
 
 #include <cstdint>
 
@@ -8,7 +8,7 @@ namespace drymedia {
 class Paper;
 }
 
-namespace cartuchera {
+namespace lienzo {
 
 // Colores en BGRA de 32 bits (como DXGI_FORMAT_B8G8R8A8_UNORM en memoria).
 constexpr uint32_t bgra(int r, int g, int b)
@@ -29,4 +29,4 @@ uint32_t toneOf(uint32_t averageDeposit);
 void renderTone(const drymedia::Paper& paper, const SheetMapping& mapping, int px0, int py0, int px1, int py1,
                 uint32_t* image);
 
-} // namespace cartuchera
+} // namespace lienzo

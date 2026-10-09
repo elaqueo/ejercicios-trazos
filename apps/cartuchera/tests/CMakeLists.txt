@@ -1,1 +1,0 @@
-et_add_qt_test(tst_cartuchera SOURCES tst_cartuchera.cpp LIBS cartuchera_core)

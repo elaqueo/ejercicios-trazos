@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Media.h"
-#include "SheetMapping.h"
+#include "lienzo/Media.h"
+#include "lienzo/SheetMapping.h"
 
 #include <atomic>
 #include <cstdio>
@@ -11,7 +11,7 @@ namespace drymedia {
 class Paper;
 }
 
-namespace cartuchera {
+namespace lienzo {
 
 class SampleQueue;
 struct DisplayImage;
@@ -33,7 +33,7 @@ public:
         m_clearRequested = true;
         wake();
     }
-    // Ctrl+Z / Ctrl+Y: se atienden en el hilo de simulación (el único que escribe el papel).
+    // Deshacer (Z) y rehacer (Ctrl+Y): se atienden en el hilo de simulación (el único que escribe el papel).
     void requestUndo()
     {
         ++m_undoRequests;
@@ -45,6 +45,8 @@ public:
         wake();
     }
     static constexpr int kUndoLimit = 100; // decisión del 10 de octubre de 2026
+    // Sin deshacer (Ejercicios) no se guardan copias de los tiles. Llamar antes de start().
+    void setUndo(bool enabled) { m_undoEnabled = enabled; }
     // La mina activa (HU-57): cambia al elegir otra dureza o al calibrar en vivo. Si
     // cambia en medio de un trazo, el trazo se cierra y sigue como uno nuevo.
     void setLead(const Lead& lead) { m_lead = lead.pack(); }
@@ -78,9 +80,10 @@ private:
     std::atomic<int> m_redoRequests{0};
     SessionTimings* m_timings = nullptr;
     std::FILE* m_recording = nullptr;
+    bool m_undoEnabled = true;
     std::atomic<uint64_t> m_lead;
     std::atomic<uint64_t> m_eraser;
     std::atomic<bool> m_erasing{false};
 };
 
-} // namespace cartuchera
+} // namespace lienzo

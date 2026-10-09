@@ -1,8 +1,8 @@
-#include <LeadController.h>
-#include <Media.h>
-#include <SampleQueue.h>
-#include <SheetMapping.h>
-#include <Tone.h>
+#include <lienzo/LeadController.h>
+#include <lienzo/Media.h>
+#include <lienzo/SampleQueue.h>
+#include <lienzo/SheetMapping.h>
+#include <lienzo/Tone.h>
 
 #include <drymedia/Paper.h>
 
@@ -10,9 +10,9 @@
 
 #include <thread>
 
-using namespace cartuchera;
+using namespace lienzo;
 
-class TestCartuchera : public QObject {
+class TestLienzo : public QObject {
     Q_OBJECT
 
 private slots:
@@ -221,5 +221,5 @@ private slots:
     }
 };
 
-QTEST_GUILESS_MAIN(TestCartuchera)
-#include "tst_cartuchera.moc"
+QTEST_GUILESS_MAIN(TestLienzo)
+#include "tst_lienzo.moc"

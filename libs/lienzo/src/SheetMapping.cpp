@@ -1,11 +1,11 @@
-#include "SheetMapping.h"
+#include "lienzo/SheetMapping.h"
 
 #include <drymedia/Paper.h>
 
 #include <algorithm>
 #include <cmath>
 
-namespace cartuchera {
+namespace lienzo {
 
 namespace {
 
@@ -80,4 +80,4 @@ bool SheetMapping::pixelsOfCells(int x0, int y0, int x1, int y1, int& px0, int& 
     return px1 > px0 && py1 > py0;
 }
 
-} // namespace cartuchera
+} // namespace lienzo

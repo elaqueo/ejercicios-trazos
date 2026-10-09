@@ -7,7 +7,7 @@
 #include <mutex>
 #include <vector>
 
-namespace cartuchera {
+namespace lienzo {
 
 // Cola de muestras del hilo de entrada al de simulación. Todas las muestras, en orden;
 // el consumidor se lleva el lote entero de una vez. Un evento despierta al consumidor.
@@ -50,4 +50,4 @@ private:
     HANDLE m_event;
 };
 
-} // namespace cartuchera
+} // namespace lienzo

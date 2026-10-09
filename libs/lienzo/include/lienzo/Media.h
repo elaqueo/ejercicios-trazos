@@ -8,7 +8,7 @@
 #include <array>
 #include <cstdint>
 
-namespace cartuchera {
+namespace lienzo {
 
 // Parámetros calibrables de una mina (HU-57): lo que se ajusta en vivo y se guarda en
 // medios.json.
@@ -62,4 +62,4 @@ struct MediaSet {
 bool mediaFromJson(const QByteArray& json, MediaSet& media, QString* error = nullptr);
 QByteArray mediaToJson(const MediaSet& media);
 
-} // namespace cartuchera
+} // namespace lienzo

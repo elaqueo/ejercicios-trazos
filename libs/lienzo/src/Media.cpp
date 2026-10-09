@@ -1,4 +1,4 @@
-#include "Media.h"
+#include "lienzo/Media.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace cartuchera {
+namespace lienzo {
 
 Lead Lead::clamped() const
 {
@@ -127,4 +127,4 @@ QByteArray mediaToJson(const MediaSet& media)
     return QJsonDocument(root).toJson(QJsonDocument::Indented);
 }
 
-} // namespace cartuchera
+} // namespace lienzo

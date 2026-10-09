@@ -1,8 +1,8 @@
-#include "Renderer.h"
+#include "lienzo/Renderer.h"
 
-#include "DisplayImage.h"
-#include "LeadController.h"
-#include "Timing.h"
+#include "lienzo/DisplayImage.h"
+#include "lienzo/LeadController.h"
+#include "lienzo/Timing.h"
 
 #include <tabletinput/PenReader.h>
 
@@ -22,7 +22,7 @@ using Microsoft::WRL::ComPtr;
 #define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
 #endif
 
-namespace cartuchera {
+namespace lienzo {
 
 namespace {
 
@@ -200,7 +200,7 @@ struct Renderer::Impl {
         const std::vector<double> recent(latencies.begin(), latencies.end());
         wchar_t text[512];
         const int len = swprintf(text, 512,
-                                 L"Cartuchera · F3 oculta   muestra → vsync: mediana %.1f ms · p95 %.1f ms\n"
+                                 L"F3 oculta   muestra → vsync: mediana %.1f ms · p95 %.1f ms\n"
                                  L"adelanto %.2f ms · vsyncs perdidos %d\n%ls",
                                  percentile(recent, 0.5), percentile(recent, 0.95), lead.leadMs(), lead.missed(),
                                  extra.c_str());
@@ -343,4 +343,4 @@ void Renderer::run()
     m_summary = text;
 }
 
-} // namespace cartuchera
+} // namespace lienzo
