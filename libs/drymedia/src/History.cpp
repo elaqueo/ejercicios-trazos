@@ -25,7 +25,7 @@ void History::beforeTileWrite(int tileIndex, const uint16_t* before)
     state.index = tileIndex;
     state.existed = before != nullptr;
     if (before)
-        state.data.assign(before, before + kTileCells);
+        state.data.assign(before, before + kTileStride);
     m_current.before.push_back(std::move(state));
 }
 
@@ -43,7 +43,7 @@ void History::endStroke(const Paper& paper)
         const uint16_t* tile = paper.findDepositTile(b.index % paper.tilesX(), b.index / paper.tilesX());
         after.existed = tile != nullptr;
         if (tile)
-            after.data.assign(tile, tile + kTileCells);
+            after.data.assign(tile, tile + kTileStride);
         m_current.after.push_back(std::move(after));
     }
     m_undo.push_back(std::move(m_current));

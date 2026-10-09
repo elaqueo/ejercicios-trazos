@@ -115,6 +115,8 @@ DirtyRect Pencil::strokeTo(const PencilSample& sample)
     // celdas, y con la escala de la mina k se saturaba a partir de fuerza ~64.
     const double scale = m_medium.kind == Medium::Kind::Eraser ? 0.25 : 1.0;
     const uint16_t k = uint16_t(std::min(65535.0, std::round(stepLength * m_medium.softness * scale)));
+    // Bruñido (HU-60): ∝ distancia (stepLength está en 1/256 de celda) × presión³.
+    const double burnishStep = stepLength / double(kOne) * m_medium.burnishRate;
 
     // Azimut por el camino más corto.
     float dAz = b.azimuth - a.azimuth;
@@ -135,13 +137,15 @@ DirtyRect Pencil::strokeTo(const PencilSample& sample)
         const uint16_t kStep = m_medium.kind == Medium::Kind::Eraser
                                    ? uint16_t(std::lround(double(k) * std::clamp(double(pressure), 0.0, 1.0)))
                                    : k;
-        dirty.unite(depositAt(x, y, pressure, tip, kStep));
+        const double p3 = std::pow(std::clamp(double(pressure), 0.0, 1.0), 3.0);
+        const uint16_t kb = uint16_t(std::min(65535.0, std::round(burnishStep * p3)));
+        dirty.unite(depositAt(x, y, pressure, tip, kStep, kb));
     }
     m_substeps += uint64_t(steps);
     return dirty;
 }
 
-DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& tip, uint16_t k)
+DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& tip, uint16_t k, uint16_t kb)
 {
     const int cx = int(floorDiv(fx, kOne)), cy = int(floorDiv(fy, kOne));
     m_contact.find(m_paper, tip, m_medium, cx, cy, pressure);
@@ -150,6 +154,8 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
         m_contact.applyErase(k);
     else
         m_contact.applyDeposit(k, m_medium.ceiling);
+    if (!erasing && kb > 0)
+        m_contact.applyBurnish(kb);
 
     // Escribir el depósito de vuelta en los tiles, solo en los tramos con contacto (así no
     // se crean tiles donde la punta no tocó; la goma tampoco los crea donde no hay grafito).
@@ -157,6 +163,7 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
     const int x0 = cx - tip.originX(), y0 = cy - tip.originY();
     const uint16_t* pen = m_contact.penetration();
     const uint16_t* dep = m_contact.deposit();
+    const uint16_t* burn = m_contact.burnish();
     DirtyRect dirty;
     for (int r = 0; r < h; ++r) {
         const int gy = y0 + r;
@@ -184,8 +191,9 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
                     m_strokeTiles.push_back(index);
                 }
                 uint16_t* tile = m_paper.depositTile(tx, ty);
-                std::memcpy(tile + size_t(gy % kTileSize) * kTileSize + size_t(lx), dep + size_t(r) * w + size_t(c),
-                            size_t(run) * 2);
+                const size_t in = size_t(gy % kTileSize) * kTileSize + size_t(lx), from = size_t(r) * w + size_t(c);
+                std::memcpy(tile + in, dep + from, size_t(run) * 2);
+                std::memcpy(tile + kTileCells + in, burn + from, size_t(run) * 2);
                 dirty.unite({gx, gy, gx + run, gy + 1});
             }
             c += run;

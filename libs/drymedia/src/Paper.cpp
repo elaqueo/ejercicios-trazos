@@ -99,7 +99,7 @@ struct Paper::Impl {
     // Bloque nuevo de tiles, ya en cero.
     void reserveBlock()
     {
-        blocks.push_back(std::make_unique<uint16_t[]>(size_t(kPoolBlock) * kTileCells));
+        blocks.push_back(std::make_unique<uint16_t[]>(size_t(kPoolBlock) * kTileStride));
         nextFree = blocks.back().get();
         freeInBlock = kPoolBlock;
     }
@@ -114,7 +114,7 @@ struct Paper::Impl {
         if (freeInBlock == 0)
             reserveBlock(); // una vez cada kPoolBlock tiles
         uint16_t* tile = nextFree;
-        nextFree += kTileCells;
+        nextFree += kTileStride;
         --freeInBlock;
         return tile;
     }
@@ -199,7 +199,7 @@ void Paper::clear()
     for (uint16_t*& slot : d->tiles) {
         if (!slot)
             continue;
-        std::fill(slot, slot + kTileCells, uint16_t(0));
+        std::fill(slot, slot + kTileStride, uint16_t(0));
         d->recycled.push_back(slot);
         slot = nullptr;
     }
@@ -213,7 +213,7 @@ void Paper::releaseTile(int tx, int ty)
     uint16_t*& slot = d->tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
     if (!slot)
         return;
-    std::fill(slot, slot + kTileCells, uint16_t(0));
+    std::fill(slot, slot + kTileStride, uint16_t(0));
     d->recycled.push_back(slot);
     slot = nullptr;
     --d->tileCount;
@@ -236,7 +236,7 @@ uint64_t Paper::hash() const
         if (!d->tiles[i])
             continue;
         fnv(h, &i, sizeof(i));
-        fnv(h, d->tiles[i], size_t(kTileCells) * sizeof(uint16_t));
+        fnv(h, d->tiles[i], size_t(kTileStride) * sizeof(uint16_t));
     }
     return h;
 }

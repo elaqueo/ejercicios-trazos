@@ -26,12 +26,12 @@ struct Rig {
     }
 
     // Trazo horizontal en la fila y.
-    void stroke(double y, double x0 = 200, double x1 = 1200)
+    void stroke(double y, double x0 = 200, double x1 = 1200, float pressure = 0.6f)
     {
         history.beginStroke();
-        pencil.beginStroke({x0, y, 0.6f, 0, 80});
+        pencil.beginStroke({x0, y, pressure, 0, 80});
         for (int i = 1; i <= 30; ++i)
-            pencil.strokeTo({x0 + (x1 - x0) * i / 30.0, y, 0.6f, 0, 80});
+            pencil.strokeTo({x0 + (x1 - x0) * i / 30.0, y, pressure, 0, 80});
         pencil.endStroke();
         history.endStroke(paper);
     }
@@ -43,6 +43,23 @@ class TestHistory : public QObject {
     Q_OBJECT
 
 private slots:
+    // HU-60: deshacer restaura también el bruñido (el tile guarda los dos planos).
+    void deshacerRestauraElBrunido()
+    {
+        Rig rig;
+        rig.stroke(300);
+        const uint64_t antes = rig.paper.hash();
+        const uint16_t* tile = rig.paper.findDepositTile(400 / kTileSize, 300 / kTileSize);
+        QVERIFY(tile);
+        const std::vector<uint16_t> copia(tile, tile + kTileStride);
+        rig.stroke(300, 200, 1200, 1.0f); // apretando: bruñe
+        const uint16_t* burn = tile + kTileCells;
+        QVERIFY(!std::equal(burn, burn + kTileCells, copia.begin() + kTileCells));
+        rig.history.undo(rig.paper);
+        QCOMPARE(rig.paper.hash(), antes);
+        QVERIFY(std::equal(tile, tile + kTileStride, copia.begin()));
+    }
+
     void deshacerYRehacerVuelvenAlMismoPapel()
     {
         Rig rig;

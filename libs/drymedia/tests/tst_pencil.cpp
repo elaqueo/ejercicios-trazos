@@ -187,6 +187,7 @@ private slots:
         const std::vector<uint16_t> antes = depositOf(paper);
         Medium hard = Medium::hb();
         hard.ceiling = 15000;
+        hard.burnishRate = 0; // acá se prueba el techo; bruñir sí arrastra grafito (HU-60)
         Pencil dura(paper, hard);
         draw(dura, lineAt, 40);
         const std::vector<uint16_t> despues = depositOf(paper);
@@ -396,10 +397,10 @@ private slots:
             QVERIFY(hs.hash() != scalar.hash());
         }
         // Medido el 10 de octubre de 2026 (igual en Debug y Release); cambió a propósito con el
-        // cono inclinado y el grafito que llena el diente (HU-59). Si cambia el modelo a propósito, se actualiza acá; si cambia
+        // cono inclinado y el grafito que llena el diente (HU-59), y con el bruñido (HU-60). Si cambia el modelo a propósito, se actualiza acá; si cambia
         // sin querer, este test lo marca.
         qInfo() << "hash" << Qt::hex << scalar.hash();
-        QCOMPARE(scalar.hash(), uint64_t(0xaacc597fc5c52499ULL));
+        QCOMPARE(scalar.hash(), uint64_t(0x4522d00f1274dc5cULL));
     }
 
     // Repasar de costado sigue oscureciendo (reporte del 9 de octubre de 2026): el grafito
@@ -440,6 +441,100 @@ private slots:
         const double canal = meanDeposit(paper, 897, 909, 450, 750), lineas = meanDeposit(paper, 876, 884, 450, 750);
         qInfo() << "canal antes" << antes << "· después" << canal << "· líneas" << lineas;
         QVERIFY2(canal > 0.3 * lineas, qPrintable(QStringLiteral("%1 / %2").arg(canal).arg(lineas)));
+    }
+
+    // HU-60: el bruñido solo crece donde hay grafito.
+    void sinGrafitoNoHayBrunido()
+    {
+        Paper paper(smallSheet());
+        Medium m = Medium::hb();
+        m.burnishRate = 20000;
+        Pencil pencil(paper, m);
+        draw(pencil, [](double t) { return PencilSample{200 + t * 1200, 600, 1.0f, 0.0f, 90.0f}; }, 60);
+        int brunidas = 0;
+        for (int ty = 0; ty < paper.tilesY(); ++ty)
+            for (int tx = 0; tx < paper.tilesX(); ++tx)
+                if (const uint16_t* tile = paper.findDepositTile(tx, ty))
+                    for (int i = 0; i < kTileCells; ++i) {
+                        QVERIFY(tile[i] > 0 || tile[kTileCells + i] == 0);
+                        brunidas += tile[kTileCells + i] > 0 ? 1 : 0;
+                    }
+        QVERIFY(brunidas > 100);
+    }
+
+    // Un trazo liviano casi no se entera del bruñido: menos de 2 % de diferencia de tono.
+    void trazoLivianoCasiNoBrune()
+    {
+        double conBrunido = 0, sin = 0;
+        for (const uint16_t rate : {uint16_t(6000), uint16_t(0)}) {
+            Paper paper(smallSheet());
+            Medium m = Medium::hb();
+            m.burnishRate = rate; // la 2H, la que más bruñe
+            Pencil pencil(paper, m);
+            for (int pasada = 0; pasada < 3; ++pasada)
+                draw(pencil, [](double t) { return PencilSample{200 + t * 1200, 600, 0.4f, 0.0f, 80.0f}; }, 60);
+            (rate ? conBrunido : sin) = total(depositOf(paper));
+        }
+        qInfo() << "trazo liviano: diferencia de tono" << std::abs(conBrunido - sin) / sin * 100 << "%";
+        QVERIFY(std::abs(conBrunido - sin) < 0.02 * sin);
+    }
+
+    // Una capa bruñida rechaza grafito: la misma pasada de 6B agrega mucho menos sobre la
+    // capa de 4B bruñida con la 2H que sobre la misma capa sin bruñir. Y el bruñido empareja
+    // el tono (menos variación entre celdas).
+    void capaBrunidaRechazaGrafito()
+    {
+        Paper paper(smallSheet());
+        Medium b4 = Medium::hb().withLeadDiameter(1.02), h2 = Medium::hb().withLeadDiameter(0.70),
+               b6 = Medium::hb().withLeadDiameter(1.45);
+        b4.softness = 50, b4.burnishRate = 1200;
+        h2.softness = 13, h2.ceiling = 25267, h2.burnishRate = 6000;
+        b6.softness = 70, b6.burnishRate = 800;
+        const auto banda = [](double y0) {
+            return [y0](int pasada) {
+                return [y0, pasada](double t) {
+                    return PencilSample{300 + t * 1000, y0 + (pasada % 12) * 6.0, 0.6f, 0.0f, 80.0f};
+                };
+            };
+        };
+        Pencil capa(paper, b4);
+        for (const double y0 : {300.0, 800.0})
+            for (int pasada = 0; pasada < 12; ++pasada)
+                draw(capa, banda(y0)(pasada), 60);
+        const auto variacion = [&](int y0) {
+            const std::vector<uint16_t> d = depositOf(paper);
+            double s = 0, s2 = 0;
+            int n = 0;
+            for (int y = y0 + 20; y < y0 + 50; ++y)
+                for (int x = 500; x < 1100; ++x) {
+                    const double v = d[size_t(y) * size_t(paper.width()) + size_t(x)];
+                    s += v, s2 += v * v, ++n;
+                }
+            const double mean = s / n;
+            return std::sqrt(std::max(0.0, s2 / n - mean * mean)) / mean;
+        };
+        const double granoAntes = variacion(300);
+        qInfo() << "capa de 4B:" << meanDeposit(paper, 500, 1100, 320, 350);
+        Pencil brunidor(paper, h2);
+        for (int pasada = 0; pasada < 24; ++pasada) {
+            const auto fuerte = [pasada](double t) {
+                return PencilSample{300 + t * 1000, 300 + (pasada % 12) * 6.0, 1.0f, 0.0f, 80.0f};
+            };
+            draw(brunidor, fuerte, 60);
+        }
+        const double granoDespues = variacion(300);
+        const double brunidaAntes = meanDeposit(paper, 500, 1100, 320, 350);
+        const double libreAntes = meanDeposit(paper, 500, 1100, 820, 850);
+        Pencil oscura(paper, b6);
+        for (const double y0 : {300.0, 800.0})
+            for (int pasada = 0; pasada < 12; ++pasada)
+                draw(oscura, banda(y0)(pasada), 60);
+        const double sobreBrunida = meanDeposit(paper, 500, 1100, 320, 350) - brunidaAntes;
+        const double sobreLibre = meanDeposit(paper, 500, 1100, 820, 850) - libreAntes;
+        qInfo() << "grano (desvío / media) antes" << granoAntes << "· después de bruñir" << granoDespues;
+        qInfo() << "la 6B agrega: sobre la capa bruñida" << sobreBrunida << "· sin bruñir" << sobreLibre;
+        QVERIFY(granoDespues < granoAntes * 0.8);
+        QVERIFY(sobreBrunida < sobreLibre * 0.5);
     }
 
     void velocidad()

@@ -12,7 +12,7 @@ namespace lienzo {
 Lead Lead::clamped() const
 {
     return {std::clamp(softness, 1, 255), std::clamp(diameter, 30, 200), std::clamp(ceiling, 2000, 65535),
-            std::clamp(halfAngle, 5, 30), std::clamp(minAltitude, 10, 80)};
+            std::clamp(halfAngle, 5, 30), std::clamp(minAltitude, 10, 80), std::clamp(burnish, 0, 20000)};
 }
 
 drymedia::Medium Lead::medium() const
@@ -23,20 +23,22 @@ drymedia::Medium Lead::medium() const
     m.ceiling = uint16_t(l.ceiling);
     m.coneHalfAngleDeg = l.halfAngle;
     m.minTabletAltitudeDeg = l.minAltitude;
+    m.burnishRate = uint16_t(l.burnish);
     return m;
 }
 
 uint64_t Lead::pack() const
 {
     const Lead l = clamped();
-    return uint64_t(l.softness) | uint64_t(l.diameter) << 16 | uint64_t(l.ceiling) << 32 |
-           uint64_t(l.halfAngle) << 48 | uint64_t(l.minAltitude) << 56;
+    // blandura ≤ 255 y diámetro ≤ 200 entran en 8 bits; el bruñido usa los 16 que liberan.
+    return uint64_t(l.softness) | uint64_t(l.diameter) << 8 | uint64_t(l.ceiling) << 16 | uint64_t(l.halfAngle) << 32 |
+           uint64_t(l.minAltitude) << 40 | uint64_t(l.burnish) << 48;
 }
 
 Lead Lead::unpack(uint64_t packed)
 {
-    return {int(packed & 0xffff), int(packed >> 16 & 0xffff), int(packed >> 32 & 0xffff), int(packed >> 48 & 0xff),
-            int(packed >> 56 & 0xff)};
+    return {int(packed & 0xff),       int(packed >> 8 & 0xff),  int(packed >> 16 & 0xffff),
+            int(packed >> 32 & 0xff), int(packed >> 40 & 0xff), int(packed >> 48 & 0xffff)};
 }
 
 Grades factoryGrades()
@@ -44,7 +46,9 @@ Grades factoryGrades()
     // Duras: manda el techo (se quedan en gris). Blandas: manda la blandura (llegan al
     // oscuro con menos presión y menos pasadas). Calibradas con la tableta el 10 de octubre
     // de 2026 (HU-57); B a 4B quedaron con los valores interpolados.
-    return {{
+    // Bruñido (HU-60): de la 2H, que bruñe mucho, a la 6B; a calibrar con la tableta.
+    constexpr std::array<int, kGradeCount> burnish{6000, 5000, 4000, 3000, 2500, 2000, 1500, 1200, 1000, 800};
+    Grades grades{{
         {13, 70, 25267},  // 2H
         {14, 75, 32768},  // H
         {15, 80, 40632},  // F
@@ -56,6 +60,9 @@ Grades factoryGrades()
         {60, 122, 65535}, // 5B
         {70, 145, 65535}, // 6B
     }};
+    for (int g = 0; g < kGradeCount; ++g)
+        grades[size_t(g)].burnish = burnish[size_t(g)];
+    return grades;
 }
 
 Eraser Eraser::clamped() const
@@ -103,6 +110,7 @@ bool mediaFromJson(const QByteArray& json, MediaSet& media, QString* error)
         lead.softness = o.value(QStringLiteral("blandura")).toInt(lead.softness);
         lead.diameter = int(std::lround(o.value(QStringLiteral("diametroMm")).toDouble(lead.diameter / 100.0) * 100));
         lead.ceiling = o.value(QStringLiteral("techo")).toInt(lead.ceiling);
+        lead.burnish = o.value(QStringLiteral("bruñido")).toInt(lead.burnish);
         lead = lead.clamped();
     }
     const QJsonObject goma = doc.object().value(QStringLiteral("goma")).toObject();
@@ -128,7 +136,8 @@ QByteArray mediaToJson(const MediaSet& media)
         leads.append(QJsonObject{{QStringLiteral("nombre"), QLatin1String(kGradeNames[size_t(i)])},
                                  {QStringLiteral("blandura"), l.softness},
                                  {QStringLiteral("diametroMm"), l.diameter / 100.0},
-                                 {QStringLiteral("techo"), l.ceiling}});
+                                 {QStringLiteral("techo"), l.ceiling},
+                                 {QStringLiteral("bruñido"), l.burnish}});
     }
     const QJsonObject root{{QStringLiteral("version"), 1},
                            {QStringLiteral("nota"), QStringLiteral("techo: depósito máximo, de 2000 a 65535 (negro)")},

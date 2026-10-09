@@ -260,10 +260,10 @@ private slots:
             QSKIP("La CPU no tiene AVX2");
         Paper paper({.seed = 11, .widthMm = 60, .heightMm = 60});
         QRandomGenerator rng(1234);
-        // Depósito al azar en algunos tiles, para que la superficie no sea solo relieve.
+        // Depósito y bruñido al azar en algunos tiles, para que la superficie no sea solo relieve.
         for (int t = 0; t < 20; ++t) {
             uint16_t* tile = paper.depositTile(int(rng.bounded(paper.tilesX())), int(rng.bounded(paper.tilesY())));
-            for (int i = 0; i < kTileCells; ++i)
+            for (int i = 0; i < kTileStride; ++i)
                 tile[i] = uint16_t(rng.bounded(65536));
         }
         Contact scalar(Contact::Path::Scalar), avx2(Contact::Path::Avx2);
@@ -288,6 +288,12 @@ private slots:
             scalar.applyErase(k);
             avx2.applyErase(k);
             QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + tip.cells(), avx2.deposit()));
+            // Bruñido (HU-60): depósito emparejado y bruñido, idénticos.
+            const uint16_t kb = uint16_t(rng.bounded(65536));
+            scalar.applyBurnish(kb);
+            avx2.applyBurnish(kb);
+            QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + tip.cells(), avx2.deposit()));
+            QVERIFY(std::equal(scalar.burnish(), scalar.burnish() + tip.cells(), avx2.burnish()));
         }
         // Y con la punta grande de la goma (otro tamaño de huella).
         const Medium goma = Medium::eraser(5.0, 40);

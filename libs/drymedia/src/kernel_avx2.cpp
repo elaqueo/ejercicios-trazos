@@ -3,6 +3,7 @@
 #include "kernel.h"
 
 #include <immintrin.h>
+#include <intrin.h>
 
 namespace drymedia::kernel {
 
@@ -28,14 +29,17 @@ inline __m256i contribution(__m256i p, __m256i kv)
     return _mm256_blendv_epi8(_mm256_set1_epi16(-1), shifted, fits);
 }
 
-void surface(uint16_t* out, const uint16_t* relief, const uint16_t* crest, const uint16_t* deposit, int n,
-             uint16_t base, int shift)
+void surface(uint16_t* out, const uint16_t* relief, const uint16_t* crest, const uint16_t* deposit,
+             const uint16_t* burnish, int n, uint16_t base, int shift)
 {
     const __m256i b = _mm256_set1_epi16(static_cast<short>(base));
+    const __m256i half = _mm256_set1_epi16(static_cast<short>(kHalfGrain >> shift));
     const __m128i sh = _mm_cvtsi32_si128(shift);
     for (int i = 0; i < n; i += 16) {
-        const __m256i r = _mm256_srl_epi16(load(relief + i), sh);
         const __m256i top = _mm256_srl_epi16(load(crest + i), sh);
+        const __m256i level = _mm256_subs_epu16(top, half);
+        __m256i r = _mm256_srl_epi16(load(relief + i), sh);
+        r = _mm256_sub_epi16(r, _mm256_mulhi_epu16(_mm256_subs_epu16(r, level), load(burnish + i)));
         const __m256i fill = _mm256_mulhi_epu16(_mm256_subs_epu16(top, r), load(deposit + i));
         const __m256i s = _mm256_adds_epu16(_mm256_adds_epu16(r, b), fill);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(out + i), s);
@@ -65,35 +69,70 @@ void penetration(uint16_t* out, const uint16_t* surf, const uint16_t* tip, int n
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(out + i), penetrationOf(load(surf + i), load(tip + i), dv));
 }
 
-void deposit(uint16_t* dep, const uint16_t* pen, int n, uint16_t k, uint16_t ceiling)
+void deposit(uint16_t* dep, const uint16_t* burn, const uint16_t* pen, int n, uint16_t k, uint16_t ceiling)
 {
     const __m256i kv = _mm256_set1_epi16(static_cast<short>(k));
     const __m256i top = _mm256_set1_epi16(static_cast<short>(ceiling));
     for (int i = 0; i < n; i += 16) {
         __m256i* dp = reinterpret_cast<__m256i*>(dep + i);
         const __m256i dcur = _mm256_loadu_si256(dp);
-        const __m256i a = contribution(load(pen + i), kv);
+        __m256i a = contribution(load(pen + i), kv);
+        a = _mm256_sub_epi16(a, _mm256_mulhi_epu16(a, load(burn + i)));
         const __m256i delta = _mm256_mulhi_epu16(a, _mm256_subs_epu16(top, dcur)); // (a·sat0(techo−dep)) >> 16
         _mm256_storeu_si256(dp, _mm256_adds_epu16(dcur, delta));
     }
 }
 
-void erase(uint16_t* dep, const uint16_t* pen, int n, uint16_t k)
+void erase(uint16_t* dep, const uint16_t* burn, const uint16_t* pen, int n, uint16_t k)
 {
     const __m256i kv = _mm256_set1_epi16(static_cast<short>(k));
     const __m256i zero = _mm256_setzero_si256(), one = _mm256_set1_epi16(1);
     for (int i = 0; i < n; i += 16) {
         __m256i* dp = reinterpret_cast<__m256i*>(dep + i);
         const __m256i dcur = _mm256_loadu_si256(dp);
-        const __m256i a = contribution(load(pen + i), kv);
+        __m256i a = contribution(load(pen + i), kv);
+        a = _mm256_sub_epi16(a, _mm256_mulhi_epu16(a, _mm256_srli_epi16(load(burn + i), 1)));
         const __m256i touched = _mm256_andnot_si256(_mm256_cmpeq_epi16(a, zero), one); // a > 0 ? 1 : 0
         const __m256i delta = _mm256_adds_epu16(_mm256_mulhi_epu16(a, dcur), touched);
         _mm256_storeu_si256(dp, _mm256_subs_epu16(dcur, delta));
     }
 }
 
+void burnish(uint16_t* dep, uint16_t* burn, const uint16_t* pen, int n, uint16_t kb, uint16_t target)
+{
+    const __m256i kbv = _mm256_set1_epi16(static_cast<short>(kb));
+    const __m256i tv = _mm256_set1_epi16(static_cast<short>(target));
+    for (int i = 0; i < n; i += 16) {
+        const __m256i h = contribution(load(pen + i), kbv);
+        __m256i* dp = reinterpret_cast<__m256i*>(dep + i);
+        __m256i* bp = reinterpret_cast<__m256i*>(burn + i);
+        const __m256i d = _mm256_loadu_si256(dp);
+        _mm256_storeu_si256(bp, _mm256_adds_epu16(_mm256_loadu_si256(bp), _mm256_mulhi_epu16(h, d)));
+        _mm256_storeu_si256(dp, _mm256_add_epi16(d, _mm256_mulhi_epu16(_mm256_subs_epu16(tv, d), h)));
+    }
+}
+
+uint32_t contactDeposit(const uint16_t* dep, const uint16_t* pen, int n, uint32_t* count)
+{
+    const __m256i zero = _mm256_setzero_si256();
+    __m256i acc = zero;
+    uint32_t cells = 0;
+    for (int i = 0; i < n; i += 16) {
+        const __m256i none = _mm256_cmpeq_epi16(load(pen + i), zero);
+        const __m256i d = _mm256_andnot_si256(none, load(dep + i));
+        acc = _mm256_add_epi32(acc, _mm256_unpacklo_epi16(d, zero));
+        acc = _mm256_add_epi32(acc, _mm256_unpackhi_epi16(d, zero));
+        cells += uint32_t(__popcnt(~uint32_t(_mm256_movemask_epi8(none)))) / 2;
+    }
+    __m128i s = _mm_add_epi32(_mm256_castsi256_si128(acc), _mm256_extracti128_si256(acc, 1));
+    s = _mm_add_epi32(s, _mm_shuffle_epi32(s, _MM_SHUFFLE(1, 0, 3, 2)));
+    s = _mm_add_epi32(s, _mm_shuffle_epi32(s, _MM_SHUFFLE(2, 3, 0, 1)));
+    *count = cells;
+    return static_cast<uint32_t>(_mm_cvtsi128_si32(s));
+}
+
 } // namespace
 
-const Impl kAvx2{surface, force, penetration, deposit, erase};
+const Impl kAvx2{surface, force, penetration, deposit, erase, burnish, contactDeposit};
 
 } // namespace drymedia::kernel

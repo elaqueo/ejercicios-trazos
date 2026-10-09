@@ -21,6 +21,7 @@ struct Lead {
     // como el lápiz acostado. En medios.json van una sola vez, en "punta".
     int halfAngle = 12;
     int minAltitude = 30;
+    int burnish = 3000; // bruñido con presión 1 (HU-60), 0..20000; las duras bruñen más
 
     bool operator==(const Lead&) const = default;
     Lead clamped() const;

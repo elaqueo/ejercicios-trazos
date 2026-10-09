@@ -38,6 +38,7 @@ Contact::Contact(Path path)
     , m_relief(size_t(Tip::kTipCells))
     , m_crest(size_t(Tip::kTipCells))
     , m_deposit(size_t(Tip::kTipCells))
+    , m_burnish(size_t(Tip::kTipCells))
     , m_surface(size_t(Tip::kTipCells))
     , m_penetration(size_t(Tip::kTipCells))
 {
@@ -45,13 +46,13 @@ Contact::Contact(Path path)
 
 uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium, int x, int y, float pressure)
 {
-    // 1. Copiar la huella del papel (relieve y depósito) a arreglos contiguos. Fuera de la
+    // 1. Copiar la huella del papel (relieve, depósito y bruñido) a arreglos contiguos. Fuera de la
     //    hoja, superficie 0: ahí la punta nunca toca.
     const int w = tip.width(), h = tip.height();
     const int x0 = x - tip.originX(), y0 = y - tip.originY();
     if (m_cells != tip.cells()) {
         m_cells = tip.cells();
-        for (auto* v : {&m_relief, &m_crest, &m_deposit, &m_surface, &m_penetration})
+        for (auto* v : {&m_relief, &m_crest, &m_deposit, &m_burnish, &m_surface, &m_penetration})
             v->resize(size_t(m_cells));
     }
     bool anyOutside = false;
@@ -60,6 +61,7 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
         uint16_t* relief = m_relief.data() + size_t(r) * w;
         uint16_t* crest = m_crest.data() + size_t(r) * w;
         uint16_t* deposit = m_deposit.data() + size_t(r) * w;
+        uint16_t* burnish = m_burnish.data() + size_t(r) * w;
         int c = 0;
         while (c < w) {
             const int gx = x0 + c;
@@ -67,6 +69,7 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
                 relief[c] = 0;
                 crest[c] = 0;
                 deposit[c] = 0;
+                burnish[c] = 0;
                 anyOutside = true;
                 ++c;
                 continue;
@@ -77,17 +80,22 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
             std::memcpy(relief + c, paper.relief() + at, size_t(run) * 2);
             std::memcpy(crest + c, paper.crest() + at, size_t(run) * 2);
             const uint16_t* tile = paper.findDepositTile(gx / kTileSize, gy / kTileSize);
-            if (tile)
-                std::memcpy(deposit + c, tile + size_t(gy % kTileSize) * kTileSize + size_t(lx), size_t(run) * 2);
-            else
+            if (tile) {
+                const size_t in = size_t(gy % kTileSize) * kTileSize + size_t(lx);
+                std::memcpy(deposit + c, tile + in, size_t(run) * 2);
+                std::memcpy(burnish + c, tile + kTileCells + in, size_t(run) * 2);
+            } else {
                 std::memset(deposit + c, 0, size_t(run) * 2);
+                std::memset(burnish + c, 0, size_t(run) * 2);
+            }
             c += run;
         }
     }
 
     const kernel::Impl& k = impl(m_path);
     const int shift = std::clamp(medium.reliefShift, 0, 15);
-    k.surface(m_surface.data(), m_relief.data(), m_crest.data(), m_deposit.data(), m_cells, kBase, shift);
+    k.surface(m_surface.data(), m_relief.data(), m_crest.data(), m_deposit.data(), m_burnish.data(), m_cells, kBase,
+              shift);
     if (anyOutside) {
         for (int r = 0; r < h; ++r)
             for (int c = 0; c < w; ++c) {
@@ -116,12 +124,24 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
 
 void Contact::applyDeposit(uint16_t k, uint16_t ceiling)
 {
-    impl(m_path).deposit(m_deposit.data(), m_penetration.data(), m_cells, k, ceiling);
+    impl(m_path).deposit(m_deposit.data(), m_burnish.data(), m_penetration.data(), m_cells, k, ceiling);
 }
 
 void Contact::applyErase(uint16_t k)
 {
-    impl(m_path).erase(m_deposit.data(), m_penetration.data(), m_cells, k);
+    impl(m_path).erase(m_deposit.data(), m_burnish.data(), m_penetration.data(), m_cells, k);
+}
+
+void Contact::applyBurnish(uint16_t kb)
+{
+    const kernel::Impl& k = impl(m_path);
+    uint32_t cells = 0;
+    const uint32_t sum = k.contactDeposit(m_deposit.data(), m_penetration.data(), m_cells, &cells);
+    if (cells == 0)
+        return;
+    // Hacia el promedio de las celdas en contacto. Sin el techo de la mina: arrastra grafito
+    // que ya estaba (la 2H bruñe y empareja una capa de 4B más oscura que su techo).
+    k.burnish(m_deposit.data(), m_burnish.data(), m_penetration.data(), m_cells, kb, uint16_t(sum / cells));
 }
 
 int Contact::cellsInContact() const

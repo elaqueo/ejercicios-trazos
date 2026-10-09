@@ -31,6 +31,10 @@ struct Medium {
     // altitud (la máxima inclinación que reporta; la Intuos4 llega a ~30°) el lápiz se toma
     // como acostado, con el costado del cono sobre el papel.
     double coneHalfAngleDeg = 12.0;
+    // Bruñido (HU-60): cuánto aplasta la capa de grafito por celda deslizada (0 = nada), con
+    // presión 1. Va con presión³: un trazo normal casi no bruñe; apretando, sí (la penetración
+    // casi no crece con la presión: crece el área). Las minas duras bruñen más.
+    uint16_t burnishRate = 0;
     double minTabletAltitudeDeg = 30.0;
 
     // HB calibrada con la tableta el 10 de octubre de 2026 (HU-51): mina de 0,87 mm y
@@ -39,6 +43,7 @@ struct Medium {
     {
         Medium m = Medium{}.withLeadDiameter(0.87);
         m.softness = 20;
+        m.burnishRate = 3000; // HU-60, a calibrar con la tableta
         return m;
     }
 

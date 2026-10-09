@@ -17,6 +17,7 @@ class Paper;
 // Aritmética entera de 16 bits con saturación, igual en las dos rutas (AVX2 y escalar):
 //   r = relieve / 2^reliefShift
 //   superficie = sat(r + kBase + (crestas de la zona / 2^reliefShift − r) · depósito / 65536)
+//   (antes, el bruñido aplasta las crestas de r hacia el nivel medio de la zona, HU-60)
 //   (el grafito llena el diente: saturado, la celda queda al nivel de las crestas; antes
 //   sumaba depósito / 16 y una celda saturada subía un diente entero por encima del papel,
 //   así que la mina de costado se apoyaba en ella y no volvía a tocar el resto, HU-59)
@@ -47,6 +48,12 @@ public:
     void applyDeposit(uint16_t k, uint16_t ceiling = 65535);
     // Goma (HU-58): quita del depósito de la huella ∝ penetración × k; llega a 0.
     void applyErase(uint16_t k);
+    // Bruñido (HU-60): crece con la penetración × kb (∝ distancia × presión³ × tasa) donde hay
+    // grafito, y sube el depósito de las celdas en contacto que están por debajo de su
+    // promedio: arrastra grafito a los valles, nunca aclara.
+    // burnish() es el bruñido de la huella (copiado en find(); el llamador lo vuelve a escribir).
+    void applyBurnish(uint16_t kb);
+    const uint16_t* burnish() const { return m_burnish.data(); }
     uint32_t force() const { return m_force; }
     int cellsInContact() const;
 
@@ -55,7 +62,7 @@ public:
 private:
     Path m_path;
     int m_cells = 0; // celdas de la última punta (los arreglos tienen ese tamaño)
-    std::vector<uint16_t> m_relief, m_crest, m_deposit, m_surface, m_penetration;
+    std::vector<uint16_t> m_relief, m_crest, m_deposit, m_burnish, m_surface, m_penetration;
     uint32_t m_force = 0;
 };
 
