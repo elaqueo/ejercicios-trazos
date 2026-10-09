@@ -19,6 +19,8 @@ qt_add_library(ejercicios_core STATIC
     src/exercises/Concentricas.cpp
     src/exercises/Curva.h
     src/exercises/Curva.cpp
+    src/exercises/Parrafo.h
+    src/exercises/Parrafo.cpp
     src/exercises/Radiales.h
     src/exercises/Radiales.cpp
     src/exercises/Recta.h
