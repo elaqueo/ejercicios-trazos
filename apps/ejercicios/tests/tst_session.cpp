@@ -1,3 +1,4 @@
+#include <ExerciseMenu.h>
 #include <ExerciseSession.h>
 #include <exercises/Recta.h>
 
@@ -64,6 +65,39 @@ private slots:
         QCOMPARE(canvas.guideChanges, 2);
         QCOMPARE(session.seed(), seed);
         QCOMPARE(session.current().ideal, ideal);
+    }
+
+    // Elegir otro ejercicio en el menú (HU-11): hoja limpia, semilla nueva, ese ejercicio.
+    void cambiarDeEjercicio()
+    {
+        FakeCanvas canvas;
+        const Recta recta, otra;
+        ExerciseSession session(&canvas, &recta);
+        session.regenerate();
+        const quint32 antes = session.seed();
+        session.setExercise(&otra);
+        QCOMPARE(session.exercise(), &otra);
+        QCOMPARE(canvas.clears, 1);
+        QCOMPARE(canvas.guideChanges, 2);
+        QVERIFY(session.seed() != antes);
+    }
+
+    // El menú: modo mixto arriba, destacado y deshabilitado; los ejercicios por grupo.
+    void contenidoDelMenu()
+    {
+        const Recta recta;
+        const QList<const Exercise*> exercises{&recta};
+        const auto groups = exerciseMenu(exercises);
+        QCOMPARE(groups.size(), 2);
+        QCOMPARE(groups[0].items.size(), 1);
+        QCOMPARE(groups[0].items[0].id, kMixedModeId);
+        QVERIFY(groups[0].items[0].featured);
+        QVERIFY(!groups[0].items[0].enabled);
+        QCOMPARE(groups[1].title, QStringLiteral("Rectas"));
+        QCOMPARE(groups[1].items[0].id, QStringLiteral("recta"));
+        QVERIFY(groups[1].items[0].enabled);
+        QCOMPARE(findExercise(exercises, QStringLiteral("recta")), &recta);
+        QCOMPARE(findExercise(exercises, kMixedModeId), nullptr);
     }
 
     // Regenerar (cambio de área) conserva la semilla y, con la misma área, el ejercicio; no

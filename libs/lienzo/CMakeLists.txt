@@ -28,6 +28,8 @@ qt_add_library(lienzo STATIC
     src/Simulation.cpp
     src/Tone.cpp
 )
+# Imágenes de la interfaz (encabezado del selector de lápices, pedido del usuario).
+qt_add_resources(lienzo lienzo_imagenes PREFIX /lienzo BASE resources FILES resources/grafito.jpg)
 target_include_directories(lienzo PUBLIC include)
 target_link_libraries(lienzo PUBLIC drymedia tabletinput appkit d3d11 d3dcompiler dxgi dwmapi user32 gdi32)
 et_target_defaults(lienzo)

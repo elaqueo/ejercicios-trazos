@@ -4,6 +4,7 @@ qt_add_library(appkit STATIC
     include/appkit/Config.h
     include/appkit/Guides.h
     include/appkit/Log.h
+    include/appkit/MenuOverlay.h
     include/appkit/Paths.h
     include/appkit/ScreenChoice.h
     include/appkit/Shortcuts.h
@@ -13,6 +14,7 @@ qt_add_library(appkit STATIC
     src/Config.cpp
     src/Guides.cpp
     src/Log.cpp
+    src/MenuOverlay.cpp
     src/Paths.cpp
     src/ScreenChoice.cpp
     src/Shortcuts.cpp

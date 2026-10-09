@@ -19,7 +19,7 @@ QImage leadSample(const Lead& lead, QSize size, double pixelsPerCell);
 // Selector de lápices (F5, HU-67): las diez minas con su muestra; la activa resaltada. Es
 // una ventana propia sin borde encima del lienzo nativo (un widget hijo quedaría tapado por
 // la ventana del swapchain, decisión 5 del 9 de octubre). Se elige con clic o el lápiz, o
-// con flechas y Enter; F5 o Esc cierran.
+// con flechas y Enter; F5 o Esc cierran. Arriba lleva la imagen de la colección de grafito.
 class LeadPicker : public QWidget {
 public:
     explicit LeadPicker(QWidget* owner);
@@ -42,10 +42,12 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
 
 private:
+    int headerHeight() const; // la imagen de la colección, al ancho del selector
     int rowAt(QPoint point) const;
     QRect rowRect(int row) const;
     void pick(int row);
 
+    QImage m_header; // encabezado: la colección de grafito (resources/grafito.jpg)
     Grades m_grades{};
     std::array<QImage, kGradeCount> m_samples;
     std::array<std::optional<Lead>, kGradeCount> m_sampleOf; // con qué valores se hizo cada muestra

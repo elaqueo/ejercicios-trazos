@@ -32,6 +32,12 @@ void ExerciseSession::next()
     regenerate();
 }
 
+void ExerciseSession::setExercise(const Exercise* exercise)
+{
+    m_exercise = exercise;
+    next();
+}
+
 void ExerciseSession::repeat()
 {
     m_canvas->clear();

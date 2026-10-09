@@ -10,6 +10,7 @@ class Recta : public Exercise {
 public:
     QString id() const override;
     QString title() const override;
+    QString group() const override;
     QVariantMap defaults() const override;
     Generated generate(const QVariantMap& params, quint32 seed, const SafeZone& zone) const override;
 };

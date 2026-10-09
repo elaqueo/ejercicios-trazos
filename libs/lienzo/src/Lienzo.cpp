@@ -606,6 +606,21 @@ void Lienzo::setGuides(const QPicture& guides)
     d->sim->setGuides(d->guideLayer());
 }
 
+void Lienzo::showOverlay(QWidget* overlay)
+{
+    const QRect sheet = sheetRect();
+    overlay->move(d->shell->mapToGlobal(sheet.center() - QPoint(overlay->width() / 2, overlay->height() / 2)));
+    overlay->show();
+    overlay->raise();
+    overlay->activateWindow();
+    overlay->setFocus();
+}
+
+void Lienzo::focusCanvas()
+{
+    d->focusCanvas();
+}
+
 QRect Lienzo::sheetRect() const
 {
     return {d->mapping.sheetX, d->mapping.sheetY, d->mapping.sheetWidth, d->mapping.sheetHeight};

@@ -17,6 +17,7 @@ public:
     ExerciseSession(ExerciseCanvas* canvas, const Exercise* exercise, QObject* parent = nullptr);
 
     quint32 seed() const { return m_seed; }
+    const Exercise* exercise() const { return m_exercise; }
     const Generated& current() const { return m_current; }
 
     // Siguiente ejercicio: limpia el lienzo y genera con otra semilla.
@@ -24,6 +25,8 @@ public:
     // Repetir (HU-17): limpia el lienzo y vuelve a generar con la misma semilla, para
     // reintentar el mismo caso.
     void repeat();
+    // Cambia de ejercicio (menú, HU-11): hoja limpia y semilla nueva, como next().
+    void setExercise(const Exercise* exercise);
     // Vuelve a generar con la misma semilla para el área útil actual (cuando cambia
     // el área). No toca la tinta.
     void regenerate();

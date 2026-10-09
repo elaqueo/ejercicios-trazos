@@ -18,6 +18,7 @@ class PuntoAlAzar : public Exercise {
 public:
     QString id() const override { return QStringLiteral("punto"); }
     QString title() const override { return QStringLiteral("Un punto"); }
+    QString group() const override { return QStringLiteral("Puntos"); }
     QVariantMap defaults() const override { return {{QStringLiteral("dist"), 0.5}}; }
 
     Generated generate(const QVariantMap& params, quint32 seed, const SafeZone& zone) const override

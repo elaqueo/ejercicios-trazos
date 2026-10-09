@@ -232,6 +232,24 @@ private slots:
         QCOMPARE(elegida, kHbIndex + 2);
     }
 
+    // El selector lleva arriba la imagen de la colección (recurso del lienzo); tocarla no
+    // elige ninguna mina.
+    void selectorConEncabezado()
+    {
+        LeadPicker picker(nullptr);
+        picker.setLeads(factoryGrades(), kHbIndex, 0.2258);
+        const int sinImagen = 44 + kGradeCount * LeadPicker::kRowHeight + 12;
+        QVERIFY2(picker.height() > sinImagen + 100, "no se cargó :/lienzo/grafito.jpg");
+        int elegida = -1;
+        picker.onPick = [&](int i) { elegida = i; };
+        QTest::mouseClick(&picker, Qt::LeftButton, {}, QPoint(LeadPicker::kWidth / 2, 40));
+        QCOMPARE(elegida, -1);
+        // La primera fila queda debajo de la imagen y del título.
+        const int primeraFila = picker.height() - 12 - LeadPicker::kRowHeight * kGradeCount;
+        QTest::mouseClick(&picker, Qt::LeftButton, {}, QPoint(LeadPicker::kWidth / 2, primeraFila + 10));
+        QCOMPARE(elegida, 0);
+    }
+
     // HU-40: la rotación de la vista. Pantalla → imagen deshace imagen → pantalla, el centro
     // no se mueve y 90° lleva la derecha del centro hacia abajo (y hacia abajo: horario).
     void rotacionDeLaVista()

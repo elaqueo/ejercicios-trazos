@@ -75,6 +75,12 @@ public:
     // La hoja cambió de lugar o de tamaño en pantalla (después de calibrar con F9). Lo
     // dibujado se conserva; las guías ya pasadas se vuelven a ubicar solas.
     void setOnSheetChanged(std::function<void()> callback);
+    // Muestra una ventana propia de la app (menú, HU-11) centrada en la hoja, que es lo que
+    // alcanza el lápiz, con el foco del teclado. focusCanvas() devuelve el foco al lienzo
+    // (al cerrarla).
+    void showOverlay(QWidget* overlay);
+    void focusCanvas();
+
     void clear(); // hoja nueva (y, si hay deshacer, sin historial); las guías quedan
 
     // Guías de los ejercicios (HU-64), en coordenadas de la hoja (sheetRect(): el origen es

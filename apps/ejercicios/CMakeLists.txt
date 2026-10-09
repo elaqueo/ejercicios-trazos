@@ -3,6 +3,8 @@
 # main.cpp.
 qt_add_library(ejercicios_core STATIC
     src/ExerciseCanvas.h
+    src/ExerciseMenu.h
+    src/ExerciseMenu.cpp
     src/ExerciseSession.h
     src/ExerciseSession.cpp
     src/exercises/Exercise.h

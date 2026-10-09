@@ -32,6 +32,11 @@ QString Recta::title() const
     return QStringLiteral("Dos puntos → recta");
 }
 
+QString Recta::group() const
+{
+    return QStringLiteral("Rectas");
+}
+
 QVariantMap Recta::defaults() const
 {
     return {{kDistMin, 0.25}, {kDistMax, 0.80}};

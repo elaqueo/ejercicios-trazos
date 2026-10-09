@@ -60,7 +60,15 @@ LeadPicker::LeadPicker(QWidget* owner)
 {
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
-    resize(kWidth, kTitleHeight + kGradeCount * kRowHeight + kPadding);
+    m_header = QImage(QStringLiteral(":/lienzo/grafito.jpg"));
+    resize(kWidth, headerHeight() + kTitleHeight + kGradeCount * kRowHeight + kPadding);
+}
+
+int LeadPicker::headerHeight() const
+{
+    if (m_header.isNull())
+        return 0;
+    return int(std::lround((kWidth - 2) * double(m_header.height()) / m_header.width()));
 }
 
 void LeadPicker::setLeads(const Grades& grades, int active, double pixelsPerCell)
@@ -80,7 +88,7 @@ void LeadPicker::setLeads(const Grades& grades, int active, double pixelsPerCell
 
 QRect LeadPicker::rowRect(int row) const
 {
-    return {kPadding, kTitleHeight + row * kRowHeight, width() - 2 * kPadding, kRowHeight};
+    return {kPadding, headerHeight() + kTitleHeight + row * kRowHeight, width() - 2 * kPadding, kRowHeight};
 }
 
 int LeadPicker::rowAt(QPoint point) const
@@ -109,17 +117,22 @@ void LeadPicker::paintEvent(QPaintEvent*)
     p.fillRect(rect(), theme::kPanel);
     p.setPen(theme::kBorde);
     p.drawRect(rect().adjusted(0, 0, -1, -1));
+    const int top = headerHeight();
+    if (top > 0) {
+        p.setRenderHint(QPainter::SmoothPixmapTransform);
+        p.drawImage(QRect(1, 1, width() - 2, top), m_header);
+    }
 
     QFont title = font();
     title.setPointSizeF(title.pointSizeF() * 1.15);
     title.setBold(true);
     p.setFont(title);
     p.setPen(theme::kTexto);
-    p.drawText(QRect(kPadding + 4, 0, width(), kTitleHeight), Qt::AlignVCenter, QStringLiteral("Lápices"));
+    p.drawText(QRect(kPadding + 4, top, width(), kTitleHeight), Qt::AlignVCenter, QStringLiteral("Lápices"));
     QFont hint = font();
     p.setFont(hint);
     p.setPen(theme::kTextoSecundario);
-    p.drawText(QRect(0, 0, width() - kPadding - 4, kTitleHeight), Qt::AlignVCenter | Qt::AlignRight,
+    p.drawText(QRect(0, top, width() - kPadding - 4, kTitleHeight), Qt::AlignVCenter | Qt::AlignRight,
                QStringLiteral("F5 o Esc cierra"));
 
     QFont name = font();

@@ -58,6 +58,8 @@ public:
     virtual QString id() const = 0;
     // Nombre para la interfaz ("Dos puntos → recta").
     virtual QString title() const = 0;
+    // Grupo del menú ("Rectas"), como en la tabla de ejercicios de docs/alcance-v1.md.
+    virtual QString group() const = 0;
     // Parámetros por defecto; el panel edita y Config guarda este mismo mapa.
     virtual QVariantMap defaults() const = 0;
     // Determinista: misma semilla y mismos parámetros, misma geometría (RNF-08).
