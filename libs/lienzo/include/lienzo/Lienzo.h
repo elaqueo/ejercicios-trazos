@@ -51,12 +51,15 @@ struct LienzoOptions {
 // lápices · 1 a 0 dureza (si gradeKeys) · F3
 // latencia y herramienta · calibración de la mina activa ([ ] blandura, , . diámetro,
 // - = techo) o de la goma con el lápiz dado vuelta ([ ] fuerza, , . diámetro) · Ctrl+S
-// guarda en medios.json · F12 guarda la imagen de pantalla. Opciones de línea de comandos:
+// guarda en medios.json · F9 calibra el área útil · F10 pasa al monitor siguiente (guarda la
+// elección y reinicia la app ahí: el lienzo nativo no cambia de tamaño en caliente) · F12
+// guarda la imagen de pantalla. Opciones de línea de comandos:
 // --grabar (muestras crudas en CSV) y --bench [undo] (30 s de trazos sintéticos).
 class Lienzo {
 public:
     // Crea la ventana nativa dentro de `shell` (ya ubicado en `screen` y visible).
-    Lienzo(Shell& shell, QScreen* screen, const appkit::Config& config, LienzoOptions options = {});
+    // config tiene que vivir más que el lienzo (F9 guarda ahí el área útil y F10 el monitor).
+    Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOptions options = {});
     ~Lienzo();
     Lienzo(const Lienzo&) = delete;
     Lienzo& operator=(const Lienzo&) = delete;
@@ -65,6 +68,9 @@ public:
     void setAppKeys(std::function<void(UINT, bool)> keys);
     // Botón lateral del lápiz (en el hilo de la interfaz).
     void setOnStylusButton(std::function<void()> callback);
+    // La hoja cambió de lugar o de tamaño en pantalla (después de calibrar con F9). Lo
+    // dibujado se conserva; las guías ya pasadas se vuelven a ubicar solas.
+    void setOnSheetChanged(std::function<void()> callback);
     // Devuelve true si la tecla es del lienzo.
     bool handleKey(UINT vk, bool ctrl);
 

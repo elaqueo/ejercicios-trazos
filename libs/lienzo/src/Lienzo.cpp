@@ -10,6 +10,7 @@
 #include "lienzo/Simulation.h"
 #include "lienzo/Timing.h"
 
+#include <appkit/CalibrationOverlay.h>
 #include <appkit/Config.h>
 #include <appkit/Paths.h>
 #include <appkit/ScreenChoice.h>
@@ -25,6 +26,7 @@
 #include <QKeyEvent>
 #include <QPainter>
 #include <QPicture>
+#include <QProcess>
 #include <QSaveFile>
 #include <QScreen>
 
@@ -130,6 +132,12 @@ QScreen* savedScreen(const appkit::Config& config)
 struct Lienzo::Impl {
     LienzoOptions options;
     Shell* shell = nullptr;
+    QScreen* screen = nullptr;
+    appkit::Config* config = nullptr;
+    QPicture guides;                          // las últimas guías (se reubican al calibrar)
+    std::function<void()> onSheetChanged;
+    std::unique_ptr<QWidget> calibrationHost; // F9 (HU-66): ventana propia que cubre el monitor
+    appkit::CalibrationOverlay* calibration = nullptr;
     std::unique_ptr<LeadPicker> picker; // F5 (HU-67)
     std::optional<QRect> area;
     drymedia::Paper paper; // A4 apaisado recortado, 297 × 203 mm
@@ -146,6 +154,103 @@ struct Lienzo::Impl {
     std::FILE* recording = nullptr;
     std::thread bench;
     bool running = false;
+    bool argumentsHandled = false;
+
+    // Hoja = tableta (HU-52): el área útil corresponde a toda la superficie activa, y la hoja
+    // va centrada encima, a escala real. Sin área calibrada, ajustada a la ventana.
+    void computeMapping()
+    {
+        area = appkit::loadUsableArea(*config, appkit::ScreenId::of(screen));
+        mapping = area ? SheetMapping::onTablet(canvas->width(), canvas->height(), area->x(), area->y(), area->width(),
+                                                area->height(), kTabletWidthMm, kTabletHeightMm, paper.spec().widthMm,
+                                                paper.spec().heightMm, paper.width(), paper.height())
+                       : SheetMapping::fit(canvas->width(), canvas->height(), paper.width(), paper.height());
+    }
+
+    // Las guías a una capa del tamaño de la imagen, en el lugar de la hoja.
+    std::vector<uint32_t> guideLayer() const
+    {
+        std::vector<uint32_t> layer;
+        if (guides.isNull())
+            return layer;
+        QImage layerImage(image.width, image.height, QImage::Format_ARGB32_Premultiplied);
+        layerImage.fill(Qt::transparent);
+        QPainter painter(&layerImage);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setClipRect(mapping.sheetX, mapping.sheetY, mapping.sheetWidth, mapping.sheetHeight);
+        painter.translate(mapping.sheetX, mapping.sheetY);
+        painter.drawPicture(0, 0, guides);
+        painter.end();
+        const auto* bits = reinterpret_cast<const uint32_t*>(layerImage.constBits());
+        layer.assign(bits, bits + size_t(layerImage.width()) * size_t(layerImage.height()));
+        return layer;
+    }
+
+    // La simulación usa una copia del mapeo: si cambia la hoja, se arma otra (el papel, con lo
+    // dibujado, queda; el historial de deshacer se pierde).
+    void createSimulation()
+    {
+        sim = std::make_unique<Simulation>(paper, queue, image, mapping);
+        sim->setUndo(options.undo);
+        sim->setTimings(&timings);
+        if (recording)
+            sim->setRecording(recording);
+        applyMedia();
+        sim->setGuides(guideLayer());
+        sim->renderAll();
+    }
+
+    void relayout()
+    {
+        const bool wasRunning = running;
+        if (wasRunning)
+            sim->stop();
+        computeMapping();
+        createSimulation();
+        if (!area)
+            render->setOverlay(true);
+        if (wasRunning)
+            sim->start();
+        qInfo() << "Hoja reubicada en" << mapping.sheetWidth << "x" << mapping.sheetHeight << "px desde"
+                << mapping.sheetX << mapping.sheetY;
+        if (onSheetChanged)
+            onSheetChanged();
+    }
+
+    void startCalibration()
+    {
+        picker->hide();
+        calibrationHost->setGeometry(screen->geometry());
+        calibrationHost->show();
+        calibrationHost->raise();
+        calibrationHost->activateWindow();
+        calibration->start();
+    }
+
+    void finishCalibration(const QRect& rect)
+    {
+        // La ventana de calibración cubre el monitor: el rectángulo ya es relativo a su
+        // esquina, como lo guarda appkit.
+        calibrationHost->hide();
+        appkit::saveUsableArea(*config, appkit::ScreenId::of(screen), rect);
+        qInfo() << "Área útil calibrada en" << appkit::ScreenId::of(screen).describe() << rect;
+        relayout();
+        focusCanvas();
+    }
+
+    // F10: el lienzo nativo no cambia de tamaño en caliente, así que se guarda el monitor
+    // siguiente y la app se reinicia ahí (lo dibujado se pierde, como al cambiar de monitor).
+    void nextScreen()
+    {
+        const QList<QScreen*> screens = QGuiApplication::screens();
+        if (screens.size() < 2)
+            return;
+        QScreen* next = screens[(screens.indexOf(screen) + 1) % screens.size()];
+        config->setValue(QStringLiteral("monitor"), appkit::ScreenId::of(next).toVariant(), appkit::Config::Scope::Common);
+        qInfo() << "Monitor siguiente:" << appkit::ScreenId::of(next).describe() << "· reiniciando";
+        QProcess::startDetached(QCoreApplication::applicationFilePath(), QCoreApplication::arguments().mid(1));
+        QApplication::quit();
+    }
 
     // La mina activa y la goma (con lo calibrado en vivo) pasan a la simulación.
     void applyMedia()
@@ -213,7 +318,7 @@ struct Lienzo::Impl {
     {
         wchar_t text[512];
         const wchar_t* warning =
-            area ? L"" : L"\nSin área calibrada en este monitor: calibrala con F9 en Ejercicios.";
+            area ? L"" : L"\nSin área calibrada en este monitor: calibrala con F9.";
         if (sim->erasing()) {
             const Eraser eraser = sim->eraser();
             const bool unsaved = media.eraserUnsaved;
@@ -232,14 +337,13 @@ struct Lienzo::Impl {
     }
 };
 
-Lienzo::Lienzo(Shell& shell, QScreen* screen, const appkit::Config& config, LienzoOptions options)
+Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOptions options)
     : d(std::make_unique<Impl>())
 {
     d->options = std::move(options);
     d->shell = &shell;
-    // Área útil: la de la familia de apps (sección común de config.json), la misma que se
-    // calibra con F9.
-    d->area = appkit::loadUsableArea(config, appkit::ScreenId::of(screen));
+    d->screen = screen;
+    d->config = &config;
 
     d->media.path = QDir(appkit::familyDataDirectory()).filePath(QStringLiteral("medios.json"));
     d->media.load();
@@ -251,28 +355,27 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, const appkit::Config& config, Lien
     shell.onKey = dispatch;
     d->canvas = std::make_unique<CanvasWindow>(reinterpret_cast<HWND>(shell.winId()), d->queue, dispatch);
 
-    // Hoja = tableta (HU-52): el área útil corresponde a toda la superficie activa, y la hoja
-    // va centrada encima, a escala real. Sin área calibrada, ajustada a la ventana.
-    const drymedia::Paper& paper = d->paper;
-    const auto& area = d->area;
-    d->mapping = area ? SheetMapping::onTablet(d->canvas->width(), d->canvas->height(), area->x(), area->y(),
-                                               area->width(), area->height(), kTabletWidthMm, kTabletHeightMm,
-                                               paper.spec().widthMm, paper.spec().heightMm, paper.width(),
-                                               paper.height())
-                      : SheetMapping::fit(d->canvas->width(), d->canvas->height(), paper.width(), paper.height());
-
+    // Área útil: la de la familia de apps (sección común de config.json), la que se calibra
+    // con F9.
+    d->computeMapping();
     d->image.width = d->canvas->width();
     d->image.height = d->canvas->height();
     d->image.pixels.resize(size_t(d->image.width) * size_t(d->image.height));
-
-    d->sim = std::make_unique<Simulation>(d->paper, d->queue, d->image, d->mapping);
-    d->sim->setUndo(d->options.undo);
-    d->applyMedia();
-    d->sim->renderAll();
+    d->createSimulation();
     d->render = std::make_unique<Renderer>(d->canvas->hwnd(), d->image);
+    d->render->setTimings(&d->timings);
     d->render->setExtraInfo([impl = d.get()] { return impl->overlayText(); });
-    if (!area)
+    if (!d->area)
         d->render->setOverlay(true); // el aviso tiene que verse sin apretar nada
+
+    d->calibrationHost = std::make_unique<QWidget>(&shell, Qt::Tool | Qt::FramelessWindowHint);
+    d->calibration = new appkit::CalibrationOverlay(d->calibrationHost.get());
+    QObject::connect(d->calibration, &appkit::CalibrationOverlay::finished,
+                     [impl = d.get()](const QRect& rect) { impl->finishCalibration(rect); });
+    QObject::connect(d->calibration, &appkit::CalibrationOverlay::cancelled, [impl = d.get()] {
+        impl->calibrationHost->hide();
+        impl->focusCanvas();
+    });
 
     d->picker = std::make_unique<LeadPicker>(&shell);
     d->picker->onPick = [impl = d.get()](int grade) {
@@ -295,9 +398,9 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, const appkit::Config& config, Lien
         }
     });
 
-    qInfo() << "Monitor" << appkit::ScreenId::of(screen).describe() << (area ? "· área útil" : "· SIN área útil")
-            << (area ? *area : QRect());
-    qInfo() << "Hoja" << paper.width() << "x" << paper.height() << "celdas en" << d->mapping.sheetWidth << "x"
+    qInfo() << "Monitor" << appkit::ScreenId::of(screen).describe() << (d->area ? "· área útil" : "· SIN área útil")
+            << (d->area ? *d->area : QRect());
+    qInfo() << "Hoja" << d->paper.width() << "x" << d->paper.height() << "celdas en" << d->mapping.sheetWidth << "x"
             << d->mapping.sheetHeight << "px desde" << d->mapping.sheetX << d->mapping.sheetY << "("
             << d->mapping.pixelsPerCellX << "x" << d->mapping.pixelsPerCellY << "px por celda)";
 }
@@ -310,6 +413,11 @@ Lienzo::~Lienzo()
 void Lienzo::setAppKeys(std::function<void(UINT, bool)> keys)
 {
     d->appKeys = std::move(keys);
+}
+
+void Lienzo::setOnSheetChanged(std::function<void()> callback)
+{
+    d->onSheetChanged = std::move(callback);
 }
 
 void Lienzo::setOnStylusButton(std::function<void()> callback)
@@ -332,6 +440,10 @@ bool Lienzo::handleKey(UINT vk, bool ctrl)
         d->saveScreenImage();
     else if (vk == VK_F5) // selector de lápices (HU-67)
         d->togglePicker();
+    else if (vk == VK_F9) // calibrar el área útil (HU-66)
+        d->startCalibration();
+    else if (vk == VK_F10) // monitor siguiente (HU-66)
+        d->nextScreen();
     else if (ctrl && vk == 'S') {
         if (d->erasing()) {
             media.saved.eraser = media.current.eraser;
@@ -373,8 +485,6 @@ void Lienzo::start()
         return;
     d->running = true;
     const QStringList args = QApplication::arguments();
-    d->sim->setTimings(&d->timings);
-    d->render->setTimings(&d->timings);
     // --grabar: las muestras crudas a <datos>/<nombre>-muestras.csv (diagnóstico; se
     // re-simulan con tst_pencil y DRYMEDIA_REPLAY).
     if (args.contains(QStringLiteral("--grabar"))) {
@@ -428,20 +538,8 @@ void Lienzo::stop()
 
 void Lienzo::setGuides(const QPicture& guides)
 {
-    std::vector<uint32_t> layer;
-    if (!guides.isNull()) {
-        QImage image(d->image.width, d->image.height, QImage::Format_ARGB32_Premultiplied);
-        image.fill(Qt::transparent);
-        QPainter painter(&image);
-        painter.setRenderHint(QPainter::Antialiasing);
-        painter.setClipRect(sheetRect());
-        painter.translate(d->mapping.sheetX, d->mapping.sheetY);
-        painter.drawPicture(0, 0, guides);
-        painter.end();
-        const auto* bits = reinterpret_cast<const uint32_t*>(image.constBits());
-        layer.assign(bits, bits + size_t(image.width()) * size_t(image.height()));
-    }
-    d->sim->setGuides(std::move(layer));
+    d->guides = guides;
+    d->sim->setGuides(d->guideLayer());
 }
 
 QRect Lienzo::sheetRect() const

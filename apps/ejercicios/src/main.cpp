@@ -3,8 +3,8 @@
 // deshacer: un intento por ejercicio (alcance de v1). Los números quedan para la vista,
 // como en el Ejercicios anterior (5 volvía a 0°; 4 y 6, HU-40).
 //   → o el botón lateral del lápiz: siguiente ejercicio · Alt+F4 sale · Ctrl+N borra la hoja
-//   · el resto de las teclas, las del lienzo (lienzo/Lienzo.h): F3, [ ] , . - = calibración,
-//   Ctrl+S, F12
+//   · el resto de las teclas, las del lienzo (lienzo/Lienzo.h): F5 lápices, F9 área útil, F10
+//   monitor, F3, [ ] , . - = calibración, Ctrl+S, F12
 
 #include "ExerciseSession.h"
 #include "exercises/Recta.h"
@@ -60,6 +60,8 @@ int main(int argc, char* argv[])
         if (vk == VK_RIGHT)
             session.next();
     });
+    // Calibrar con F9 mueve la hoja: el mismo ejercicio, adaptado a la hoja nueva.
+    canvas.setOnSheetChanged([&session] { session.regenerate(); });
     // El botón lateral del lápiz hace lo mismo que →, sin soltar el lápiz.
     canvas.setOnStylusButton([&session] { session.next(); });
 

@@ -1,13 +1,14 @@
-#include "CalibrationOverlay.h"
+#include "appkit/CalibrationOverlay.h"
 
 #include "appkit/Theme.h"
 #include "appkit/UsableArea.h"
 
+#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QTabletEvent>
 
-namespace appkit::detail {
+namespace appkit {
 
 CalibrationOverlay::CalibrationOverlay(QWidget* parent)
     : QWidget(parent)
@@ -49,6 +50,14 @@ void CalibrationOverlay::mousePressEvent(QMouseEvent* event)
         addCorner(event->position());
 }
 
+void CalibrationOverlay::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Escape)
+        cancel();
+    else
+        QWidget::keyPressEvent(event);
+}
+
 void CalibrationOverlay::cancel()
 {
     hide();
@@ -88,4 +97,4 @@ void CalibrationOverlay::paintEvent(QPaintEvent*)
     }
 }
 
-} // namespace appkit::detail
+} // namespace appkit

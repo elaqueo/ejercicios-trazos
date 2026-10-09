@@ -78,6 +78,11 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
             PostMessageW(GetAncestor(m_hwnd, GA_ROOT), WM_CLOSE, 0, 0);
             return 0;
         }
+        if (wParam == VK_F10) { // F10 es tecla de sistema (la del menú): llega por acá, no por WM_KEYDOWN
+            if (m_onKey)
+                m_onKey(VK_F10, (GetKeyState(VK_CONTROL) & 0x8000) != 0);
+            return 0;
+        }
         break;
     case WM_SETCURSOR:
         if (LOWORD(lParam) == HTCLIENT) {

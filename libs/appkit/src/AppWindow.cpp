@@ -5,7 +5,7 @@
 #include "appkit/Theme.h"
 #include "appkit/UsableArea.h"
 
-#include "CalibrationOverlay.h"
+#include "appkit/CalibrationOverlay.h"
 
 #include <paintcore/BrushLibrary.h>
 #include <paintcore/BrushSelector.h>
@@ -120,8 +120,8 @@ void AppWindow::setupCanvasColors(Config* config)
 void AppWindow::setupUsableArea(Config* config)
 {
     m_config = config;
-    m_calibration = new detail::CalibrationOverlay(this);
-    connect(m_calibration, &detail::CalibrationOverlay::finished, this, &AppWindow::finishCalibration);
+    m_calibration = new CalibrationOverlay(this);
+    connect(m_calibration, &CalibrationOverlay::finished, this, &AppWindow::finishCalibration);
     auto* calibrate = new QShortcut(QKeySequence(kCalibrateKey), this);
     connect(calibrate, &QShortcut::activated, this, &AppWindow::startCalibration);
     applyUsableArea();

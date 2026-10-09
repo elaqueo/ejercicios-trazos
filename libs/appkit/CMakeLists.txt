@@ -2,6 +2,7 @@
 # Depende de paintcore; nunca al revés.
 qt_add_library(appkit STATIC
     include/appkit/AppWindow.h
+    include/appkit/CalibrationOverlay.h
     include/appkit/Config.h
     include/appkit/Guides.h
     include/appkit/Log.h
@@ -11,7 +12,6 @@ qt_add_library(appkit STATIC
     include/appkit/UsableArea.h
     src/AppWindow.cpp
     src/CalibrationOverlay.cpp
-    src/CalibrationOverlay.h
     src/Config.cpp
     src/Guides.cpp
     src/Log.cpp

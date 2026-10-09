@@ -12,10 +12,8 @@ class CanvasWidget;
 
 namespace appkit {
 
-class Config;
-namespace detail {
 class CalibrationOverlay;
-}
+class Config;
 
 // Ventana principal de una app de la familia, con el lienzo como contenido.
 class AppWindow : public QWidget {
@@ -78,7 +76,7 @@ private:
 
     paintcore::CanvasWidget* m_canvas = nullptr;
     paintcore::BrushSelector* m_brushSelector = nullptr;
-    detail::CalibrationOverlay* m_calibration = nullptr;
+    CalibrationOverlay* m_calibration = nullptr;
     const paintcore::BrushLibrary* m_library = nullptr;
     Config* m_config = nullptr;
 };

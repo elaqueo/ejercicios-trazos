@@ -4,7 +4,7 @@
 //   Alt+F4 sale · Ctrl+N hoja nueva · Z deshace y Ctrl+Y rehace (hasta 100 trazos) ·
 //   1 a 0 eligen la dureza (2H … 6B) · el extremo goma borra · F3 latencia y herramienta ·
 //   [ ] , . - = calibran la mina (o la goma, con el lápiz dado vuelta) · Ctrl+S guarda en
-//   medios.json · F12 guarda la imagen de pantalla
+//   medios.json · F5 lápices · F9 área útil · F10 monitor · F12 guarda la imagen de pantalla
 //   Diagnóstico: --grabar (muestras en <datos>/cartuchera-muestras.csv) · --bench [undo]
 
 #include <appkit/Config.h>
@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
     appkit::installFileLog(QStringLiteral("cartuchera"));
 
     // Monitor y área útil: los de la familia de apps (sección común de config.json), los
-    // mismos que se eligen y calibran en Ejercicios (F10 y F9).
+    // que se eligen y calibran con F10 y F9 (en cualquiera de las apps).
     appkit::Config config(QStringLiteral("cartuchera"));
     QScreen* screen = lienzo::savedScreen(config);
 
