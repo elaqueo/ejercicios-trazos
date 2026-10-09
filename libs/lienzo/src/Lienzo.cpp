@@ -148,7 +148,9 @@ struct Lienzo::Impl {
     appkit::CalibrationOverlay* calibration = nullptr;
     std::unique_ptr<LeadPicker> picker; // F5 (HU-67)
     std::optional<QRect> area;
-    drymedia::Paper paper; // A4 apaisado recortado, 297 × 203 mm
+    // La hoja ocupa todo el mapeo de la tableta (HU-69, pedido del usuario: dibuja sobre una
+    // A3 que cubre la superficie), así que coincide con el área útil calibrada.
+    drymedia::Paper paper{{.widthMm = kTabletWidthMm, .heightMm = kTabletHeightMm}};
     SampleQueue queue;
     MediaFile media;
     appkit::Shortcuts shortcuts;

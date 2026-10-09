@@ -1,5 +1,5 @@
 // Cartuchera: dibujo con medios secos (docs/medios-secos/arquitectura.md). Grafito de
-// 2H a 6B y goma sobre una hoja A4, sin interfaz, en el lienzo de libs/lienzo (teclas
+// 2H a 6B y goma sobre una hoja del tamaño de la tableta, sin interfaz, en el lienzo de libs/lienzo (teclas
 // comunes en lienzo/Lienzo.h).
 //   Alt+F4 sale · Ctrl+N hoja nueva · Z deshace y Ctrl+Y rehace (hasta 100 trazos) ·
 //   1 a 0 eligen la dureza (2H … 6B) · el extremo goma borra · F3 latencia y herramienta ·

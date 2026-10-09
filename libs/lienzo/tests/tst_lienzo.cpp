@@ -218,6 +218,20 @@ private slots:
         QVERIFY(grafitoBlanda > grafitoDura * 1.5);
     }
 
+    // HU-69: con la hoja del tamaño de la tableta, la hoja cubre toda el área útil calibrada.
+    void hojaDelTamanoDeLaTableta()
+    {
+        const drymedia::Paper paper({.widthMm = 325.1, .heightMm = 203.2});
+        const SheetMapping m = SheetMapping::onTablet(2560, 1080, 0, 0, 1734, 1081, 325.1, 203.2, 325.1, 203.2,
+                                                      paper.width(), paper.height());
+        QVERIFY(qAbs(m.sheetX) <= 1);
+        QVERIFY(qAbs(m.sheetY) <= 1);
+        QVERIFY(qAbs(m.sheetWidth - 1734) <= 1);
+        QVERIFY(qAbs(m.sheetHeight - 1081) <= 1);
+        QVERIFY(qAbs(m.cellX(1734) - paper.width()) < 2.0);
+        QVERIFY(qAbs(m.cellY(1081) - paper.height()) < 2.0);
+    }
+
     // Selector: flechas y Enter eligen; Esc cierra sin elegir.
     void selectorConTeclado()
     {

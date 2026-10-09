@@ -45,7 +45,8 @@ struct LienzoOptions {
                                              // números son de la vista, como antes)
 };
 
-// El lienzo de baja latencia (HU-63, nacido en Cartuchera): una hoja de grafito A4 a escala
+// El lienzo de baja latencia (HU-63, nacido en Cartuchera): una hoja de grafito del tamaño de
+// la superficie activa de la tableta (HU-69) a escala
 // real centrada sobre la tableta (hoja = tableta, HU-52), en una ventana nativa con
 // swapchain, con la simulación y el render en hilos propios; minas 2H … 6B y goma de
 // medios.json.
