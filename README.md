@@ -47,6 +47,14 @@ Las apps abren a pantalla completa en el monitor guardado (F10 pasa al siguiente
 
 **Área útil:** F9 la calibra tocando con el lápiz la esquina superior izquierda y la inferior derecha de la superficie activa de la tableta. La hoja se ubica dentro de ese rectángulo, a escala de la tableta. Se guarda por monitor.
 
+## Instalador
+
+```powershell
+pwsh scripts/package.ps1
+```
+
+Compila Release y genera `dist/TrazosSetup-<versión>.exe` con [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`). El instalador es por usuario y no pide administrador: instala en `%LOCALAPPDATA%\Programs\Trazos`, agrega "Ejercicios de trazos" y "Cartuchera" al menú Inicio (y, si se elige, al escritorio) y lleva su desinstalador. Incluye Qt y el runtime de Visual C++ junto a los ejecutables, así corre en una máquina sin nada instalado. Los datos (`%LOCALAPPDATA%\trazos`: calibración, minas, configuración) no son del instalador: quedan al desinstalar y al actualizar. La versión es la de `project()` en `CMakeLists.txt`; el script de Inno Setup está en `installer/trazos.iss`.
+
 ## Pruebas
 
 Qt Test + CTest. Cada biblioteca o app tiene su carpeta `tests/`; un test nuevo se declara con `et_add_qt_test(tst_nombre SOURCES tst_nombre.cpp LIBS <target>)`. Los tests corren con la plataforma `offscreen` (sin abrir ventanas).

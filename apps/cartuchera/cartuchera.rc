@@ -1,0 +1,2 @@
+// Ícono del ejecutable (HU-70): Qt también lo usa para las ventanas (IDI_ICON1).
+IDI_ICON1 ICON "../../assets/icons/cartuchera.ico"

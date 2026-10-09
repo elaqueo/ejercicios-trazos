@@ -2,3 +2,4 @@
 /.vs/
 /.vscode/
 CMakeUserPresets.json
+/dist/

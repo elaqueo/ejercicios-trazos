@@ -48,6 +48,7 @@ et_target_defaults(ejercicios_core)
 
 qt_add_executable(ejercicios WIN32
     src/main.cpp
+    ejercicios.rc
 )
 target_link_libraries(ejercicios PRIVATE ejercicios_core lienzo)
 et_target_defaults(ejercicios)
