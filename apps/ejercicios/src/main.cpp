@@ -4,7 +4,8 @@
 // como en el Ejercicios anterior (5 volvía a 0°; 4 y 6, HU-40).
 //   → o el botón lateral del lápiz: siguiente ejercicio · R repite el mismo (HU-17) · Alt+F4 sale · Ctrl+N borra la hoja
 //   · el resto de las teclas, las del lienzo (lienzo/Lienzo.h): F5 lápices, F9 área útil, F10
-//   monitor, F3, [ ] , . - = calibración, Ctrl+S, F12
+//   monitor, F3, [ ] tamaño, , . blandura, - = techo, Ctrl+S, F12. Todas en el registro
+//   único de atajos (HU-14).
 
 #include "ExerciseSession.h"
 #include "exercises/Recta.h"
@@ -56,12 +57,8 @@ int main(int argc, char* argv[])
     const ejercicios::Recta recta;
     ejercicios::ExerciseSession session(&sheet, &recta);
     session.regenerate();
-    canvas.setAppKeys([&session](UINT vk, bool ctrl) {
-        if (vk == VK_RIGHT)
-            session.next();
-        else if (vk == 'R' && !ctrl)
-            session.repeat();
-    });
+    canvas.shortcuts().add(QStringLiteral("Ejercicio siguiente"), {{VK_RIGHT}}, [&session] { session.next(); });
+    canvas.shortcuts().add(QStringLiteral("Repetir el ejercicio"), {{'R'}}, [&session] { session.repeat(); }); // HU-17
     // Calibrar con F9 mueve la hoja: el mismo ejercicio, adaptado a la hoja nueva.
     canvas.setOnSheetChanged([&session] { session.regenerate(); });
     // El botón lateral del lápiz hace lo mismo que →, sin soltar el lápiz.

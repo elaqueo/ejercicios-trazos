@@ -14,6 +14,7 @@
 #include <appkit/Config.h>
 #include <appkit/Paths.h>
 #include <appkit/ScreenChoice.h>
+#include <appkit/Shortcuts.h>
 #include <appkit/UsableArea.h>
 #include <drymedia/Paper.h>
 
@@ -145,7 +146,7 @@ struct Lienzo::Impl {
     drymedia::Paper paper; // A4 apaisado recortado, 297 × 203 mm
     SampleQueue queue;
     MediaFile media;
-    std::function<void(UINT, bool)> appKeys;
+    appkit::Shortcuts shortcuts;
     std::unique_ptr<CanvasWindow> canvas;
     SheetMapping mapping;
     DisplayImage image;
@@ -361,14 +362,14 @@ struct Lienzo::Impl {
         if (sim->erasing()) {
             const Eraser eraser = sim->eraser();
             const bool unsaved = media.eraserUnsaved;
-            swprintf(text, 512, L"goma%ls   ·   fuerza %d ([ ])   ·   %.1f mm (, .)%ls%ls", unsaved ? L"*" : L"",
+            swprintf(text, 512, L"goma%ls   ·   fuerza %d (, .)   ·   %.1f mm ([ ])%ls%ls", unsaved ? L"*" : L"",
                      eraser.strength, eraser.diameter / 100.0, unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
         } else {
             const Lead lead = sim->lead();
             const bool unsaved = media.leadUnsaved;
             swprintf(text, 512,
-                     options.gradeKeys ? L"mina %hs%ls (F5, 1-0)   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls"
-                                       : L"mina %hs%ls (F5)   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls",
+                     options.gradeKeys ? L"mina %hs%ls (F5, 1-0)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)%ls%ls"
+                                       : L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)%ls%ls",
                      media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
                      int(std::lround(lead.ceiling * 100.0 / 65535)), unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
         }
@@ -387,10 +388,8 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     d->media.path = QDir(appkit::familyDataDirectory()).filePath(QStringLiteral("medios.json"));
     d->media.load();
 
-    const auto dispatch = [this](UINT vk, bool ctrl) {
-        if (!handleKey(vk, ctrl) && d->appKeys)
-            d->appKeys(vk, ctrl);
-    };
+    registerShortcuts();
+    const auto dispatch = [impl = d.get()](UINT vk, bool ctrl) { impl->shortcuts.trigger(vk, ctrl); };
     shell.onKey = dispatch;
     d->canvas = std::make_unique<CanvasWindow>(reinterpret_cast<HWND>(shell.winId()), d->queue, dispatch);
 
@@ -452,9 +451,9 @@ Lienzo::~Lienzo()
     stop();
 }
 
-void Lienzo::setAppKeys(std::function<void(UINT, bool)> keys)
+appkit::Shortcuts& Lienzo::shortcuts()
 {
-    d->appKeys = std::move(keys);
+    return d->shortcuts;
 }
 
 void Lienzo::setOnSheetChanged(std::function<void()> callback)
@@ -467,27 +466,23 @@ void Lienzo::setOnStylusButton(std::function<void()> callback)
     d->canvas->setOnStylusButton(std::move(callback));
 }
 
-bool Lienzo::handleKey(UINT vk, bool ctrl)
+void Lienzo::registerShortcuts()
 {
+    appkit::Shortcuts& keys = d->shortcuts;
+    Impl* impl = d.get();
     MediaFile& media = d->media;
-    if (ctrl && vk == 'N')
-        clear();
-    else if (!ctrl && vk == 'Z' && d->options.undo) // Z sola (pedido del usuario, 10 de octubre)
-        d->sim->requestUndo();
-    else if (ctrl && vk == 'Y' && d->options.undo)
-        d->sim->requestRedo();
-    else if (vk == VK_F3)
-        d->render->toggleOverlay();
-    else if (vk == VK_F12) // diagnóstico: guarda la imagen de pantalla
-        d->saveScreenImage();
-    else if (vk == VK_F5) // selector de lápices (HU-67)
-        d->togglePicker();
-    else if (vk == VK_F9) // calibrar el área útil (HU-66)
-        d->startCalibration();
-    else if (vk == VK_F10) // monitor siguiente (HU-66)
-        d->nextScreen();
-    else if (ctrl && vk == 'S') {
-        if (d->erasing()) {
+    keys.add(QStringLiteral("Hoja nueva"), {{'N', true}}, [this] { clear(); });
+    if (d->options.undo) {
+        keys.add(QStringLiteral("Deshacer"), {{'Z'}}, [impl] { impl->sim->requestUndo(); }); // Z sola (pedido del usuario, 10 de octubre)
+        keys.add(QStringLiteral("Rehacer"), {{'Y', true}}, [impl] { impl->sim->requestRedo(); });
+    }
+    keys.add(QStringLiteral("Latencia y herramienta"), {{VK_F3}}, [impl] { impl->render->toggleOverlay(); });
+    keys.add(QStringLiteral("Selector de lápices"), {{VK_F5}}, [impl] { impl->togglePicker(); }); // HU-67
+    keys.add(QStringLiteral("Calibrar el área útil"), {{VK_F9}}, [impl] { impl->startCalibration(); }); // HU-66
+    keys.add(QStringLiteral("Monitor siguiente"), {{VK_F10}}, [impl] { impl->nextScreen(); }); // HU-66
+    keys.add(QStringLiteral("Imagen de pantalla"), {{VK_F12}}, [impl] { impl->saveScreenImage(); }); // diagnóstico
+    keys.add(QStringLiteral("Guardar el lápiz"), {{'S', true}}, [impl, &media] {
+        if (impl->erasing()) {
             media.saved.eraser = media.current.eraser;
             if (media.write())
                 qInfo() << "Guardada la goma en" << media.path;
@@ -498,28 +493,48 @@ bool Lienzo::handleKey(UINT vk, bool ctrl)
                 qInfo() << "Guardada la" << media.activeName() << "en" << media.path;
         }
         media.updateUnsaved();
-    } else if (!ctrl && !d->options.gradeKeys && (vk == '4' || vk == VK_NUMPAD4)) { // vista: un paso antihorario
-        d->setViewRotation(ViewRotation::snapped(d->viewDegrees) - ViewRotation::kSnapStep);
-    } else if (!ctrl && !d->options.gradeKeys && (vk == '6' || vk == VK_NUMPAD6)) { // un paso horario
-        d->setViewRotation(ViewRotation::snapped(d->viewDegrees) + ViewRotation::kSnapStep);
-    } else if (!ctrl && !d->options.gradeKeys && (vk == '5' || vk == VK_NUMPAD5)) { // vuelve a 0°
-        d->setViewRotation(0);
-    } else if (!ctrl && vk >= '0' && vk <= '9' && d->options.gradeKeys) { // 1 a 0: 2H … 6B
-        media.active = vk == '0' ? kGradeCount - 1 : int(vk - '1');
-        d->applyMedia();
-    } else if (vk == VK_OEM_4 || vk == VK_OEM_6) { // [ y ] blandura o fuerza de la goma, pasos de ~25 %
-        int& value = d->erasing() ? media.current.eraser.strength : media.lead().softness;
-        d->adjust(value, vk == VK_OEM_6, 1.25, 1, 255);
-    } else if (vk == VK_OEM_COMMA || vk == VK_OEM_PERIOD) { // , y . diámetro, pasos de ~15 %
-        if (d->erasing()) // goma: 2 a 8 mm
-            d->adjust(media.current.eraser.diameter, vk == VK_OEM_PERIOD, 1.15, 200, 800);
+    });
+    if (d->options.gradeKeys) { // 1 a 0: 2H … 6B
+        for (int g = 0; g < kGradeCount; ++g) {
+            const unsigned key = g == kGradeCount - 1 ? '0' : unsigned('1' + g);
+            keys.add(QStringLiteral("Dureza %1").arg(QString::fromLatin1(kGradeNames[size_t(g)])), {{key}},
+                     [impl, g] {
+                         impl->media.active = g;
+                         impl->applyMedia();
+                     });
+        }
+    } else { // los números son de la vista (HU-40)
+        keys.add(QStringLiteral("Girar la vista a la izquierda"), {{'4'}, {VK_NUMPAD4}}, [impl] {
+            impl->setViewRotation(ViewRotation::snapped(impl->viewDegrees) - ViewRotation::kSnapStep);
+        });
+        keys.add(QStringLiteral("Girar la vista a la derecha"), {{'6'}, {VK_NUMPAD6}}, [impl] {
+            impl->setViewRotation(ViewRotation::snapped(impl->viewDegrees) + ViewRotation::kSnapStep);
+        });
+        keys.add(QStringLiteral("Vista a 0°"), {{'5'}, {VK_NUMPAD5}}, [impl] { impl->setViewRotation(0); });
+    }
+    // [ y ] tamaño, pasos de ~15 % (pedido del usuario: como el tamaño del pincel).
+    const auto size = [impl, &media](bool up) {
+        if (impl->erasing()) // goma: 2 a 8 mm
+            impl->adjust(media.current.eraser.diameter, up, 1.15, 200, 800);
         else // mina: 0,30 a 2,00 mm (punta de 48 celdas)
-            d->adjust(media.lead().diameter, vk == VK_OEM_PERIOD, 1.15, 30, 200);
-    } else if ((vk == VK_OEM_MINUS || vk == VK_OEM_PLUS) && !d->erasing()) // - y = techo de tono, pasos de ~10 %
-        d->adjust(media.lead().ceiling, vk == VK_OEM_PLUS, 1.1, 2000, 65535);
-    else
-        return false;
-    return true;
+            impl->adjust(media.lead().diameter, up, 1.15, 30, 200);
+    };
+    keys.add(QStringLiteral("Achicar"), {{VK_OEM_4}}, [size] { size(false); });
+    keys.add(QStringLiteral("Agrandar"), {{VK_OEM_6}}, [size] { size(true); });
+    // , y . blandura de la mina o fuerza de la goma, pasos de ~25 %.
+    const auto softness = [impl, &media](bool up) {
+        int& value = impl->erasing() ? media.current.eraser.strength : media.lead().softness;
+        impl->adjust(value, up, 1.25, 1, 255);
+    };
+    keys.add(QStringLiteral("Menos blandura o fuerza"), {{VK_OEM_COMMA}}, [softness] { softness(false); });
+    keys.add(QStringLiteral("Más blandura o fuerza"), {{VK_OEM_PERIOD}}, [softness] { softness(true); });
+    // - y = techo de tono de la mina, pasos de ~10 % (la goma no tiene).
+    const auto ceiling = [impl, &media](bool up) {
+        if (!impl->erasing())
+            impl->adjust(media.lead().ceiling, up, 1.1, 2000, 65535);
+    };
+    keys.add(QStringLiteral("Bajar el techo"), {{VK_OEM_MINUS}}, [ceiling] { ceiling(false); });
+    keys.add(QStringLiteral("Subir el techo"), {{VK_OEM_PLUS}}, [ceiling] { ceiling(true); });
 }
 
 void Lienzo::clear()
@@ -532,6 +547,7 @@ void Lienzo::start()
     if (d->running)
         return;
     d->running = true;
+    d->shortcuts.reportConflicts(d->shell);
     const QStringList args = QApplication::arguments();
     // --grabar: las muestras crudas a <datos>/<nombre>-muestras.csv (diagnóstico; se
     // re-simulan con tst_pencil y DRYMEDIA_REPLAY).

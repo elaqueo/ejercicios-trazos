@@ -8,6 +8,7 @@ qt_add_library(appkit STATIC
     include/appkit/Log.h
     include/appkit/Paths.h
     include/appkit/ScreenChoice.h
+    include/appkit/Shortcuts.h
     include/appkit/Theme.h
     include/appkit/UsableArea.h
     src/AppWindow.cpp
@@ -17,6 +18,7 @@ qt_add_library(appkit STATIC
     src/Log.cpp
     src/Paths.cpp
     src/ScreenChoice.cpp
+    src/Shortcuts.cpp
     src/UsableArea.cpp
 )
 target_include_directories(appkit PUBLIC include)
