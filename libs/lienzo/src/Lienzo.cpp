@@ -219,13 +219,35 @@ struct Lienzo::Impl {
         return {viewDegrees, mapping.sheetX + mapping.sheetWidth / 2.0, mapping.sheetY + mapping.sheetHeight / 2.0};
     }
 
-    void setViewRotation(double degrees)
+    // persist: guarda el giro en config.json (HU-13); el gesto guarda solo al soltar.
+    void setViewRotation(double degrees, bool persist = true)
     {
         viewDegrees = ViewRotation::normalized(degrees);
         const ViewRotation r = rotation();
         sim->setRotation(r);
         if (render)
             render->setRotation(r);
+        if (persist)
+            config->setValue(QStringLiteral("viewRotation"), viewDegrees);
+    }
+
+    // Otra mina activa (F5 o 1 a 0); queda guardada para la próxima vez (HU-13).
+    void setActive(int grade)
+    {
+        media.active = grade;
+        applyMedia();
+        config->setValue(QStringLiteral("lead"), QString::fromLatin1(media.activeName()));
+    }
+
+    // Lo guardado en config.json (HU-13): la mina activa y el giro de la vista. Va antes de
+    // crear la simulación, que los toma.
+    void restoreState()
+    {
+        const QString lead = config->value(QStringLiteral("lead")).toString();
+        for (int g = 0; g < kGradeCount; ++g)
+            if (lead == QLatin1String(kGradeNames[size_t(g)]))
+                media.active = g;
+        viewDegrees = ViewRotation::normalized(config->value(QStringLiteral("viewRotation"), 0.0).toDouble());
     }
 
     double pointerAngle(double x, double y) const
@@ -243,7 +265,7 @@ struct Lienzo::Impl {
         }
         // Gira según el ángulo que recorre la punta alrededor del centro de la hoja, con
         // snap de 15° (como el Ejercicios anterior).
-        setViewRotation(ViewRotation::snapped(gestureStartDegrees + pointerAngle(x, y) - gestureStartPointer));
+        setViewRotation(ViewRotation::snapped(gestureStartDegrees + pointerAngle(x, y) - gestureStartPointer), phase == 2);
         if (phase == 2)
             qInfo() << "Vista rotada" << viewDegrees << "°";
     }
@@ -415,6 +437,7 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
 
     d->media.path = QDir(appkit::familyDataDirectory()).filePath(QStringLiteral("medios.json"));
     d->media.load();
+    d->restoreState();
 
     registerShortcuts();
     const auto dispatch = [impl = d.get()](UINT vk, bool ctrl) { impl->shortcuts.trigger(vk, ctrl); };
@@ -430,6 +453,7 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     d->createSimulation();
     d->render = std::make_unique<Renderer>(d->canvas->hwnd(), d->image);
     d->render->setTimings(&d->timings);
+    d->render->setRotation(d->rotation()); // el giro guardado (HU-13)
     d->render->setExtraInfo([impl = d.get()] { return impl->overlayText(); });
     if (!d->area)
         d->render->setOverlay(true); // el aviso tiene que verse sin apretar nada
@@ -448,8 +472,7 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
 
     d->picker = std::make_unique<LeadPicker>(&shell);
     d->picker->onPick = [impl = d.get()](int grade) {
-        impl->media.active = grade;
-        impl->applyMedia();
+        impl->setActive(grade);
         impl->focusCanvas();
     };
     d->picker->onClose = [impl = d.get()] { impl->focusCanvas(); };
@@ -519,10 +542,7 @@ void Lienzo::registerShortcuts()
         for (int g = 0; g < kGradeCount; ++g) {
             const unsigned key = g == kGradeCount - 1 ? '0' : unsigned('1' + g);
             keys.add(QStringLiteral("Dureza %1").arg(QString::fromLatin1(kGradeNames[size_t(g)])), {{key}},
-                     [impl, g] {
-                         impl->media.active = g;
-                         impl->applyMedia();
-                     });
+                     [impl, g] { impl->setActive(g); });
         }
     } else { // los números son de la vista (HU-40)
         keys.add(QStringLiteral("Girar la vista a la izquierda"), {{'4'}, {VK_NUMPAD4}}, [impl] {

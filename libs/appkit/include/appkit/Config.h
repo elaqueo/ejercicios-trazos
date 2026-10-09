@@ -9,8 +9,8 @@ namespace appkit {
 // Configuración persistente en JSON, compartida por la familia de apps:
 //   { "common": { ... }, "<app>": { ... } }
 // Cada app lee y escribe su sección; "common" es para lo compartido.
-// Versión mínima de HU-06: HU-13 suma el manejo de archivos corruptos y el resto
-// de las claves.
+// Un archivo ausente deja los valores por defecto; uno corrupto (HU-13) también, y antes se
+// copia a <nombre>.corrupto.json para no perder lo que tenía (el próximo guardado lo pisa).
 class Config {
 public:
     enum class Scope { App, Common };
@@ -24,6 +24,8 @@ public:
 
     // Guarda el archivo en el acto (escritura atómica).
     void setValue(const QString& key, const QVariant& value, Scope scope = Scope::App);
+    // Borra la clave (y guarda) si existe.
+    void remove(const QString& key, Scope scope = Scope::App);
 
 private:
     QString sectionName(Scope scope) const;

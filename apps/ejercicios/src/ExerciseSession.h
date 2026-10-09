@@ -26,6 +26,10 @@ public:
     // Configura los parámetros del ejercicio actual (panel, HU-12). Rigen desde el ejercicio
     // siguiente: el actual queda como está y R lo repite igual.
     void setParams(const QVariantMap& values);
+    // Los parámetros configurados de todos los ejercicios, por id (lo que se guarda en
+    // config.json, HU-13), y su carga al arrancar: antes de generar el primer ejercicio.
+    QVariantMap allParams() const;
+    void loadParams(const QVariantMap& all);
     const Generated& current() const { return m_current; }
 
     // Siguiente ejercicio: limpia el lienzo y genera con otra semilla.

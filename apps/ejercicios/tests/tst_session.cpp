@@ -2,6 +2,9 @@
 #include <ExerciseSession.h>
 #include <exercises/Recta.h>
 
+#include <appkit/Config.h>
+
+#include <QTemporaryDir>
 #include <QTest>
 
 using namespace ejercicios;
@@ -129,6 +132,29 @@ private slots:
         const SafeZone zone = SafeZone::withRandomOrientation(QRect(QPoint(0, 0), canvas.size), session.seed());
         QCOMPARE(qRound(session.current().ideal.first().length()), qRound(0.1 * 2 * zone.radius));
         QCOMPARE(session.params(&recta), session.currentParams());
+    }
+
+    // HU-13: los parámetros sobreviven a cerrar y abrir la app (config.json).
+    void parametrosPersisten()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath(QStringLiteral("config.json"));
+        const Recta recta;
+        QVariantMap corto = recta.defaults();
+        corto.insert(QStringLiteral("distMax"), 0.3);
+        {
+            FakeCanvas canvas;
+            ExerciseSession session(&canvas, &recta);
+            session.setParams(corto);
+            appkit::Config config(QStringLiteral("ejercicios"), path);
+            config.setValue(QStringLiteral("params"), session.allParams());
+        }
+        FakeCanvas canvas;
+        ExerciseSession session(&canvas, &recta);
+        appkit::Config config(QStringLiteral("ejercicios"), path);
+        session.loadParams(config.value(QStringLiteral("params")).toMap());
+        QCOMPARE(session.params(&recta).value(QStringLiteral("distMax")).toDouble(), 0.3);
+        QCOMPARE(session.currentParams().value(QStringLiteral("distMax")).toDouble(), 0.3); // ya en el primero
     }
 
     // Regenerar (cambio de área) conserva la semilla y, con la misma área, el ejercicio; no

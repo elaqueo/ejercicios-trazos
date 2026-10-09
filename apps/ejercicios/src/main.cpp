@@ -63,7 +63,12 @@ int main(int argc, char* argv[])
     SheetCanvas sheet(canvas);
     const ejercicios::Recta recta;
     const QList<const ejercicios::Exercise*> exercises{&recta};
-    ejercicios::ExerciseSession session(&sheet, exercises.first());
+    // Lo guardado (HU-13): el último ejercicio elegido y los parámetros de cada uno.
+    config.remove(QStringLiteral("brush")); // del selector de pinceles de libmypaint (HU-68)
+    const ejercicios::Exercise* first =
+        ejercicios::findExercise(exercises, config.value(QStringLiteral("exercise")).toString());
+    ejercicios::ExerciseSession session(&sheet, first ? first : exercises.first());
+    session.loadParams(config.value(QStringLiteral("params")).toMap());
     session.regenerate();
 
     // Menú de ejercicios (HU-11): F4 lo abre y lo cierra; elegir genera ese ejercicio.
@@ -87,7 +92,10 @@ int main(int argc, char* argv[])
     exerciseLayout->addWidget(exerciseTitle);
     exerciseLayout->addWidget(exerciseHint);
     exerciseLayout->addWidget(exerciseForm);
-    exerciseForm->onChanged = [&session](const QVariantMap& values) { session.setParams(values); };
+    exerciseForm->onChanged = [&session, &config](const QVariantMap& values) {
+        session.setParams(values);
+        config.setValue(QStringLiteral("params"), session.allParams());
+    };
     const auto showExerciseParams = [&session, exerciseTitle, exerciseForm] {
         const ejercicios::Exercise* exercise = session.exercise();
         exerciseTitle->setText(exercise->title());
@@ -108,8 +116,10 @@ int main(int argc, char* argv[])
     });
 
     menu.onPick = [&](const QString& id) {
-        if (const ejercicios::Exercise* exercise = ejercicios::findExercise(exercises, id))
+        if (const ejercicios::Exercise* exercise = ejercicios::findExercise(exercises, id)) {
             session.setExercise(exercise);
+            config.setValue(QStringLiteral("exercise"), id);
+        }
         showExerciseParams();
         canvas.focusCanvas();
     };

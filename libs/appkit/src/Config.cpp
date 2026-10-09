@@ -40,6 +40,17 @@ void Config::setValue(const QString& key, const QVariant& value, Scope scope)
     save();
 }
 
+void Config::remove(const QString& key, Scope scope)
+{
+    const QString name = sectionName(scope);
+    QJsonObject section = m_root.value(name).toObject();
+    if (!section.contains(key))
+        return;
+    section.remove(key);
+    m_root.insert(name, section);
+    save();
+}
+
 void Config::load()
 {
     QFile file(m_path);
@@ -52,8 +63,15 @@ void Config::load()
     QJsonParseError error;
     const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
     if (!document.isObject()) {
+        const QFileInfo info(m_path);
+        const QString backup = info.dir().filePath(info.completeBaseName() + QStringLiteral(".corrupto.json"));
+        file.close();
+        QFile::remove(backup);
+        const bool copied = QFile::copy(m_path, backup);
         qCWarning(lcConfig) << "Configuración inválida, se usan los valores por defecto:"
-                            << QDir::toNativeSeparators(m_path) << error.errorString();
+                            << QDir::toNativeSeparators(m_path) << error.errorString()
+                            << (copied ? QStringLiteral("· copia en %1").arg(QDir::toNativeSeparators(backup))
+                                       : QStringLiteral("· no se pudo copiar"));
         return;
     }
     m_root = document.object();

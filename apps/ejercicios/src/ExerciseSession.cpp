@@ -36,6 +36,24 @@ void ExerciseSession::setParams(const QVariantMap& values)
     m_configured.insert(m_exercise->id(), appkit::clampValues(m_exercise->params(), values));
 }
 
+QVariantMap ExerciseSession::allParams() const
+{
+    QVariantMap all;
+    for (auto it = m_configured.cbegin(); it != m_configured.cend(); ++it)
+        all.insert(it.key(), it.value());
+    return all;
+}
+
+void ExerciseSession::loadParams(const QVariantMap& all)
+{
+    // Se guardan tal cual (los de ejercicios que hoy no están se conservan); se recortan al
+    // usarlos, en params().
+    m_configured.clear();
+    for (auto it = all.cbegin(); it != all.cend(); ++it)
+        m_configured.insert(it.key(), it.value().toMap());
+    m_currentParams = params(m_exercise);
+}
+
 void ExerciseSession::next()
 {
     m_seed = newSeed(m_seed);
