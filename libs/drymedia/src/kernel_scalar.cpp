@@ -37,11 +37,11 @@ void penetration(uint16_t* out, const uint16_t* surf, const uint16_t* tip, int n
         out[i] = subSat(surf[i], addSat(tip[i], d));
 }
 
-void deposit(uint16_t* dep, const uint16_t* pen, int n, uint16_t k)
+void deposit(uint16_t* dep, const uint16_t* pen, int n, uint16_t k, uint16_t ceiling)
 {
     for (int i = 0; i < n; ++i) {
         const uint32_t a = std::min<uint32_t>((uint32_t(pen[i]) * k) >> 12, 65535u);
-        const uint32_t delta = (a * (65535u - dep[i])) >> 16;
+        const uint32_t delta = (a * subSat(ceiling, dep[i])) >> 16;
         dep[i] = addSat(dep[i], delta);
     }
 }

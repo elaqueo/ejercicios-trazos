@@ -1,7 +1,8 @@
 // Cartuchera: dibujo con medios secos (docs/medios-secos/arquitectura.md). Fase 1:
 // grafito HB sobre una hoja A4, sin interfaz.
 //   Alt+F4 sale · Ctrl+N hoja nueva · Ctrl+Z deshace y Ctrl+Y rehace (hasta 100 trazos) ·
-//   F3 latencia en vivo · [ y ] blandura · , y . diámetro de la mina (calibración)
+//   F3 latencia en vivo · [ y ] blandura · , y . diámetro de la mina · - y = techo de tono
+//   (calibración)
 
 #include "CanvasWindow.h"
 #include "DisplayImage.h"
@@ -107,6 +108,11 @@ int main(int argc, char* argv[])
             const int d = simulation->leadDiameter();
             const int next = vk == VK_OEM_PERIOD ? int(std::lround(d * 1.15)) : int(std::lround(d / 1.15));
             simulation->setLeadDiameter(std::clamp(next, 30, 200));
+        } else if ((vk == VK_OEM_MINUS || vk == VK_OEM_PLUS) && simulation) { // - y =
+            // Techo de tono: el negro máximo de la mina, en pasos de ~10 %.
+            const int c = simulation->ceiling();
+            const int next = vk == VK_OEM_PLUS ? int(std::lround(c * 1.1)) : int(std::lround(c / 1.1));
+            simulation->setCeiling(std::clamp(next, 2000, 65535));
         }
     };
     shell.onKey = onKey;
@@ -132,8 +138,8 @@ int main(int argc, char* argv[])
     const bool calibrated = area.has_value();
     render.setExtraInfo([&sim, calibrated] {
         wchar_t text[256];
-        swprintf(text, 256, L"blandura HB %d ([ ])   ·   mina %.2f mm (, .)%ls", sim.softness(),
-                 sim.leadDiameter() / 100.0,
+        swprintf(text, 256, L"blandura HB %d ([ ])   ·   mina %.2f mm (, .)   ·   techo %d %% (- =)%ls",
+                 sim.softness(), sim.leadDiameter() / 100.0, int(std::lround(sim.ceiling() * 100.0 / 65535)),
                  calibrated ? L"" : L"\nSin área calibrada en este monitor: calibrala con F9 en Ejercicios.");
         return std::wstring(text);
     });
@@ -167,7 +173,7 @@ int main(int argc, char* argv[])
     sim.stop();
     render.stop();
     qInfo().noquote() << QString::fromStdString(render.summary()) << "· blandura final" << sim.softness() << "· mina"
-                      << sim.leadDiameter() / 100.0 << "mm";
+                      << sim.leadDiameter() / 100.0 << "mm · techo" << sim.ceiling();
     for (const auto& [name, stat] : {std::pair{"sim lote", &timings.simBatch}, {"sim lápiz", &timings.simPencil},
                                      {"sim candado tomado", &timings.simLockHeld}, {"sim deshacer", &timings.simUndo},
                                      {"render toma → Present", &timings.renderLatchToPresent}})

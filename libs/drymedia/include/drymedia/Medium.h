@@ -17,6 +17,8 @@ struct Medium {
     uint32_t forceScale = kReferenceForce; // fuerza buscada con presión 1 (suma de penetraciones)
     uint16_t softness = 20;              // blandura 1..255: depósito por 1/256 de celda deslizada
                                          // (k = distancia × softness, ≤ 65280 por celda)
+    uint16_t ceiling = 65535;            // techo: el depósito máximo (negro) que alcanza esta
+                                         // mina; las duras tienen más arcilla y quedan en gris
 
     // HB calibrada con la tableta el 10 de octubre de 2026 (HU-51): mina de 0,87 mm y
     // blandura 20, mirando el tono, el grano y las pasadas repetidas.

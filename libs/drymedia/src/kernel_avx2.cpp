@@ -50,9 +50,10 @@ void penetration(uint16_t* out, const uint16_t* surf, const uint16_t* tip, int n
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(out + i), penetrationOf(load(surf + i), load(tip + i), dv));
 }
 
-void deposit(uint16_t* dep, const uint16_t* pen, int n, uint16_t k)
+void deposit(uint16_t* dep, const uint16_t* pen, int n, uint16_t k, uint16_t ceiling)
 {
     const __m256i kv = _mm256_set1_epi16(static_cast<short>(k));
+    const __m256i top = _mm256_set1_epi16(static_cast<short>(ceiling));
     const __m256i full = _mm256_set1_epi16(-1); // 65535
     const __m256i limit = _mm256_set1_epi16(4095);
     for (int i = 0; i < n; i += 16) {
@@ -65,7 +66,7 @@ void deposit(uint16_t* dep, const uint16_t* pen, int n, uint16_t k)
         const __m256i shifted = _mm256_or_si256(_mm256_slli_epi16(hi, 4), _mm256_srli_epi16(lo, 12));
         const __m256i fits = _mm256_cmpeq_epi16(_mm256_min_epu16(hi, limit), hi);
         const __m256i a = _mm256_blendv_epi8(full, shifted, fits);
-        const __m256i delta = _mm256_mulhi_epu16(a, _mm256_sub_epi16(full, dcur)); // (a·(65535−dep)) >> 16
+        const __m256i delta = _mm256_mulhi_epu16(a, _mm256_subs_epu16(top, dcur)); // (a·sat0(techo−dep)) >> 16
         _mm256_storeu_si256(dp, _mm256_adds_epu16(dcur, delta));
     }
 }

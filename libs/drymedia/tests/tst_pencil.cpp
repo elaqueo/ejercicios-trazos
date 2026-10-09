@@ -4,6 +4,7 @@
 #include <QElapsedTimer>
 #include <QTest>
 
+#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <numbers>
@@ -143,6 +144,51 @@ private slots:
         }
     }
 
+    // Techo de tono (HU-56): una mina dura no pasa su negro máximo por más que se insista,
+    // pero se acerca a él.
+    void techoNoSeSupera()
+    {
+        Paper paper(smallSheet());
+        Medium hard = Medium::hb();
+        hard.softness = 255;
+        hard.ceiling = 20000;
+        Pencil pencil(paper, hard);
+        for (int pasada = 0; pasada < 10; ++pasada)
+            draw(pencil, lineAt, 40);
+        const std::vector<uint16_t> dep = depositOf(paper);
+        const uint16_t maximo = *std::max_element(dep.begin(), dep.end());
+        qInfo() << "máximo" << maximo;
+        QVERIFY(maximo <= hard.ceiling);
+        QVERIFY(maximo > hard.ceiling * 9 / 10);
+    }
+
+    // Pasar una mina dura sobre grafito más oscuro que su techo no lo aclara, y deja
+    // igual cada celda que ya estaba por encima del techo.
+    void techoNoAclara()
+    {
+        Paper paper(smallSheet());
+        Medium soft = Medium::hb();
+        soft.softness = 255;
+        Pencil blanda(paper, soft);
+        for (int pasada = 0; pasada < 3; ++pasada)
+            draw(blanda, lineAt, 40);
+        const std::vector<uint16_t> antes = depositOf(paper);
+        Medium hard = Medium::hb();
+        hard.ceiling = 15000;
+        Pencil dura(paper, hard);
+        draw(dura, lineAt, 40);
+        const std::vector<uint16_t> despues = depositOf(paper);
+        int arriba = 0;
+        for (size_t i = 0; i < antes.size(); ++i) {
+            QVERIFY(despues[i] >= antes[i]);
+            if (antes[i] >= hard.ceiling) {
+                ++arriba;
+                QCOMPARE(despues[i], antes[i]);
+            }
+        }
+        QVERIFY(arriba > 100); // la prueba tiene sentido: hay celdas por encima del techo
+    }
+
     // Sin desplazamiento no hay deslizamiento: apoyar sin mover no deposita.
     void apoyarSinMoverNoDeposita()
     {
@@ -166,6 +212,15 @@ private slots:
             Pencil pv(avx2, Medium::hb(), Contact::Path::Avx2);
             draw(pv, curveAt, 60);
             QCOMPARE(avx2.hash(), scalar.hash());
+            // Con techo (HU-56), también idénticas.
+            Medium hard = Medium::hb();
+            hard.ceiling = 12000;
+            Paper hs(smallSheet()), hv(smallSheet());
+            Pencil phs(hs, hard, Contact::Path::Scalar), phv(hv, hard, Contact::Path::Avx2);
+            draw(phs, curveAt, 60);
+            draw(phv, curveAt, 60);
+            QCOMPARE(hv.hash(), hs.hash());
+            QVERIFY(hs.hash() != scalar.hash());
         }
         // Medido el 10 de octubre de 2026 (igual en Debug y Release). Si cambia el modelo a
         // propósito, se actualiza acá; si cambia sin querer, este test lo marca.

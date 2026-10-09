@@ -156,6 +156,11 @@ private slots:
             const uint16_t dv = avx2.find(paper, tip, hb, x, y, p);
             QCOMPARE(dv, ds);
             QVERIFY(std::equal(scalar.penetration(), scalar.penetration() + Tip::kTipCells, avx2.penetration()));
+            // Depósito con k y techo al azar (HU-56): también idéntico.
+            const uint16_t k = uint16_t(rng.bounded(65536)), ceiling = uint16_t(rng.bounded(65536));
+            scalar.applyDeposit(k, ceiling);
+            avx2.applyDeposit(k, ceiling);
+            QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + Tip::kTipCells, avx2.deposit()));
         }
     }
 

@@ -133,7 +133,7 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
 {
     const int cx = int(floorDiv(fx, kOne)), cy = int(floorDiv(fy, kOne));
     m_contact.find(m_paper, tip, m_medium, cx, cy, pressure);
-    m_contact.applyDeposit(k);
+    m_contact.applyDeposit(k, m_medium.ceiling);
 
     // Escribir el depósito de vuelta en los tiles, solo en los tramos con contacto (así no
     // se crean tiles donde la punta no tocó).

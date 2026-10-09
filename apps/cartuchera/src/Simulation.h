@@ -49,6 +49,9 @@ public:
     // Diámetro de la mina en centésimas de mm, para calibrar en vivo.
     void setLeadDiameter(int hundredthsMm) { m_diameter = hundredthsMm; }
     int leadDiameter() const { return m_diameter; }
+    // Techo de tono de la mina (HU-56): depósito máximo, 1..65535.
+    void setCeiling(int ceiling) { m_ceiling = ceiling; }
+    int ceiling() const { return m_ceiling; }
 
     // Pinta toda la imagen (hoja y afuera). Llamar antes de start().
     void renderAll();
@@ -72,6 +75,7 @@ private:
     SessionTimings* m_timings = nullptr;
     std::atomic<int> m_softness;
     std::atomic<int> m_diameter;
+    std::atomic<int> m_ceiling;
 };
 
 } // namespace cartuchera

@@ -21,6 +21,7 @@ Simulation::Simulation(drymedia::Paper& paper, SampleQueue& queue, DisplayImage&
     , m_mapping(mapping)
     , m_softness(drymedia::Medium::hb().softness)
     , m_diameter(int(std::lround(drymedia::Medium::hb().leadDiameterMm * 100)))
+    , m_ceiling(drymedia::Medium::hb().ceiling)
 {
 }
 
@@ -61,6 +62,7 @@ void Simulation::run()
     int diameter = m_diameter;
     drymedia::Medium medium = drymedia::Medium::hb().withLeadDiameter(diameter / 100.0);
     medium.softness = uint16_t(m_softness.load());
+    medium.ceiling = uint16_t(m_ceiling.load());
     drymedia::Pencil pencil(m_paper, medium);
     // Deshacer y rehacer (HU-53): el lápiz avisa antes de la primera escritura de cada
     // tile en un trazo, y el historial guarda cómo estaba.
@@ -108,10 +110,11 @@ void Simulation::run()
             history.clear(); // la hoja nueva no se deshace
             renderAll();
         }
-        if (medium.softness != m_softness || diameter != m_diameter) {
+        if (medium.softness != m_softness || diameter != m_diameter || medium.ceiling != m_ceiling) {
             diameter = m_diameter;
             medium = drymedia::Medium::hb().withLeadDiameter(diameter / 100.0);
             medium.softness = uint16_t(std::clamp(m_softness.load(), 1, 255));
+            medium.ceiling = uint16_t(std::clamp(m_ceiling.load(), 1, 65535));
             pencil.setMedium(medium);
         }
 

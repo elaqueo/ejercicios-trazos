@@ -102,9 +102,9 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
     return depth;
 }
 
-void Contact::applyDeposit(uint16_t k)
+void Contact::applyDeposit(uint16_t k, uint16_t ceiling)
 {
-    impl(m_path).deposit(m_deposit.data(), m_penetration.data(), Tip::kTipCells, k);
+    impl(m_path).deposit(m_deposit.data(), m_penetration.data(), Tip::kTipCells, k, ceiling);
 }
 
 int Contact::cellsInContact() const
