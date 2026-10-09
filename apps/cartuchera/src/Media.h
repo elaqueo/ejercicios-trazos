@@ -37,10 +37,29 @@ using Grades = std::array<Lead, kGradeCount>;
 // Valores de fábrica: punto de partida para calibrar. La HB es la calibrada en HU-51.
 Grades factoryGrades();
 
+// La goma (HU-58), calibrable como las minas.
+struct Eraser {
+    int strength = 20;  // fuerza (cuánto quita por distancia), 1..255
+    int diameter = 500; // diámetro en centésimas de mm, 200..800
+
+    bool operator==(const Eraser&) const = default;
+    Eraser clamped() const;
+    drymedia::Medium medium() const;
+    uint64_t pack() const;
+    static Eraser unpack(uint64_t packed);
+};
+
+// Todo lo que guarda medios.json.
+struct MediaSet {
+    Grades grades = factoryGrades();
+    Eraser eraser;
+    bool operator==(const MediaSet&) const = default;
+};
+
 // medios.json. Lo que falte en el archivo queda con el valor de fábrica y los valores
 // fuera de rango se recortan. Si el archivo no es JSON válido devuelve false, deja
-// `grades` sin tocar y describe el problema en `error`.
-bool gradesFromJson(const QByteArray& json, Grades& grades, QString* error = nullptr);
-QByteArray gradesToJson(const Grades& grades);
+// `media` sin tocar y describe el problema en `error`.
+bool mediaFromJson(const QByteArray& json, MediaSet& media, QString* error = nullptr);
+QByteArray mediaToJson(const MediaSet& media);
 
 } // namespace cartuchera

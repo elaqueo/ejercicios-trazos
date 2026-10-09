@@ -281,6 +281,55 @@ private slots:
         out.write(pgm);
     }
 
+    // Goma (HU-58): una pasada suave limpia sobre todo las crestas y deja casi todo el
+    // trazo (lo que quita ∝ presión: el usuario la encontró demasiado fuerte apoyada
+    // suave); pasadas fuertes dejan la hoja completamente limpia (decisión del usuario).
+    void gomaSuaveDejaFantasma()
+    {
+        Paper paper(smallSheet());
+        Medium soft = Medium::hb();
+        soft.softness = 120;
+        Pencil pencil(paper, soft);
+        for (int pasada = 0; pasada < 3; ++pasada)
+            draw(pencil, lineAt, 40);
+        const double antes = total(depositOf(paper));
+        Pencil goma(paper, Medium::eraser(5.0, 20));
+        const auto suave = [](double t) { PencilSample s = lineAt(t); s.pressure = 0.15f; return s; };
+        draw(goma, suave, 40);
+        const double despues = total(depositOf(paper));
+        qInfo() << "goma suave: queda" << despues / antes * 100 << "%";
+        QVERIFY(despues < antes * 0.97);
+        QVERIFY(despues > antes * 0.6);
+    }
+
+    void gomaFuerteLimpia()
+    {
+        Paper paper(smallSheet());
+        Medium soft = Medium::hb();
+        soft.softness = 120;
+        Pencil pencil(paper, soft);
+        for (int pasada = 0; pasada < 3; ++pasada)
+            draw(pencil, lineAt, 40);
+        Pencil goma(paper, Medium::eraser(5.0, 255));
+        const auto fuerte = [](double t) { PencilSample s = lineAt(t); s.pressure = 1.0f; return s; };
+        int pasadas = 0;
+        while (total(depositOf(paper)) > 0 && pasadas < 30) {
+            draw(goma, fuerte, 40);
+            ++pasadas;
+        }
+        qInfo() << "goma fuerte: hoja limpia en" << pasadas << "pasadas";
+        QCOMPARE(total(depositOf(paper)), 0.0);
+    }
+
+    // Borrar donde no hay grafito no crea tiles (ni memoria ni entradas en el historial).
+    void gomaEnBlancoNoCreaTiles()
+    {
+        Paper paper(smallSheet());
+        Pencil goma(paper, Medium::eraser(5.0, 40));
+        draw(goma, lineAt, 40);
+        QCOMPARE(paper.tileCount(), size_t(0));
+    }
+
     // Sin desplazamiento no hay deslizamiento: apoyar sin mover no deposita.
     void apoyarSinMoverNoDeposita()
     {
@@ -340,6 +389,18 @@ private slots:
         const double ms = double(timer.nsecsElapsed()) / 1e6 / samples;
         qInfo() << "garabato:" << ms << "ms por muestra ·" << double(pencil.substeps()) / samples << "subpasos por muestra"
                 << (pencil.path() == Contact::Path::Avx2 ? "(AVX2)" : "(escalar)");
+
+        // La goma de 5 mm con el mismo garabato, sobre lo que dejó el lápiz.
+        Pencil goma(paper, Medium::eraser(5.0, 40));
+        goma.beginStroke({1000, 1000, 0.6f, 0, 70});
+        timer.restart();
+        for (int i = 1; i <= samples; ++i) {
+            const double a = i * 0.08;
+            goma.strokeTo({3500 + 2000 * std::sin(a * 0.37), 2400 + 1500 * std::sin(a * 0.53 + 1), 0.6f, 0, 90});
+        }
+        goma.endStroke();
+        qInfo() << "goma:" << double(timer.nsecsElapsed()) / 1e6 / samples << "ms por muestra ·"
+                << double(goma.substeps()) / samples << "subpasos por muestra";
     }
 };
 

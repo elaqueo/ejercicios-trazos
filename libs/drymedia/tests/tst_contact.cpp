@@ -5,6 +5,9 @@
 #include <QRandomGenerator>
 #include <QTest>
 
+#include <cmath>
+#include <numbers>
+
 using namespace drymedia;
 
 namespace {
@@ -161,7 +164,40 @@ private slots:
             scalar.applyDeposit(k, ceiling);
             avx2.applyDeposit(k, ceiling);
             QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + Tip::kTipCells, avx2.deposit()));
+            // Goma (HU-58): también idéntica.
+            scalar.applyErase(k);
+            avx2.applyErase(k);
+            QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + Tip::kTipCells, avx2.deposit()));
         }
+        // Y con la punta grande de la goma (otro tamaño de huella).
+        const Medium goma = Medium::eraser(5.0, 40);
+        const Tip tip = Tip::make(goma, 0, 90);
+        for (int i = 0; i < 50; ++i) {
+            const int x = int(rng.bounded(paper.width())), y = int(rng.bounded(paper.height()));
+            const float p = float(rng.bounded(1.0));
+            QCOMPARE(avx2.find(paper, tip, goma, x, y, p), scalar.find(paper, tip, goma, x, y, p));
+            const uint16_t k = uint16_t(rng.bounded(65536));
+            scalar.applyErase(k);
+            avx2.applyErase(k);
+            QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + tip.cells(), avx2.deposit()));
+        }
+    }
+
+    // La goma (HU-58): mapa más grande que el de las minas, múltiplo de 4, con la cara
+    // plana (altura 0 en todo el centro) y redonda.
+    void puntaDeGoma()
+    {
+        const Tip tip = Tip::make(Medium::eraser(5.0, 40), 37, 45);
+        QCOMPARE(tip.size() % 4, 0);
+        QVERIFY(tip.size() >= int(5.0 * kCellsPerMm));
+        const int c = tip.center();
+        const int flatRadius = int((2.5 - 0.3) * kCellsPerMm) - 1;
+        QCOMPARE(tip.heights()[size_t(c) * size_t(tip.size()) + size_t(c)], uint16_t(0));
+        QCOMPARE(tip.heights()[size_t(c) * size_t(tip.size()) + size_t(c + flatRadius)], uint16_t(0));
+        QCOMPARE(tip.heights()[size_t(c + flatRadius) * size_t(tip.size()) + size_t(c)], uint16_t(0));
+        QCOMPARE(tip.heights()[0], Tip::kNoContact); // esquina: fuera de la goma
+        const double area = std::numbers::pi * std::pow(2.5 * kCellsPerMm, 2);
+        QVERIFY(std::abs(tip.cellsInside() - area) < area * 0.02);
     }
 
     void noModificaElPapel()

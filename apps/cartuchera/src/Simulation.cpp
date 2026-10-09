@@ -20,6 +20,7 @@ Simulation::Simulation(drymedia::Paper& paper, SampleQueue& queue, DisplayImage&
     , m_image(image)
     , m_mapping(mapping)
     , m_lead(factoryGrades()[kHbIndex].pack())
+    , m_eraser(Eraser{}.pack())
 {
 }
 
@@ -57,20 +58,26 @@ void Simulation::renderAll()
 void Simulation::run()
 {
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-    uint64_t lead = m_lead;
+    uint64_t lead = m_lead, eraserParams = m_eraser;
     drymedia::Pencil pencil(m_paper, Lead::unpack(lead).medium());
-    // Deshacer y rehacer (HU-53): el lápiz avisa antes de la primera escritura de cada
-    // tile en un trazo, y el historial guarda cómo estaba.
+    drymedia::Pencil eraser(m_paper, Eraser::unpack(eraserParams).medium()); // goma (HU-58)
+    // Deshacer y rehacer (HU-53): el lápiz y la goma avisan antes de la primera escritura
+    // de cada tile en un trazo, y el historial guarda cómo estaba.
     drymedia::History history(kUndoLimit);
-    pencil.setTileObserver([&history](int tile, const uint16_t* before) { history.beforeTileWrite(tile, before); });
-    const auto beginStroke = [&](const drymedia::PencilSample& p) {
+    const auto observer = [&history](int tile, const uint16_t* before) { history.beforeTileWrite(tile, before); };
+    pencil.setTileObserver(observer);
+    eraser.setTileObserver(observer);
+    drymedia::Pencil* active = nullptr; // herramienta del trazo en curso
+    const auto beginStroke = [&](drymedia::Pencil& tool, const drymedia::PencilSample& p) {
         history.beginStroke();
-        pencil.beginStroke(p);
+        tool.beginStroke(p);
+        active = &tool;
     };
     const auto endStroke = [&] {
-        if (!pencil.inStroke())
+        if (!active)
             return;
-        pencil.endStroke();
+        active->endStroke();
+        active = nullptr;
         history.endStroke(m_paper);
     };
     // Vuelve a pintar el tono de los tiles que cambió el deshacer o el rehacer. El
@@ -110,6 +117,11 @@ void Simulation::run()
             endStroke(); // cada trazo con una sola mina: se deshace con la que lo hizo
             pencil.setMedium(Lead::unpack(lead).medium());
         }
+        if (eraserParams != m_eraser) {
+            eraserParams = m_eraser;
+            endStroke();
+            eraser.setMedium(Eraser::unpack(eraserParams).medium());
+        }
 
         m_queue.takeAll(samples);
         const Stopwatch batch;
@@ -126,16 +138,16 @@ void Simulation::run()
                              static_cast<long long>(s.timeUs), s.x, s.y, p.x, p.y, s.pressure, s.azimuth, s.altitude,
                              int(s.inContact), int(s.eraser), l.softness, l.diameter, l.ceiling);
             }
-            if (s.eraser) {
-                endStroke(); // la goma llega en la Fase 2
-                continue;
-            }
+            m_erasing = s.eraser;
+            drymedia::Pencil& tool = s.eraser ? eraser : pencil;
             if (s.inContact) {
                 newest = s.timeUs;
-                if (!pencil.inStroke())
-                    beginStroke(p);
-                else
-                    dirty.unite(pencil.strokeTo(p));
+                if (active != &tool) {
+                    endStroke(); // dar vuelta el lápiz sin levantarlo: otro trazo
+                    beginStroke(tool, p);
+                } else {
+                    dirty.unite(tool.strokeTo(p));
+                }
             } else {
                 endStroke();
             }

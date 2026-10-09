@@ -9,7 +9,8 @@
 namespace drymedia::kernel {
 
 struct Impl {
-    void (*surface)(uint16_t* out, const uint16_t* relief, const uint16_t* deposit, int n, uint16_t base);
+    // superficie = sat(relieve >> shift + base + depósito >> 4)
+    void (*surface)(uint16_t* out, const uint16_t* relief, const uint16_t* deposit, int n, uint16_t base, int shift);
     uint32_t (*force)(const uint16_t* surface, const uint16_t* tip, int n, uint16_t d);
     void (*penetration)(uint16_t* out, const uint16_t* surface, const uint16_t* tip, int n, uint16_t d);
     // aporte a = min((p · k) >> 12, 65535); delta = (a · sat0(techo − depósito)) >> 16;
@@ -17,6 +18,10 @@ struct Impl {
     // llegaba al tono de una HB; calibración del 10 de octubre en HU-51.) El depósito nunca
     // pasa el techo, y si ya está por encima (de una mina más blanda) no cambia.
     void (*deposit)(uint16_t* deposit, const uint16_t* penetration, int n, uint16_t k, uint16_t ceiling);
+    // Goma (HU-58): con el mismo aporte a, delta = ((a · depósito) >> 16) + (a > 0 ? 1 : 0);
+    // depósito = sat0(depósito − delta). El +1 hace que llegue a 0 (hoja limpia) en vez de
+    // quedarse en un resto que la proporción redondea a cero.
+    void (*erase)(uint16_t* deposit, const uint16_t* penetration, int n, uint16_t k);
 };
 
 extern const Impl kScalar;

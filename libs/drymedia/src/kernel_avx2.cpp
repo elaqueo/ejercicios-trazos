@@ -18,11 +18,23 @@ inline __m256i penetrationOf(__m256i surf, __m256i tip, __m256i d)
     return _mm256_subs_epu16(surf, _mm256_adds_epu16(tip, d));
 }
 
-void surface(uint16_t* out, const uint16_t* relief, const uint16_t* deposit, int n, uint16_t base)
+// a = min((p·k) >> 12, 65535): el producto de 32 bits armado con su mitad alta (mulhi) y
+// baja (mullo); si la alta pasa de 4095, el resultado no entra en 16 bits.
+inline __m256i contribution(__m256i p, __m256i kv)
+{
+    const __m256i hi = _mm256_mulhi_epu16(p, kv), lo = _mm256_mullo_epi16(p, kv);
+    const __m256i shifted = _mm256_or_si256(_mm256_slli_epi16(hi, 4), _mm256_srli_epi16(lo, 12));
+    const __m256i fits = _mm256_cmpeq_epi16(_mm256_min_epu16(hi, _mm256_set1_epi16(4095)), hi);
+    return _mm256_blendv_epi8(_mm256_set1_epi16(-1), shifted, fits);
+}
+
+void surface(uint16_t* out, const uint16_t* relief, const uint16_t* deposit, int n, uint16_t base, int shift)
 {
     const __m256i b = _mm256_set1_epi16(static_cast<short>(base));
+    const __m128i sh = _mm_cvtsi32_si128(shift);
     for (int i = 0; i < n; i += 16) {
-        const __m256i s = _mm256_adds_epu16(_mm256_adds_epu16(load(relief + i), b), _mm256_srli_epi16(load(deposit + i), 4));
+        const __m256i r = _mm256_srl_epi16(load(relief + i), sh);
+        const __m256i s = _mm256_adds_epu16(_mm256_adds_epu16(r, b), _mm256_srli_epi16(load(deposit + i), 4));
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(out + i), s);
     }
 }
@@ -54,25 +66,31 @@ void deposit(uint16_t* dep, const uint16_t* pen, int n, uint16_t k, uint16_t cei
 {
     const __m256i kv = _mm256_set1_epi16(static_cast<short>(k));
     const __m256i top = _mm256_set1_epi16(static_cast<short>(ceiling));
-    const __m256i full = _mm256_set1_epi16(-1); // 65535
-    const __m256i limit = _mm256_set1_epi16(4095);
     for (int i = 0; i < n; i += 16) {
         __m256i* dp = reinterpret_cast<__m256i*>(dep + i);
         const __m256i dcur = _mm256_loadu_si256(dp);
-        // a = min((p·k) >> 12, 65535): el producto de 32 bits armado con su mitad alta
-        // (mulhi) y baja (mullo); si la alta pasa de 4095, el resultado no entra en 16 bits.
-        const __m256i p = load(pen + i);
-        const __m256i hi = _mm256_mulhi_epu16(p, kv), lo = _mm256_mullo_epi16(p, kv);
-        const __m256i shifted = _mm256_or_si256(_mm256_slli_epi16(hi, 4), _mm256_srli_epi16(lo, 12));
-        const __m256i fits = _mm256_cmpeq_epi16(_mm256_min_epu16(hi, limit), hi);
-        const __m256i a = _mm256_blendv_epi8(full, shifted, fits);
+        const __m256i a = contribution(load(pen + i), kv);
         const __m256i delta = _mm256_mulhi_epu16(a, _mm256_subs_epu16(top, dcur)); // (a·sat0(techo−dep)) >> 16
         _mm256_storeu_si256(dp, _mm256_adds_epu16(dcur, delta));
     }
 }
 
+void erase(uint16_t* dep, const uint16_t* pen, int n, uint16_t k)
+{
+    const __m256i kv = _mm256_set1_epi16(static_cast<short>(k));
+    const __m256i zero = _mm256_setzero_si256(), one = _mm256_set1_epi16(1);
+    for (int i = 0; i < n; i += 16) {
+        __m256i* dp = reinterpret_cast<__m256i*>(dep + i);
+        const __m256i dcur = _mm256_loadu_si256(dp);
+        const __m256i a = contribution(load(pen + i), kv);
+        const __m256i touched = _mm256_andnot_si256(_mm256_cmpeq_epi16(a, zero), one); // a > 0 ? 1 : 0
+        const __m256i delta = _mm256_adds_epu16(_mm256_mulhi_epu16(a, dcur), touched);
+        _mm256_storeu_si256(dp, _mm256_subs_epu16(dcur, delta));
+    }
+}
+
 } // namespace
 
-const Impl kAvx2{surface, force, penetration, deposit};
+const Impl kAvx2{surface, force, penetration, deposit, erase};
 
 } // namespace drymedia::kernel

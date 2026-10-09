@@ -53,7 +53,29 @@ Grades factoryGrades()
     }};
 }
 
-bool gradesFromJson(const QByteArray& json, Grades& grades, QString* error)
+Eraser Eraser::clamped() const
+{
+    return {std::clamp(strength, 1, 255), std::clamp(diameter, 200, 800)};
+}
+
+drymedia::Medium Eraser::medium() const
+{
+    const Eraser e = clamped();
+    return drymedia::Medium::eraser(e.diameter / 100.0, uint16_t(e.strength));
+}
+
+uint64_t Eraser::pack() const
+{
+    const Eraser e = clamped();
+    return uint64_t(e.strength) | uint64_t(e.diameter) << 16;
+}
+
+Eraser Eraser::unpack(uint64_t packed)
+{
+    return {int(packed & 0xffff), int(packed >> 16 & 0xffff)};
+}
+
+bool mediaFromJson(const QByteArray& json, MediaSet& media, QString* error)
 {
     QJsonParseError parseError;
     const QJsonDocument doc = QJsonDocument::fromJson(json, &parseError);
@@ -63,7 +85,7 @@ bool gradesFromJson(const QByteArray& json, Grades& grades, QString* error)
                                                                   : QStringLiteral("no es un objeto JSON");
         return false;
     }
-    Grades result = factoryGrades();
+    MediaSet result;
     const QJsonArray leads = doc.object().value(QStringLiteral("minas")).toArray();
     for (const QJsonValue& value : leads) {
         const QJsonObject o = value.toObject();
@@ -72,21 +94,26 @@ bool gradesFromJson(const QByteArray& json, Grades& grades, QString* error)
                                      [&](const char* n) { return name == QLatin1String(n); });
         if (it == kGradeNames.end())
             continue; // dureza desconocida: se ignora
-        Lead& lead = result[size_t(it - kGradeNames.begin())];
+        Lead& lead = result.grades[size_t(it - kGradeNames.begin())];
         lead.softness = o.value(QStringLiteral("blandura")).toInt(lead.softness);
         lead.diameter = int(std::lround(o.value(QStringLiteral("diametroMm")).toDouble(lead.diameter / 100.0) * 100));
         lead.ceiling = o.value(QStringLiteral("techo")).toInt(lead.ceiling);
         lead = lead.clamped();
     }
-    grades = result;
+    const QJsonObject goma = doc.object().value(QStringLiteral("goma")).toObject();
+    result.eraser.strength = goma.value(QStringLiteral("fuerza")).toInt(result.eraser.strength);
+    result.eraser.diameter =
+        int(std::lround(goma.value(QStringLiteral("diametroMm")).toDouble(result.eraser.diameter / 100.0) * 100));
+    result.eraser = result.eraser.clamped();
+    media = result;
     return true;
 }
 
-QByteArray gradesToJson(const Grades& grades)
+QByteArray mediaToJson(const MediaSet& media)
 {
     QJsonArray leads;
     for (int i = 0; i < kGradeCount; ++i) {
-        const Lead& l = grades[size_t(i)];
+        const Lead& l = media.grades[size_t(i)];
         leads.append(QJsonObject{{QStringLiteral("nombre"), QLatin1String(kGradeNames[size_t(i)])},
                                  {QStringLiteral("blandura"), l.softness},
                                  {QStringLiteral("diametroMm"), l.diameter / 100.0},
@@ -94,7 +121,9 @@ QByteArray gradesToJson(const Grades& grades)
     }
     const QJsonObject root{{QStringLiteral("version"), 1},
                            {QStringLiteral("nota"), QStringLiteral("techo: depósito máximo, de 2000 a 65535 (negro)")},
-                           {QStringLiteral("minas"), leads}};
+                           {QStringLiteral("minas"), leads},
+                           {QStringLiteral("goma"), QJsonObject{{QStringLiteral("fuerza"), media.eraser.strength},
+                                                                {QStringLiteral("diametroMm"), media.eraser.diameter / 100.0}}}};
     return QJsonDocument(root).toJson(QJsonDocument::Indented);
 }
 

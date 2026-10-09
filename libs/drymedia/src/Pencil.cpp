@@ -65,7 +65,9 @@ Pencil::FixedSample Pencil::toFixed(const PencilSample& s)
 const Tip& Pencil::tipFor(float azimuth, float altitude)
 {
     // Ángulos redondeados a 1°: la punta es la misma ante diferencias mínimas de coma
-    // flotante, y se genera una sola vez por ángulo.
+    // flotante, y se genera una sola vez por ángulo. La goma no depende del ángulo.
+    if (m_medium.kind == Medium::Kind::Eraser)
+        azimuth = 0, altitude = 90;
     int az = int(std::lround(azimuth)) % 360;
     if (az < 0)
         az += 360;
@@ -103,12 +105,16 @@ DirtyRect Pencil::strokeTo(const PencilSample& sample)
     const int64_t chebyshev = std::max(std::llabs(dx), std::llabs(dy));
     if (chebyshev == 0)
         return dirty; // sin desplazamiento no hay deslizamiento: no deposita
-    // Subpasos de como mucho una celda en cada eje.
-    const int64_t steps = std::max<int64_t>(1, (chebyshev + kOne - 1) / kOne);
+    // Subpasos de como mucho maxStepCells celdas en cada eje (una, en las minas).
+    const int64_t stepMax = kOne * std::max(1, m_medium.maxStepCells);
+    const int64_t steps = std::max<int64_t>(1, (chebyshev + stepMax - 1) / stepMax);
     // k ∝ distancia euclídea de cada subpaso (no Chebyshev: si no, en diagonal
     // depositaría de menos) × blandura.
     const double stepLength = std::sqrt(double(dx) * double(dx) + double(dy) * double(dy)) / double(steps);
-    const uint16_t k = uint16_t(std::min(65535.0, std::round(stepLength * m_medium.softness)));
+    // La goma usa una escala 4 veces más fina (fuerza / 4): sus subpasos son de hasta 4
+    // celdas, y con la escala de la mina k se saturaba a partir de fuerza ~64.
+    const double scale = m_medium.kind == Medium::Kind::Eraser ? 0.25 : 1.0;
+    const uint16_t k = uint16_t(std::min(65535.0, std::round(stepLength * m_medium.softness * scale)));
 
     // Azimut por el camino más corto.
     float dAz = b.azimuth - a.azimuth;
@@ -123,7 +129,13 @@ DirtyRect Pencil::strokeTo(const PencilSample& sample)
         const int64_t y = a.y + dy * s / steps;
         const float pressure = a.pressure + (b.pressure - a.pressure) * t;
         const Tip& tip = tipFor(a.azimuth + dAz * t, a.altitude + (b.altitude - a.altitude) * t);
-        dirty.unite(depositAt(x, y, pressure, tip, k));
+        // Goma: además, lo que quita ∝ presión (el roce que levanta el grafito crece con
+        // la fuerza normal). Si no, apoyada suave borraba casi como apretando: blanda y
+        // ancha, igual se hunde en las crestas.
+        const uint16_t kStep = m_medium.kind == Medium::Kind::Eraser
+                                   ? uint16_t(std::lround(double(k) * std::clamp(double(pressure), 0.0, 1.0)))
+                                   : k;
+        dirty.unite(depositAt(x, y, pressure, tip, kStep));
     }
     m_substeps += uint64_t(steps);
     return dirty;
@@ -133,12 +145,16 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
 {
     const int cx = int(floorDiv(fx, kOne)), cy = int(floorDiv(fy, kOne));
     m_contact.find(m_paper, tip, m_medium, cx, cy, pressure);
-    m_contact.applyDeposit(k, m_medium.ceiling);
+    const bool erasing = m_medium.kind == Medium::Kind::Eraser;
+    if (erasing)
+        m_contact.applyErase(k);
+    else
+        m_contact.applyDeposit(k, m_medium.ceiling);
 
     // Escribir el depósito de vuelta en los tiles, solo en los tramos con contacto (así no
-    // se crean tiles donde la punta no tocó).
-    const int s = Tip::kTipSize;
-    const int x0 = cx - Tip::kTipCenter, y0 = cy - Tip::kTipCenter;
+    // se crean tiles donde la punta no tocó; la goma tampoco los crea donde no hay grafito).
+    const int s = tip.size();
+    const int x0 = cx - tip.center(), y0 = cy - tip.center();
     const uint16_t* pen = m_contact.penetration();
     const uint16_t* dep = m_contact.deposit();
     DirtyRect dirty;
@@ -156,6 +172,10 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
             if (std::any_of(penRun, penRun + run, [](uint16_t v) { return v > 0; })) {
                 const int tx = gx / kTileSize, ty = gy / kTileSize;
                 const int index = ty * m_paper.tilesX() + tx;
+                if (erasing && !m_paper.findDepositTile(tx, ty)) {
+                    c += run;
+                    continue;
+                }
                 if (!m_tileMarked[size_t(index)]) {
                     // Primera escritura del trazo en este tile: avisar antes de tocarlo.
                     if (m_observer)

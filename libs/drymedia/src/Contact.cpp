@@ -34,6 +34,7 @@ bool Contact::avx2Available()
 
 Contact::Contact(Path path)
     : m_path(path == Path::Scalar || !avx2Available() ? Path::Scalar : Path::Avx2)
+    , m_cells(Tip::kTipCells)
     , m_relief(size_t(Tip::kTipCells))
     , m_deposit(size_t(Tip::kTipCells))
     , m_surface(size_t(Tip::kTipCells))
@@ -45,8 +46,13 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
 {
     // 1. Copiar la huella del papel (relieve y depósito) a arreglos contiguos. Fuera de la
     //    hoja, superficie 0: ahí la punta nunca toca.
-    const int s = Tip::kTipSize;
-    const int x0 = x - Tip::kTipCenter, y0 = y - Tip::kTipCenter;
+    const int s = tip.size();
+    const int x0 = x - tip.center(), y0 = y - tip.center();
+    if (m_cells != tip.cells()) {
+        m_cells = tip.cells();
+        for (auto* v : {&m_relief, &m_deposit, &m_surface, &m_penetration})
+            v->resize(size_t(m_cells));
+    }
     bool anyOutside = false;
     for (int r = 0; r < s; ++r) {
         const int gy = y0 + r;
@@ -75,7 +81,7 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
     }
 
     const kernel::Impl& k = impl(m_path);
-    k.surface(m_surface.data(), m_relief.data(), m_deposit.data(), Tip::kTipCells, kBase);
+    k.surface(m_surface.data(), m_relief.data(), m_deposit.data(), m_cells, kBase, std::clamp(medium.reliefShift, 0, 15));
     if (anyOutside) {
         for (int r = 0; r < s; ++r)
             for (int c = 0; c < s; ++c) {
@@ -91,20 +97,25 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
     uint32_t lo = 0, hi = 65535;
     for (int it = 0; it < kSearchSteps; ++it) {
         const uint32_t mid = (lo + hi + 1) / 2;
-        if (k.force(m_surface.data(), tip.heights(), Tip::kTipCells, uint16_t(mid)) >= target)
+        if (k.force(m_surface.data(), tip.heights(), m_cells, uint16_t(mid)) >= target)
             lo = mid;
         else
             hi = mid - 1;
     }
     const uint16_t depth = uint16_t(lo);
-    k.penetration(m_penetration.data(), m_surface.data(), tip.heights(), Tip::kTipCells, depth);
-    m_force = k.force(m_surface.data(), tip.heights(), Tip::kTipCells, depth);
+    k.penetration(m_penetration.data(), m_surface.data(), tip.heights(), m_cells, depth);
+    m_force = k.force(m_surface.data(), tip.heights(), m_cells, depth);
     return depth;
 }
 
 void Contact::applyDeposit(uint16_t k, uint16_t ceiling)
 {
-    impl(m_path).deposit(m_deposit.data(), m_penetration.data(), Tip::kTipCells, k, ceiling);
+    impl(m_path).deposit(m_deposit.data(), m_penetration.data(), m_cells, k, ceiling);
+}
+
+void Contact::applyErase(uint16_t k)
+{
+    impl(m_path).erase(m_deposit.data(), m_penetration.data(), m_cells, k);
 }
 
 int Contact::cellsInContact() const

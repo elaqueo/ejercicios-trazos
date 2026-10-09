@@ -1,9 +1,10 @@
 // Cartuchera: dibujo con medios secos (docs/medios-secos/arquitectura.md). Grafito de
 // 2H a 6B sobre una hoja A4, sin interfaz.
 //   Alt+F4 sale · Ctrl+N hoja nueva · Ctrl+Z deshace y Ctrl+Y rehace (hasta 100 trazos) ·
-//   1 a 0 eligen la dureza (2H … 6B) · F3 latencia y mina en vivo · calibración de la mina
-//   activa: [ y ] blandura, , y . diámetro, - y = techo de tono; Ctrl+S la guarda en
-//   medios.json (que se recarga solo si se edita a mano)
+//   1 a 0 eligen la dureza (2H … 6B) · el extremo goma borra · F3 latencia y herramienta
+//   en vivo · calibración de la mina activa: [ y ] blandura, , y . diámetro, - y = techo de
+//   tono; con el lápiz dado vuelta, [ y ] fuerza y , y . diámetro de la goma; Ctrl+S guarda
+//   la herramienta activa en medios.json (que se recarga solo si se edita a mano)
 //   Diagnóstico: --grabar guarda las muestras en <datos>/cartuchera-muestras.csv (se
 //   re-simulan con tst_pencil y DRYMEDIA_REPLAY) · F12 guarda la imagen de pantalla
 
@@ -77,23 +78,29 @@ QScreen* savedScreen(const appkit::Config& config)
     return QGuiApplication::primaryScreen();
 }
 
-// medios.json (HU-57): las diez durezas. Se crea con los valores de fábrica, se recarga
-// al editarlo a mano y Ctrl+S guarda ahí la mina activa (las demás quedan como estaban
-// en el archivo).
+// medios.json (HU-57 y HU-58): las diez durezas y la goma. Se crea con los valores de
+// fábrica, se recarga al editarlo a mano y Ctrl+S guarda ahí la herramienta activa (lo
+// demás queda como estaba en el archivo).
 struct MediaFile {
     QString path;
-    cartuchera::Grades grades = cartuchera::factoryGrades(); // en uso, con lo calibrado en vivo
-    cartuchera::Grades saved = grades;                      // lo que dice el archivo
-    QByteArray lastWritten;                                 // para no recargar lo propio
+    cartuchera::MediaSet current; // en uso, con lo calibrado en vivo
+    cartuchera::MediaSet saved;   // lo que dice el archivo
+    QByteArray lastWritten;       // para no recargar lo propio
     std::atomic<int> active{cartuchera::kHbIndex};
-    std::atomic<bool> unsaved{false}; // la mina activa tiene cambios sin guardar
+    std::atomic<bool> leadUnsaved{false};   // la mina activa tiene cambios sin guardar
+    std::atomic<bool> eraserUnsaved{false}; // la goma tiene cambios sin guardar
 
     const char* activeName() const { return cartuchera::kGradeNames[size_t(active.load())]; }
-    void updateUnsaved() { unsaved = grades[size_t(active.load())] != saved[size_t(active.load())]; }
+    cartuchera::Lead& lead() { return current.grades[size_t(active.load())]; }
+    void updateUnsaved()
+    {
+        leadUnsaved = current.grades[size_t(active.load())] != saved.grades[size_t(active.load())];
+        eraserUnsaved = current.eraser != saved.eraser;
+    }
 
     bool write()
     {
-        const QByteArray bytes = cartuchera::gradesToJson(saved);
+        const QByteArray bytes = cartuchera::mediaToJson(saved);
         QSaveFile file(path);
         if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
             qWarning() << "No se pudo escribir" << path << file.errorString();
@@ -118,14 +125,14 @@ struct MediaFile {
         const QByteArray bytes = file.readAll();
         if (bytes == lastWritten)
             return false; // lo acabamos de guardar nosotros
-        cartuchera::Grades loaded;
+        cartuchera::MediaSet loaded;
         QString error;
-        if (!cartuchera::gradesFromJson(bytes, loaded, &error)) {
+        if (!cartuchera::mediaFromJson(bytes, loaded, &error)) {
             qWarning() << path << "no se entiende, sigo con los valores anteriores:" << error;
             return false;
         }
         lastWritten = bytes;
-        grades = saved = loaded;
+        current = saved = loaded;
         updateUnsaved();
         qInfo() << "Medios leídos de" << path;
         return true;
@@ -162,19 +169,22 @@ int main(int argc, char* argv[])
     MediaFile media;
     media.path = QDir(appkit::familyDataDirectory()).filePath(QStringLiteral("medios.json"));
     media.load();
-    // La mina activa (con lo calibrado en vivo) pasa a la simulación.
-    const auto applyLead = [&] {
+    // La mina activa y la goma (con lo calibrado en vivo) pasan a la simulación.
+    const auto applyMedia = [&] {
         media.updateUnsaved();
-        if (simulation)
-            simulation->setLead(media.grades[size_t(media.active.load())]);
+        if (simulation) {
+            simulation->setLead(media.lead());
+            simulation->setEraser(media.current.eraser);
+        }
     };
-    // Calibración en vivo: cambia un valor de la mina activa.
-    const auto adjust = [&](int cartuchera::Lead::*field, bool up, double factor, int minimum, int maximum) {
-        int& value = media.grades[size_t(media.active.load())].*field;
+    // Calibración en vivo: cambia un valor de la herramienta activa.
+    const auto adjust = [&](int& value, bool up, double factor, int minimum, int maximum) {
         const int next = up ? std::max(value + 1, int(std::lround(value * factor))) : int(std::lround(value / factor));
         value = std::clamp(next, minimum, maximum);
-        applyLead();
+        applyMedia();
     };
+    // Las teclas de calibración y Ctrl+S van a la goma mientras el lápiz está dado vuelta.
+    const auto erasing = [&] { return simulation && simulation->erasing(); };
 
     const auto onKey = [&](UINT vk, bool ctrl) {
         if (ctrl && vk == 'N' && simulation)
@@ -199,20 +209,30 @@ int main(int argc, char* argv[])
             qInfo() << "Imagen de pantalla guardada en" << path << copy.save(path);
         }
         else if (ctrl && vk == 'S') {
-            const size_t a = size_t(media.active.load());
-            media.saved[a] = media.grades[a];
-            if (media.write())
-                qInfo() << "Guardada la" << media.activeName() << "en" << media.path;
+            if (erasing()) {
+                media.saved.eraser = media.current.eraser;
+                if (media.write())
+                    qInfo() << "Guardada la goma en" << media.path;
+            } else {
+                const size_t a = size_t(media.active.load());
+                media.saved.grades[a] = media.current.grades[a];
+                if (media.write())
+                    qInfo() << "Guardada la" << media.activeName() << "en" << media.path;
+            }
             media.updateUnsaved();
         } else if (!ctrl && vk >= '0' && vk <= '9') { // 1 a 0: 2H … 6B
             media.active = vk == '0' ? cartuchera::kGradeCount - 1 : int(vk - '1');
-            applyLead();
-        } else if (vk == VK_OEM_4 || vk == VK_OEM_6) // [ y ] blandura, pasos de ~25 %
-            adjust(&cartuchera::Lead::softness, vk == VK_OEM_6, 1.25, 1, 255);
-        else if (vk == VK_OEM_COMMA || vk == VK_OEM_PERIOD) // , y . diámetro, 0,30 a 2,00 mm (punta de 48 celdas)
-            adjust(&cartuchera::Lead::diameter, vk == VK_OEM_PERIOD, 1.15, 30, 200);
-        else if (vk == VK_OEM_MINUS || vk == VK_OEM_PLUS) // - y = techo de tono, pasos de ~10 %
-            adjust(&cartuchera::Lead::ceiling, vk == VK_OEM_PLUS, 1.1, 2000, 65535);
+            applyMedia();
+        } else if (vk == VK_OEM_4 || vk == VK_OEM_6) { // [ y ] blandura o fuerza de la goma, pasos de ~25 %
+            int& value = erasing() ? media.current.eraser.strength : media.lead().softness;
+            adjust(value, vk == VK_OEM_6, 1.25, 1, 255);
+        } else if (vk == VK_OEM_COMMA || vk == VK_OEM_PERIOD) { // , y . diámetro, pasos de ~15 %
+            if (erasing()) // goma: 2 a 8 mm
+                adjust(media.current.eraser.diameter, vk == VK_OEM_PERIOD, 1.15, 200, 800);
+            else // mina: 0,30 a 2,00 mm (punta de 48 celdas)
+                adjust(media.lead().diameter, vk == VK_OEM_PERIOD, 1.15, 30, 200);
+        } else if ((vk == VK_OEM_MINUS || vk == VK_OEM_PLUS) && !erasing()) // - y = techo de tono, pasos de ~10 %
+            adjust(media.lead().ceiling, vk == VK_OEM_PLUS, 1.1, 2000, 65535);
     };
     shell.onKey = onKey;
 
@@ -233,18 +253,27 @@ int main(int argc, char* argv[])
     displayImage = &image;
 
     cartuchera::Simulation sim(paper, queue, image, mapping);
-    sim.setLead(media.grades[size_t(media.active.load())]);
+    sim.setLead(media.lead());
+    sim.setEraser(media.current.eraser);
     sim.renderAll();
     cartuchera::Renderer render(canvas.hwnd(), image);
     const bool calibrated = area.has_value();
     render.setExtraInfo([&sim, &media, calibrated] {
-        const cartuchera::Lead lead = sim.lead();
         wchar_t text[512];
-        swprintf(text, 512,
-                 L"mina %hs%ls (1-0)   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls",
-                 media.activeName(), media.unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
-                 int(std::lround(lead.ceiling * 100.0 / 65535)), media.unsaved ? L"   ·   Ctrl+S guarda" : L"",
-                 calibrated ? L"" : L"\nSin área calibrada en este monitor: calibrala con F9 en Ejercicios.");
+        const wchar_t* warning = calibrated ? L"" : L"\nSin área calibrada en este monitor: calibrala con F9 en Ejercicios.";
+        if (sim.erasing()) {
+            const cartuchera::Eraser eraser = sim.eraser();
+            const bool unsaved = media.eraserUnsaved;
+            swprintf(text, 512, L"goma%ls   ·   fuerza %d ([ ])   ·   %.1f mm (, .)%ls%ls", unsaved ? L"*" : L"",
+                     eraser.strength, eraser.diameter / 100.0, unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
+        } else {
+            const cartuchera::Lead lead = sim.lead();
+            const bool unsaved = media.leadUnsaved;
+            swprintf(text, 512,
+                     L"mina %hs%ls (1-0)   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls",
+                     media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
+                     int(std::lround(lead.ceiling * 100.0 / 65535)), unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
+        }
         return std::wstring(text);
     });
     if (!calibrated)
@@ -258,7 +287,7 @@ int main(int argc, char* argv[])
         if (!watcher.files().contains(media.path) && QFile::exists(media.path))
             watcher.addPath(media.path);
         if (media.load())
-            applyLead();
+            applyMedia();
     });
     qInfo() << "Monitor" << appkit::ScreenId::of(screen).describe() << (calibrated ? "· área útil" : "· SIN área útil")
             << (area ? *area : QRect());

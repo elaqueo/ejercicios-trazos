@@ -182,27 +182,42 @@ private slots:
     // ignora y lo fuera de rango se recorta; un archivo roto no toca nada.
     void mediosJson()
     {
-        Grades g = factoryGrades();
-        g[0] = {9, 66, 21000};
-        g[9].diameter = 123;
-        Grades leido{};
-        QVERIFY(gradesFromJson(gradesToJson(g), leido));
-        QCOMPARE(leido, g);
+        MediaSet m;
+        m.grades[0] = {9, 66, 21000};
+        m.grades[9].diameter = 123;
+        m.eraser = {33, 650};
+        MediaSet leido;
+        leido.eraser = {};
+        QVERIFY(mediaFromJson(mediaToJson(m), leido));
+        QCOMPARE(leido, m);
 
-        Grades parcial{};
-        QVERIFY(gradesFromJson(R"({"minas": [{"nombre": "4B", "blandura": 300, "techo": 10},
-                                             {"nombre": "9H", "blandura": 3}]})",
-                               parcial));
-        Grades esperado = factoryGrades();
-        esperado[7].softness = 255;
-        esperado[7].ceiling = 2000;
+        MediaSet parcial;
+        QVERIFY(mediaFromJson(R"({"minas": [{"nombre": "4B", "blandura": 300, "techo": 10},
+                                            {"nombre": "9H", "blandura": 3}],
+                                  "goma": {"diametroMm": 30}})",
+                              parcial));
+        MediaSet esperado;
+        esperado.grades[7].softness = 255;
+        esperado.grades[7].ceiling = 2000;
+        esperado.eraser.diameter = 800;
         QCOMPARE(parcial, esperado);
 
-        Grades intacto = g;
+        MediaSet intacto = m;
         QString error;
-        QVERIFY(!gradesFromJson("{ esto no es json", intacto, &error));
+        QVERIFY(!mediaFromJson("{ esto no es json", intacto, &error));
         QVERIFY(!error.isEmpty());
-        QCOMPARE(intacto, g);
+        QCOMPARE(intacto, m);
+    }
+
+    // La goma de fábrica (HU-58) y su paso entre hilos.
+    void gomaEmpaquetada()
+    {
+        const Eraser e;
+        QCOMPARE(Eraser::unpack(e.pack()), e);
+        QCOMPARE(Eraser::unpack(Eraser{0, 5000}.pack()), (Eraser{1, 800}));
+        const drymedia::Medium m = e.medium();
+        QVERIFY(m.kind == drymedia::Medium::Kind::Eraser);
+        QCOMPARE(m.leadDiameterMm, 5.0);
     }
 };
 

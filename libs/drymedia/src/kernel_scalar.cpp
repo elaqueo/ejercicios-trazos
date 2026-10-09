@@ -17,10 +17,10 @@ inline uint16_t subSat(uint32_t a, uint32_t b)
     return static_cast<uint16_t>(a > b ? a - b : 0u);
 }
 
-void surface(uint16_t* out, const uint16_t* relief, const uint16_t* deposit, int n, uint16_t base)
+void surface(uint16_t* out, const uint16_t* relief, const uint16_t* deposit, int n, uint16_t base, int shift)
 {
     for (int i = 0; i < n; ++i)
-        out[i] = addSat(addSat(relief[i], base), deposit[i] >> 4);
+        out[i] = addSat(addSat(relief[i] >> shift, base), deposit[i] >> 4);
 }
 
 uint32_t force(const uint16_t* surf, const uint16_t* tip, int n, uint16_t d)
@@ -46,8 +46,17 @@ void deposit(uint16_t* dep, const uint16_t* pen, int n, uint16_t k, uint16_t cei
     }
 }
 
+void erase(uint16_t* dep, const uint16_t* pen, int n, uint16_t k)
+{
+    for (int i = 0; i < n; ++i) {
+        const uint32_t a = std::min<uint32_t>((uint32_t(pen[i]) * k) >> 12, 65535u);
+        const uint32_t delta = ((a * dep[i]) >> 16) + (a > 0 ? 1u : 0u);
+        dep[i] = subSat(dep[i], delta);
+    }
+}
+
 } // namespace
 
-const Impl kScalar{surface, force, penetration, deposit};
+const Impl kScalar{surface, force, penetration, deposit, erase};
 
 } // namespace drymedia::kernel

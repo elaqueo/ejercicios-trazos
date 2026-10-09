@@ -49,6 +49,11 @@ public:
     // cambia en medio de un trazo, el trazo se cierra y sigue como uno nuevo.
     void setLead(const Lead& lead) { m_lead = lead.pack(); }
     Lead lead() const { return Lead::unpack(m_lead); }
+    // La goma (HU-58): se usa al dar vuelta el lápiz. erasing() dice si la última muestra
+    // llegó del extremo goma (para el overlay y la calibración en vivo).
+    void setEraser(const Eraser& eraser) { m_eraser = eraser.pack(); }
+    Eraser eraser() const { return Eraser::unpack(m_eraser); }
+    bool erasing() const { return m_erasing; }
 
     // Pinta toda la imagen (hoja y afuera). Llamar antes de start().
     void renderAll();
@@ -74,6 +79,8 @@ private:
     SessionTimings* m_timings = nullptr;
     std::FILE* m_recording = nullptr;
     std::atomic<uint64_t> m_lead;
+    std::atomic<uint64_t> m_eraser;
+    std::atomic<bool> m_erasing{false};
 };
 
 } // namespace cartuchera
