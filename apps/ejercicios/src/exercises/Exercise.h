@@ -5,6 +5,7 @@
 #include <QPicture>
 #include <QPointF>
 #include <QRect>
+#include <QRectF>
 #include <QString>
 #include <QVariantMap>
 
@@ -27,6 +28,8 @@ struct SafeZone {
     // Escala de la hoja (HU-23): la hoja está a tamaño real, así que un ejercicio puede pedir
     // medidas en mm. Por defecto, 96 dpi.
     qreal pixelsPerMm = 96.0 / 25.4;
+    // La hoja entera (HU-28): la perspectiva usa todo el ancho, no solo el círculo.
+    QRectF sheet;
 
     qreal mm(qreal millimetres) const { return millimetres * pixelsPerMm; }
 

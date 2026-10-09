@@ -18,7 +18,9 @@ constexpr qreal kEpsilon = 1e-6;
 
 SafeZone SafeZone::fromRect(const QRect& area, qreal orientation)
 {
-    return {QRectF(area).center(), qMin(area.width(), area.height()) / 2.0, orientation};
+    SafeZone zone{QRectF(area).center(), qMin(area.width(), area.height()) / 2.0, orientation};
+    zone.sheet = QRectF(area);
+    return zone;
 }
 
 SafeZone SafeZone::withRandomOrientation(const QRect& area, quint32 seed)

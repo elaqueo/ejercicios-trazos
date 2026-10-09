@@ -68,6 +68,32 @@ void constructionLine(QPainter& painter, QPointF from, QPointF to)
     painter.restore();
 }
 
+void vanishingPoint(QPainter& painter, QPointF center)
+{
+    constexpr double kHalf = 9.0;
+    painter.save();
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(theme::kEnfasis);
+    const QPointF diamond[4] = {center + QPointF(0, -kHalf), center + QPointF(kHalf, 0), center + QPointF(0, kHalf),
+                                center + QPointF(-kHalf, 0)};
+    painter.drawPolygon(diamond, 4);
+    painter.restore();
+}
+
+void offSheetVanishingPoint(QPainter& painter, QPointF edge, QPointF dir)
+{
+    constexpr double kLength = 22.0, kHalfWidth = 10.0;
+    const QPointF side(-dir.y(), dir.x());
+    painter.save();
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(theme::kEnfasis);
+    const QPointF tip = edge;
+    const QPointF base = edge - dir * kLength;
+    const QPointF triangle[3] = {tip, base + side * kHalfWidth, base - side * kHalfWidth};
+    painter.drawPolygon(triangle, 3);
+    painter.restore();
+}
+
 void directionArrow(QPainter& painter, QPointF from, QPointF to)
 {
     constexpr double kWidth = 3.0;

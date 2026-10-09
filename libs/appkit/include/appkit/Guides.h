@@ -30,6 +30,12 @@ void constructionLine(QPainter& painter, QPointF from, QPointF to);
 void guidePath(QPainter& painter, const QPainterPath& path);
 void constructionPath(QPainter& painter, const QPainterPath& path);
 
+// Punto de fuga: rombo ámbar (HU-28).
+void vanishingPoint(QPainter& painter, QPointF center);
+// Punto de fuga fuera de la hoja: triángulo ámbar en el borde, apuntando hacia él (dir es la
+// dirección hacia afuera, normalizada).
+void offSheetVanishingPoint(QPainter& painter, QPointF edge, QPointF dir);
+
 // Dirección del trazo: flecha ámbar con un punto en el arranque.
 void directionArrow(QPainter& painter, QPointF from, QPointF to);
 
