@@ -160,7 +160,8 @@ void Simulation::run()
             rotation.toImage(ix, iy); // vista rotada: de vuelta a la hoja sin rotar
             // La inclinación también gira con la vista.
             const float azimuth = float(std::fmod(double(s.azimuth) - rotation.degrees + 720.0, 360.0));
-            const drymedia::PencilSample p{m_mapping.cellX(ix), m_mapping.cellY(iy), s.pressure, azimuth, s.altitude};
+            const drymedia::PencilSample p{m_mapping.cellX(ix), m_mapping.cellY(iy), s.pressure, azimuth,
+                                           penAltitude(s.altitude, m_tilt)};
             if (m_recording) {
                 const Lead l = Lead::unpack(lead);
                 std::fprintf(m_recording, "%lld,%.4f,%.4f,%.3f,%.3f,%.4f,%.2f,%.2f,%d,%d,%d,%d,%d\n",

@@ -142,6 +142,7 @@ struct Lienzo::Impl {
     appkit::Config* config = nullptr;
     QPicture guides;                          // las últimas guías (se reubican al calibrar)
     double viewDegrees = 0;                   // rotación de la vista (HU-40)
+    bool tilt = true;                         // costado (HU-73)
     double gestureStartDegrees = 0, gestureStartPointer = 0;
     std::function<void()> onSheetChanged;
     std::unique_ptr<QWidget> calibrationHost; // F9 (HU-66): ventana propia que cubre el monitor
@@ -207,6 +208,7 @@ struct Lienzo::Impl {
         if (recording)
             sim->setRecording(recording);
         applyMedia();
+        sim->setTilt(tilt);
         sim->setGuides(guideLayer());
         sim->setRotation(rotation());
         if (render)
@@ -239,7 +241,7 @@ struct Lienzo::Impl {
         config->setValue(QStringLiteral("lead"), QString::fromLatin1(media.activeName()));
     }
 
-    // Lo guardado en config.json (HU-13): la mina activa y el giro de la vista. Va antes de
+    // Lo guardado en config.json (HU-13): la mina activa, el giro de la vista y el costado. Va antes de
     // crear la simulación, que los toma.
     void restoreState()
     {
@@ -248,6 +250,16 @@ struct Lienzo::Impl {
             if (lead == QLatin1String(kGradeNames[size_t(g)]))
                 media.active = g;
         viewDegrees = ViewRotation::normalized(config->value(QStringLiteral("viewRotation"), 0.0).toDouble());
+        tilt = config->value(QStringLiteral("tilt"), true).toBool();
+    }
+
+    // Costado (HU-73): apagado, la punta es siempre la vertical; queda guardado.
+    void toggleTilt()
+    {
+        tilt = !tilt;
+        sim->setTilt(tilt);
+        config->setValue(QStringLiteral("tilt"), tilt);
+        qInfo() << "Costado:" << (tilt ? "activado" : "desactivado");
     }
 
     double pointerAngle(double x, double y) const
@@ -418,10 +430,11 @@ struct Lienzo::Impl {
             const Lead lead = sim->lead();
             const bool unsaved = media.leadUnsaved;
             swprintf(text, 512,
-                     options.gradeKeys ? L"mina %hs%ls (F5, 1-0)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)%ls%ls"
-                                       : L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)%ls%ls",
+                     options.gradeKeys ? L"mina %hs%ls (F5, 1-0)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   costado %ls (I)%ls%ls"
+                                       : L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   costado %ls (I)%ls%ls",
                      media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
-                     int(std::lround(lead.ceiling * 100.0 / 65535)), unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
+                     int(std::lround(lead.ceiling * 100.0 / 65535)), tilt ? L"sí" : L"no",
+                     unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
         }
         return text;
     }
@@ -529,6 +542,7 @@ void Lienzo::registerShortcuts()
     }
     keys.add(QStringLiteral("Latencia y herramienta"), {{VK_F3}}, [impl] { impl->render->toggleOverlay(); });
     keys.add(QStringLiteral("Selector de lápices"), {{VK_F5}}, [impl] { impl->togglePicker(); }); // HU-67
+    keys.add(QStringLiteral("Costado sí o no"), {{'I'}}, [impl] { impl->toggleTilt(); }); // HU-73
     keys.add(QStringLiteral("Calibrar el área útil"), {{VK_F9}}, [impl] { impl->startCalibration(); }); // HU-66
     keys.add(QStringLiteral("Monitor siguiente"), {{VK_F10}}, [impl] { impl->nextScreen(); }); // HU-66
     keys.add(QStringLiteral("Imagen de pantalla"), {{VK_F12}}, [impl] { impl->saveScreenImage(); }); // diagnóstico

@@ -55,6 +55,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | --- | --- | --- |
 | → / botón lateral del lápiz | Ejercicio siguiente | — |
 | R | Repetir el ejercicio | — |
+| I | Costado sí o no: apagado, la punta es siempre la vertical (HU-73) | Igual |
 | G | Mostrar u ocultar las guías (comparar) | — |
 | F4 / F2 | Menú / panel | — |
 | F5 | Selector de lápices | Selector de lápices |

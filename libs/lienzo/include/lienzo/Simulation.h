@@ -16,6 +16,13 @@ class Paper;
 
 namespace lienzo {
 
+// La altitud que recibe el lápiz: con el costado apagado (HU-73) se ignora la inclinación y
+// la punta es siempre la vertical.
+inline float penAltitude(float tabletAltitude, bool tilt)
+{
+    return tilt ? tabletAltitude : 90.0f;
+}
+
 class SampleQueue;
 struct DisplayImage;
 struct SessionTimings;
@@ -59,6 +66,9 @@ public:
     void setEraser(const Eraser& eraser) { m_eraser = eraser.pack(); }
     Eraser eraser() const { return Eraser::unpack(m_eraser); }
     bool erasing() const { return m_erasing; }
+    // Costado (HU-73, tecla I): si está apagado, la punta es siempre la vertical.
+    void setTilt(bool tilt) { m_tilt = tilt; }
+    bool tilt() const { return m_tilt; }
 
     // Pinta toda la imagen (hoja y afuera). Llamar antes de start().
     void renderAll();
@@ -110,6 +120,7 @@ private:
     std::atomic<uint64_t> m_lead;
     std::atomic<uint64_t> m_eraser;
     std::atomic<bool> m_erasing{false};
+    std::atomic<bool> m_tilt{true};
 };
 
 } // namespace lienzo

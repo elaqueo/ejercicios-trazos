@@ -4,11 +4,13 @@
 #include <lienzo/Media.h>
 #include <lienzo/SampleQueue.h>
 #include <lienzo/SheetMapping.h>
+#include <lienzo/Simulation.h>
 #include <lienzo/Tone.h>
 #include <lienzo/ToolPage.h>
 #include <lienzo/ViewRotation.h>
 
 #include <drymedia/Paper.h>
+#include <drymedia/Tip.h>
 
 #include <appkit/ParamForm.h>
 
@@ -355,6 +357,20 @@ private slots:
         for (int i = 1; i < kGradeCount; ++i) {
             QVERIFY(g[i].softness > g[i - 1].softness);
             QVERIFY(g[i].ceiling >= g[i - 1].ceiling);
+        }
+    }
+
+    // HU-73: con el costado apagado, cualquier inclinación da la punta vertical.
+    void costadoApagado()
+    {
+        const drymedia::Medium m = Lead{}.medium();
+        const drymedia::Tip vertical = drymedia::Tip::make(m, 0, 90);
+        for (const float alt : {30.0f, 55.0f, 89.0f}) {
+            QCOMPARE(penAltitude(alt, true), alt);
+            const drymedia::Tip tip = drymedia::Tip::make(m, 137, penAltitude(alt, false));
+            QCOMPARE(tip.width(), vertical.width());
+            QVERIFY(std::equal(tip.heights(), tip.heights() + tip.cells(), vertical.heights()));
+            QVERIFY(drymedia::Tip::make(m, 137, alt).cellsInside() != vertical.cellsInside());
         }
     }
 

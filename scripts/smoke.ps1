@@ -37,7 +37,7 @@ try {
     $seen = 0
     function Take() {
         Start-Sleep -Milliseconds 400
-        $lines = @(Get-Content $log -Encoding utf8 | Where-Object { $_ -match 'Menú:|Ejercicio:|Repetir:|Guías:|Panel:' })
+        $lines = @(Get-Content $log -Encoding utf8 | Where-Object { $_ -match 'Menú:|Ejercicio:|Repetir:|Guías:|Panel:|Costado:' })
         $new = $lines | Select-Object -Skip $script:seen
         $script:seen = $lines.Count
         return @($new)
@@ -58,6 +58,10 @@ try {
     Send 'g' 2
     $l = Take
     Check 'G oculta y vuelve a mostrar las guías' (($l -join ' ') -match 'ocultas.*visibles') ($l -join ' | ')
+
+    Send 'i' 2
+    $l = Take
+    Check 'I desactiva y vuelve a activar el costado' (($l -join ' ') -match 'Costado: desactivado.*Costado: activado') ($l -join ' | ')
 
     # Menú: subir de más se frena en el modo mixto (antes daba la vuelta).
     Send '{F4}' 1 600
