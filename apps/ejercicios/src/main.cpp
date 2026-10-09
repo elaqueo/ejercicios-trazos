@@ -21,6 +21,7 @@
 #include "exercises/Ghosting.h"
 #include "exercises/Hatching.h"
 #include "exercises/Parrafo.h"
+#include "exercises/Presion.h"
 #include "exercises/Radiales.h"
 #include "exercises/Recta.h"
 #include "exercises/Renglon.h"
@@ -91,10 +92,11 @@ int main(int argc, char* argv[])
     const ejercicios::Cajas cajas;
     const ejercicios::CajasRotadas cajasRotadas;
     const ejercicios::Ghosting ghosting;
+    const ejercicios::Presion presion;
     const QList<const ejercicios::Exercise*> exercises{&recta,   &hatching,     &radiales, &direccion,
                                                        &curva,   &elipse,       &concentricas, &elipsePerspectiva,
                                                        &cajas,   &cajasRotadas, &renglon,      &renglonCurvo,
-                                                       &parrafo, &ghosting};
+                                                       &parrafo, &ghosting,     &presion};
     // Lo guardado (HU-13): el último ejercicio elegido y los parámetros de cada uno.
     config.remove(QStringLiteral("brush")); // del selector de pinceles de libmypaint (HU-68)
     const ejercicios::Exercise* first =
