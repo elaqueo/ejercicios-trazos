@@ -21,6 +21,9 @@ public:
 
     // Siguiente ejercicio: limpia el lienzo y genera con otra semilla.
     void next();
+    // Repetir (HU-17): limpia el lienzo y vuelve a generar con la misma semilla, para
+    // reintentar el mismo caso.
+    void repeat();
     // Vuelve a generar con la misma semilla para el área útil actual (cuando cambia
     // el área). No toca la tinta.
     void regenerate();

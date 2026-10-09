@@ -49,6 +49,23 @@ private slots:
         QVERIFY(session.current().ideal != idealAntes);
     }
 
+    // R borra la hoja y vuelve a dibujar el mismo ejercicio (HU-17).
+    void repetirLimpiaYConservaElEjercicio()
+    {
+        FakeCanvas canvas;
+        const Recta recta;
+        ExerciseSession session(&canvas, &recta);
+        session.regenerate();
+        const quint32 seed = session.seed();
+        const auto ideal = session.current().ideal;
+
+        session.repeat();
+        QCOMPARE(canvas.clears, 1);
+        QCOMPARE(canvas.guideChanges, 2);
+        QCOMPARE(session.seed(), seed);
+        QCOMPARE(session.current().ideal, ideal);
+    }
+
     // Regenerar (cambio de área) conserva la semilla y, con la misma área, el ejercicio; no
     // borra la hoja.
     void regenerarConservaElEjercicio()

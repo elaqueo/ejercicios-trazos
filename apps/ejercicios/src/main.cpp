@@ -2,7 +2,7 @@
 // goma para practicar, sobre la hoja = tableta, con la latencia de Cartuchera. Sin
 // deshacer: un intento por ejercicio (alcance de v1). Los números quedan para la vista,
 // como en el Ejercicios anterior (5 volvía a 0°; 4 y 6, HU-40).
-//   → o el botón lateral del lápiz: siguiente ejercicio · Alt+F4 sale · Ctrl+N borra la hoja
+//   → o el botón lateral del lápiz: siguiente ejercicio · R repite el mismo (HU-17) · Alt+F4 sale · Ctrl+N borra la hoja
 //   · el resto de las teclas, las del lienzo (lienzo/Lienzo.h): F5 lápices, F9 área útil, F10
 //   monitor, F3, [ ] , . - = calibración, Ctrl+S, F12
 
@@ -56,9 +56,11 @@ int main(int argc, char* argv[])
     const ejercicios::Recta recta;
     ejercicios::ExerciseSession session(&sheet, &recta);
     session.regenerate();
-    canvas.setAppKeys([&session](UINT vk, bool) {
+    canvas.setAppKeys([&session](UINT vk, bool ctrl) {
         if (vk == VK_RIGHT)
             session.next();
+        else if (vk == 'R' && !ctrl)
+            session.repeat();
     });
     // Calibrar con F9 mueve la hoja: el mismo ejercicio, adaptado a la hoja nueva.
     canvas.setOnSheetChanged([&session] { session.regenerate(); });

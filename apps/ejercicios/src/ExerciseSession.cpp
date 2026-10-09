@@ -32,6 +32,12 @@ void ExerciseSession::next()
     regenerate();
 }
 
+void ExerciseSession::repeat()
+{
+    m_canvas->clear();
+    regenerate();
+}
+
 void ExerciseSession::regenerate()
 {
     // Coordenadas de la hoja: el origen es su esquina.
