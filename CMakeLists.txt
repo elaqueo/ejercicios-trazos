@@ -45,3 +45,4 @@ add_subdirectory(apps/ejercicios)
 # se rompa sin que nadie lo note.
 add_subdirectory(spikes/cartuchera-entrada)
 add_subdirectory(spikes/cartuchera-swapchain)
+add_subdirectory(spikes/cartuchera-kernel)
