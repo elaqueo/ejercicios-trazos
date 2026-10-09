@@ -11,6 +11,7 @@
 #include "ExerciseMenu.h"
 #include "ExerciseSession.h"
 #include "exercises/Curva.h"
+#include "exercises/Hatching.h"
 #include "exercises/Recta.h"
 
 #include <appkit/Config.h>
@@ -18,6 +19,7 @@
 #include <appkit/MenuOverlay.h>
 #include <appkit/ParamForm.h>
 #include <appkit/SidePanel.h>
+#include <drymedia/Paper.h>
 #include <lienzo/Lienzo.h>
 
 #include <QApplication>
@@ -37,6 +39,7 @@ public:
     void clear() override { m_canvas.clear(); }
     QSize sheetSize() const override { return m_canvas.sheetRect().size(); }
     void setGuides(const QPicture& guides) override { m_canvas.setGuides(guides); }
+    double pixelsPerMm() const override { return m_canvas.mapping().pixelsPerCellX * drymedia::kCellsPerMm; }
 
 private:
     lienzo::Lienzo& m_canvas;
@@ -64,7 +67,8 @@ int main(int argc, char* argv[])
     SheetCanvas sheet(canvas);
     const ejercicios::Recta recta;
     const ejercicios::Curva curva;
-    const QList<const ejercicios::Exercise*> exercises{&recta, &curva};
+    const ejercicios::Hatching hatching;
+    const QList<const ejercicios::Exercise*> exercises{&recta, &hatching, &curva};
     // Lo guardado (HU-13): el último ejercicio elegido y los parámetros de cada uno.
     config.remove(QStringLiteral("brush")); // del selector de pinceles de libmypaint (HU-68)
     const ejercicios::Exercise* first =

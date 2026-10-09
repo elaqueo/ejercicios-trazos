@@ -96,7 +96,7 @@ private slots:
         QCOMPARE(groups[0].items[0].id, kMixedModeId);
         QVERIFY(groups[0].items[0].featured);
         QVERIFY(!groups[0].items[0].enabled);
-        QCOMPARE(groups[1].title, QStringLiteral("Rectas"));
+        QCOMPARE(groups[1].title, QStringLiteral("Líneas"));
         QCOMPARE(groups[1].items[0].id, QStringLiteral("recta"));
         QVERIFY(groups[1].items[0].enabled);
         QCOMPARE(findExercise(exercises, QStringLiteral("recta")), &recta);

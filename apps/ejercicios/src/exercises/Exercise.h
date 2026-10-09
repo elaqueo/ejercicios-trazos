@@ -24,6 +24,11 @@ struct SafeZone {
     QPointF center;
     qreal radius = 0;
     qreal orientation = 0; // radianes
+    // Escala de la hoja (HU-23): la hoja está a tamaño real, así que un ejercicio puede pedir
+    // medidas en mm. Por defecto, 96 dpi.
+    qreal pixelsPerMm = 96.0 / 25.4;
+
+    qreal mm(qreal millimetres) const { return millimetres * pixelsPerMm; }
 
     static SafeZone fromRect(const QRect& area, qreal orientation = 0);
     // Orientación al azar en 360°, derivada de la semilla: repetir el ejercicio

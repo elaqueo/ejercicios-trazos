@@ -34,7 +34,7 @@ QString Recta::title() const
 
 QString Recta::group() const
 {
-    return QStringLiteral("Rectas");
+    return QStringLiteral("Líneas");
 }
 
 QList<appkit::Param> Recta::params() const

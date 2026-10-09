@@ -14,6 +14,8 @@ public:
     virtual void clear() = 0;
     virtual QSize sheetSize() const = 0;
     virtual void setGuides(const QPicture& guides) = 0;
+    // Escala de la hoja en pantalla (HU-23), para medidas en mm. Por defecto, 96 dpi.
+    virtual double pixelsPerMm() const { return 96.0 / 25.4; }
 };
 
 } // namespace ejercicios

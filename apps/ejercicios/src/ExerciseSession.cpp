@@ -78,7 +78,8 @@ void ExerciseSession::regenerate()
 {
     // Coordenadas de la hoja: el origen es su esquina.
     const QRect area(QPoint(0, 0), m_canvas->sheetSize());
-    const SafeZone zone = SafeZone::withRandomOrientation(area, m_seed);
+    SafeZone zone = SafeZone::withRandomOrientation(area, m_seed);
+    zone.pixelsPerMm = m_canvas->pixelsPerMm();
     m_current = m_exercise->generate(m_currentParams, m_seed, zone);
     m_canvas->setGuides(m_current.guides);
 }
