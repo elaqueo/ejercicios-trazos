@@ -10,6 +10,7 @@
 
 #include "ExerciseMenu.h"
 #include "ExerciseSession.h"
+#include "exercises/Curva.h"
 #include "exercises/Recta.h"
 
 #include <appkit/Config.h>
@@ -62,7 +63,8 @@ int main(int argc, char* argv[])
     lienzo::Lienzo canvas(shell, screen, config, {.name = QStringLiteral("ejercicios"), .undo = false, .gradeKeys = false});
     SheetCanvas sheet(canvas);
     const ejercicios::Recta recta;
-    const QList<const ejercicios::Exercise*> exercises{&recta};
+    const ejercicios::Curva curva;
+    const QList<const ejercicios::Exercise*> exercises{&recta, &curva};
     // Lo guardado (HU-13): el último ejercicio elegido y los parámetros de cada uno.
     config.remove(QStringLiteral("brush")); // del selector de pinceles de libmypaint (HU-68)
     const ejercicios::Exercise* first =
