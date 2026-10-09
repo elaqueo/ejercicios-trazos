@@ -4,6 +4,16 @@
 
 Oct 8, 2026 · @Daniel
 
+## Estado al cierre de la v1.0.0 (9 de octubre de 2026)
+
+La v1 está completa: los 15 ejercicios y el modo mixto, menú, panel, configuración persistente y un instalador ([release v1.0.0](https://github.com/elaqueo/ejercicios-trazos/releases/tag/v1.0.0)). Lo que cambió respecto de este documento, que se conserva como registro del alcance original:
+
+1. **Motor:** libmypaint y los pinceles `.myb` se reemplazaron por el motor propio de grafito (`libs/drymedia`) sobre un lienzo de baja latencia (`libs/lienzo`) compartido con Cartuchera. "Pincel" pasó a ser "lápiz": minas 2H a 6B y goma, calibrables (decisión del 10 de octubre, HU-63 a HU-68).
+2. **Hoja:** ocupa todo el mapeo de la tableta a escala real (HU-69); las medidas de los ejercicios pueden ir en mm. El color de la hoja quedó fijo.
+3. **Teclas:** menú F4, panel F2, repetir R, guías G (comparar, HU-35), lápices F5; la rotación es Shift + arrastrar y 4 / 6 / 5. La tabla completa está en `docs/diseno.md`.
+4. **Perspectiva:** el horizonte va siempre horizontal sobre la hoja; los PF fuera de la hoja se marcan con un triángulo en el borde y rectas de ejemplo que fugan hacia ellos.
+5. **Pendiente para después:** la evaluación de precisión (la geometría ideal de cada ejercicio ya se guarda) y la lista ampliada de ejercicios.
+
 ## Objetivo
 
 App de escritorio personal para practicar control de trazo con tableta digitalizadora: genera ejercicios al azar, uno por pantalla, y con flecha derecha limpia el lienzo y genera el siguiente. Sin evaluación ni historial en la v1: los ejercicios son efímeros y la autoevaluación es visual.

@@ -4,6 +4,8 @@ Oct 8, 2026 · @Daniel
 
 Backlog ágil de la v1 definida en `alcance-v1.md`: 9 épicas, historias con criterios de aceptación y un plan de 8 sprints con un MVP usable al final del sprint 2.
 
+> **Estado (9 de octubre de 2026):** los 8 sprints están cerrados y la v1.0.0 se publicó con instalador. El estado vivo de cada historia está en los [issues](https://github.com/elaqueo/ejercicios-trazos/issues) y el [tablero](https://github.com/users/elaqueo/projects/3); este documento es el plan original, con las historias que se agregaron al final.
+
 ## Enfoque ágil
 
 Scrum liviano adaptado a un solo desarrollador: sprints de 2 semanas, cada uno cierra con un incremento usable de la app.
@@ -73,7 +75,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación inicial; debajo, sus c
    1. Las pruebas corren con un comando y reportan pasa/falla.
    2. Existe al menos una prueba de ejemplo que pasa.
 
-### E2 · paintcore
+### E2 · paintcore (sin efecto desde HU-68: el motor propio la reemplazó)
 
 4. **HU-04 · Pintar con presión e inclinación** (Must · 5 pts). Como usuario, quiero que el trazo responda a la presión y la inclinación del lápiz, para practicar con un trazo realista.
    1. Presión, inclinación y tiempo de `QTabletEvent` llegan a libmypaint en cada muestra.
@@ -212,6 +214,24 @@ Ocho sprints de 2 semanas a unos 13 puntos cada uno; el MVP se usa al cierre del
 | 7 | Elipses en perspectiva, ghosting y presión: cierre de la v1 | HU-31, 35, 36 | 13 |
 
 En el MVP, los parámetros vienen de valores por defecto en el código; el panel llega en el sprint 3.
+
+**Resultado:** todos los sprints se cerraron. Los sprints 3 a 7 se hicieron el 9 de octubre de 2026, ya sobre el motor propio (ver "Historias agregadas después del plan").
+
+## Historias agregadas después del plan
+
+Surgieron de las reviews, del diseño y del proyecto Cartuchera (motor de medios secos, `docs/medios-secos/arquitectura.md`).
+
+| Historias | Qué | Estado |
+| --- | --- | --- |
+| HU-37 a HU-42 | Diseño "Taller nocturno", puntero propio, sin barra de título, rotación, hoja off-white (HU-42 quedó obsoleta) | Hechas |
+| HU-43 a HU-53 | Cartuchera, fases 0 y 1: spikes de entrada, swapchain y kernel; `tabletinput`, `drymedia` (papel, punta HB, depósito), trazo en vivo, hoja = tableta, deshacer | Hechas |
+| HU-56 a HU-58 | Cartuchera, fase 2: techo de tono, durezas 2H a 6B, goma | Hechas |
+| HU-59 a HU-62 | Cartuchera, fase 2: costado, bruñido, línea blanca, desgaste | Pendientes |
+| HU-63 a HU-68 | Ejercicios sobre el lienzo de Cartuchera; fuera paintcore, libmypaint y vcpkg | Hechas |
+| HU-69 | Hoja del tamaño del mapeo de la tableta (pedido: dibujar sobre una A3) | Hecha |
+| HU-70 a HU-72 | Instalador v1.0.0 con íconos, prueba de la app real, documentos al día | Hechas |
+
+La épica E2 (`paintcore`) quedó sin efecto con el cambio de motor; HU-46 se cerró como obsoleta. Las ideas #54 (editor de medios secos) y #55 (editor de soportes) siguen abiertas.
 
 ## Definition of Ready y Definition of Done
 

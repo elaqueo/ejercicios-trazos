@@ -38,10 +38,30 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 
 | Pantalla | Decisión | Historia |
 | --- | --- | --- |
-| Lienzo | Hoja `#F5F0E6` en el área útil; el panel de ayuda (ejercicio, teclas, pincel, ángulo) va en la zona gris; si el área cubre toda la pantalla, se reduce a una línea en una esquina | HU-41, HU-10 |
-| Guías | Punto a unir: anillo de 24 px con centro; punto de paso: anillo chico hueco; PF: rombo ámbar | HU-19, HU-21, HU-22, HU-28 |
+| Lienzo | Hoja `#F5F0E6` del tamaño de la tableta, que cubre toda el área útil (HU-69); el grafito se simula sobre ella. F3 muestra la línea de latencia y herramienta | HU-41, HU-63, HU-69 |
+| Guías | Punto a unir: anillo de 24 px con centro (en ámbar si es un destino, como el centro de los radiales); punto de paso: anillo chico hueco; PF: rombo ámbar, y fuera de la hoja un triángulo ámbar en el borde con rectas de ejemplo; grados y números en IBM Plex Mono ámbar; banda de presión celeste semitransparente. Van bajo el grafito (HU-64) | HU-19, HU-21 a HU-36 |
 | Puntero | **Cruz abierta** (opción A): cuatro trazos finos con el centro libre | HU-38 |
-| Menú | Modo mixto destacado arriba; 15 ejercicios en 6 grupos; el actual en ámbar | HU-11 |
-| Panel | Panel a la derecha, pestañas Ejercicio / Pincel / Área útil / Colores / Monitor | HU-12 |
-| Pinceles | Panel a la derecha con filtro por carpeta, buscador y grilla de 3 columnas | HU-06 |
+| Menú (F4) | Modo mixto destacado arriba; 15 ejercicios en 7 grupos (Líneas, Curvas, Elipses, Perspectiva, Escritura, Memoria, Presión); el actual en ámbar; el cursor del teclado se frena en los extremos | HU-11, HU-20 |
+| Panel (F2) | Panel a la derecha del área útil, pestañas Ejercicio (parámetros del actual y, en modo mixto, qué ejercicios participan) / Lápiz (mina activa y goma) / Pantalla (área útil y monitor). Los colores de la hoja quedaron fijos | HU-12, HU-20 |
+| Lápices (F5) | Panel a la derecha con la imagen de la colección de grafito arriba y las diez minas con una muestra simulada; la activa resaltada. Reemplaza al selector de pinceles de libmypaint | HU-67 |
 | Calibración | Pantalla oscura, indicador de pasos, marca ámbar en la esquina pedida | HU-10 |
+| Íconos | Fondo gris oscuro redondeado: Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; el instalador, los dos juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70 |
+
+## Teclas (v1.0.0)
+
+Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden la misma tecla, la app avisa al iniciar.
+
+| Tecla | Ejercicios | Cartuchera |
+| --- | --- | --- |
+| → / botón lateral del lápiz | Ejercicio siguiente | — |
+| R | Repetir el ejercicio | — |
+| G | Mostrar u ocultar las guías (comparar) | — |
+| F4 / F2 | Menú / panel | — |
+| F5 | Selector de lápices | Selector de lápices |
+| 1 a 0 | — (los números son de la vista) | Dureza 2H … 6B |
+| 4 / 6 / 5, Shift + arrastrar | Girar la vista / volver a 0° | Shift + arrastrar |
+| Z / Ctrl+Y | — (sin deshacer) | Deshacer / rehacer |
+| `[ ]` · `, .` · `- =` | Tamaño · blandura (fuerza en la goma) · techo, de la herramienta activa | Igual |
+| Ctrl+S · Ctrl+N | Guardar el lápiz · hoja nueva | Igual |
+| F3 · F9 · F10 · F12 | Latencia · calibrar el área útil · monitor siguiente · captura | Igual |
+| Alt+F4 | Salir | Salir |

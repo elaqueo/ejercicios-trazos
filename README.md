@@ -2,7 +2,16 @@
 
 Apps de escritorio para dibujar con tableta digitalizadora sobre un lienzo propio de baja latencia, con grafito simulado (minas 2H a 6B y goma) sobre una hoja a escala real que ocupa toda la superficie activa de la tableta. C++20, Qt 6 y Direct3D 11.
 
-- **Ejercicios** (`apps/ejercicios`): genera ejercicios de trazo al azar, uno por hoja; → pasa al siguiente y R repite el mismo.
+- **Ejercicios** (`apps/ejercicios`): genera ejercicios de trazo al azar, uno por hoja; → pasa al siguiente y R repite el mismo. Tiene 15 ejercicios en siete grupos, más un modo mixto que los alterna:
+  - **Líneas:** dos puntos → recta, hatching, radiales hacia un punto, dirección forzada.
+  - **Curvas:** tres puntos → curva.
+  - **Elipses:** por grado, concéntricas sobre un eje, en perspectiva.
+  - **Perspectiva:** cajas con 1, 2 o 3 PF (arista inicial opcional), cajas rotadas.
+  - **Escritura:** sobre una recta, sobre una curva, sobre varias curvas.
+  - **Memoria:** ghosting (la forma se ve unos segundos; G la vuelve a mostrar para comparar).
+  - **Presión:** seguir un perfil de presión objetivo.
+
+  F4 abre el menú y F2 el panel con los parámetros de cada ejercicio. La tabla completa de teclas está en [docs/diseno.md](docs/diseno.md#teclas-v100).
 - **Cartuchera** (`apps/cartuchera`): hoja libre para dibujar, con deshacer.
 
 - [Alcance de la v1](docs/alcance-v1.md)
