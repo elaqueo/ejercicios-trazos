@@ -1,5 +1,8 @@
 #pragma once
 
+#include "appkit/Theme.h"
+
+#include <QColor>
 #include <QPointF>
 
 class QPainter;
@@ -10,7 +13,8 @@ class QPainter;
 namespace appkit::guides {
 
 // Punto a unir: anillo de 24 px con centro (azul tinta).
-void targetPoint(QPainter& painter, QPointF center);
+// En ámbar (theme::kEnfasis), un destino al que convergen los trazos (radiales, HU-24).
+void targetPoint(QPainter& painter, QPointF center, const QColor& color = theme::kGuia);
 
 // Punto de paso: anillo chico y hueco, distinto de los extremos.
 void passPoint(QPainter& painter, QPointF center);

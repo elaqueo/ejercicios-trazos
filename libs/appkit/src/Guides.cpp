@@ -8,14 +8,14 @@
 
 namespace appkit::guides {
 
-void targetPoint(QPainter& painter, QPointF center)
+void targetPoint(QPainter& painter, QPointF center, const QColor& color)
 {
     painter.save();
-    painter.setPen(QPen(theme::kGuia, theme::kGrosorGuia));
+    painter.setPen(QPen(color, theme::kGrosorGuia));
     painter.setBrush(Qt::NoBrush);
     painter.drawEllipse(center, theme::kRadioPuntoUnir, theme::kRadioPuntoUnir);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(theme::kGuia);
+    painter.setBrush(color);
     painter.drawEllipse(center, 4.5, 4.5);
     painter.restore();
 }
