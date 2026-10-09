@@ -4,6 +4,7 @@
 
 #include <QLineF>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPen>
 
 namespace appkit::guides {
@@ -34,6 +35,26 @@ void guideLine(QPainter& painter, QPointF from, QPointF to)
     painter.save();
     painter.setPen(QPen(theme::kGuia, theme::kGrosorGuia, Qt::SolidLine, Qt::RoundCap));
     painter.drawLine(from, to);
+    painter.restore();
+}
+
+void guidePath(QPainter& painter, const QPainterPath& path)
+{
+    painter.save();
+    painter.setPen(QPen(theme::kGuia, theme::kGrosorGuia, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawPath(path);
+    painter.restore();
+}
+
+void constructionPath(QPainter& painter, const QPainterPath& path)
+{
+    painter.save();
+    QPen pen(theme::kGuiaSuave, theme::kGrosorConstruccion);
+    pen.setDashPattern({4.0 / theme::kGrosorConstruccion, 5.0 / theme::kGrosorConstruccion});
+    painter.setPen(pen);
+    painter.setBrush(Qt::NoBrush);
+    painter.drawPath(path);
     painter.restore();
 }
 

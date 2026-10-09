@@ -25,6 +25,10 @@ qt_add_library(ejercicios_core STATIC
     src/exercises/Recta.cpp
     src/exercises/Renglon.h
     src/exercises/Renglon.cpp
+    src/exercises/RenglonCurvo.h
+    src/exercises/RenglonCurvo.cpp
+    src/exercises/WritingCurve.h
+    src/exercises/WritingCurve.cpp
 )
 target_include_directories(ejercicios_core PUBLIC src)
 target_link_libraries(ejercicios_core PUBLIC appkit)

@@ -6,6 +6,7 @@
 #include <QPointF>
 
 class QPainter;
+class QPainterPath;
 
 // Primitivas de guía con los estilos del diseño (docs/diseno.md, mesa "Guías"), para
 // armar el dibujo que se pasa a lienzo::Lienzo::setGuides(). Son genéricas:
@@ -24,6 +25,10 @@ void guideLine(QPainter& painter, QPointF from, QPointF to);
 
 // Línea de construcción (1,5 px punteada, azul suave): horizonte, líneas a PF.
 void constructionLine(QPainter& painter, QPointF from, QPointF to);
+
+// Las mismas, sobre un trazado cualquiera (líneas base curvas, HU-33).
+void guidePath(QPainter& painter, const QPainterPath& path);
+void constructionPath(QPainter& painter, const QPainterPath& path);
 
 // Dirección del trazo: flecha ámbar con un punto en el arranque.
 void directionArrow(QPainter& painter, QPointF from, QPointF to);

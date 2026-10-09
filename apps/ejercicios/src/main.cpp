@@ -18,6 +18,7 @@
 #include "exercises/Radiales.h"
 #include "exercises/Recta.h"
 #include "exercises/Renglon.h"
+#include "exercises/RenglonCurvo.h"
 
 #include <appkit/Config.h>
 #include <appkit/Log.h>
@@ -78,8 +79,9 @@ int main(int argc, char* argv[])
     const ejercicios::Elipse elipse;
     const ejercicios::Concentricas concentricas;
     const ejercicios::Renglon renglon;
-    const QList<const ejercicios::Exercise*> exercises{&recta,  &hatching, &radiales,     &direccion,
-                                                       &curva,  &elipse,   &concentricas, &renglon};
+    const ejercicios::RenglonCurvo renglonCurvo;
+    const QList<const ejercicios::Exercise*> exercises{&recta,  &hatching, &radiales,     &direccion, &curva,
+                                                       &elipse, &concentricas, &renglon, &renglonCurvo};
     // Lo guardado (HU-13): el último ejercicio elegido y los parámetros de cada uno.
     config.remove(QStringLiteral("brush")); // del selector de pinceles de libmypaint (HU-68)
     const ejercicios::Exercise* first =
