@@ -3,15 +3,18 @@
 #include "lienzo/DisplayImage.h"
 #include "lienzo/LeadController.h"
 #include "lienzo/Timing.h"
+#include "lienzo/Tone.h"
 
 #include <tabletinput/PenReader.h>
 
 #include <d3d11.h>
+#include <d3dcompiler.h>
 #include <dwmapi.h>
 #include <dxgi1_5.h>
 #include <wrl/client.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <deque>
 #include <vector>
@@ -46,6 +49,33 @@ double percentile(std::vector<double> v, double p)
     return v[std::min(v.size() - 1, size_t(p * double(v.size())))];
 }
 
+// Vista rotada (HU-40): un rectángulo del tamaño del cliente girado alrededor de (cx, cy),
+// con la imagen de pantalla como textura.
+const char kRotateShader[] = R"(
+cbuffer View : register(b0) { float2 size; float2 center; float cosA; float sinA; float2 pad; };
+Texture2D image : register(t0);
+SamplerState linearClamp : register(s0);
+struct V { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
+V vs(uint id : SV_VertexID)
+{
+    float2 uv = float2(id & 1, id >> 1);
+    float2 d = uv * size - center;
+    float2 p = center + float2(cosA * d.x - sinA * d.y, sinA * d.x + cosA * d.y);
+    V o;
+    o.pos = float4(p.x / size.x * 2 - 1, 1 - p.y / size.y * 2, 0, 1);
+    o.uv = uv;
+    return o;
+}
+float4 ps(V v) : SV_Target { return image.Sample(linearClamp, v.uv); }
+)";
+
+struct ViewConstants {
+    float size[2];
+    float center[2];
+    float cosA, sinA;
+    float pad[2];
+};
+
 struct FrameRecord {
     UINT presentCount = 0;
     int64_t newestSampleUs = 0; // 0 = el frame no trajo muestras nuevas
@@ -58,6 +88,12 @@ struct Renderer::Impl {
     ComPtr<ID3D11DeviceContext> context;
     ComPtr<IDXGISwapChain2> swapChain;
     ComPtr<ID3D11Texture2D> display, stats;
+    // Vista rotada (HU-40).
+    ComPtr<ID3D11ShaderResourceView> displayView;
+    ComPtr<ID3D11VertexShader> rotateVs;
+    ComPtr<ID3D11PixelShader> rotatePs;
+    ComPtr<ID3D11Buffer> viewConstants;
+    ComPtr<ID3D11SamplerState> sampler;
     HANDLE waitable = nullptr, timer = nullptr;
     HDC statsDc = nullptr;
     HBITMAP statsBitmap = nullptr;
@@ -131,10 +167,14 @@ struct Renderer::Impl {
         td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
         td.SampleDesc.Count = 1;
         td.Usage = D3D11_USAGE_DEFAULT;
+        td.BindFlags = D3D11_BIND_SHADER_RESOURCE; // la vista rotada la usa como textura
         device->CreateTexture2D(&td, nullptr, &display);
+        device->CreateShaderResourceView(display.Get(), nullptr, &displayView);
+        td.BindFlags = 0;
         td.Width = kStatsW;
         td.Height = kStatsH;
         device->CreateTexture2D(&td, nullptr, &stats);
+        initRotation();
 
         BITMAPINFO bi{};
         bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
@@ -150,6 +190,66 @@ struct Renderer::Impl {
         timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
         if (!timer)
             timer = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
+        return true;
+    }
+
+    // Shaders de la vista rotada, compilados al arrancar (d3dcompiler_47 viene con Windows).
+    // Si fallan, la vista no rota pero el lienzo sigue andando.
+    void initRotation()
+    {
+        ComPtr<ID3DBlob> vsCode, psCode, errors;
+        if (FAILED(D3DCompile(kRotateShader, sizeof(kRotateShader) - 1, "rotate", nullptr, nullptr, "vs", "vs_5_0", 0, 0,
+                              &vsCode, &errors)) ||
+            FAILED(D3DCompile(kRotateShader, sizeof(kRotateShader) - 1, "rotate", nullptr, nullptr, "ps", "ps_5_0", 0, 0,
+                              &psCode, &errors)))
+            return;
+        device->CreateVertexShader(vsCode->GetBufferPointer(), vsCode->GetBufferSize(), nullptr, &rotateVs);
+        device->CreatePixelShader(psCode->GetBufferPointer(), psCode->GetBufferSize(), nullptr, &rotatePs);
+        D3D11_BUFFER_DESC bd{};
+        bd.ByteWidth = sizeof(ViewConstants);
+        bd.Usage = D3D11_USAGE_DEFAULT;
+        bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        device->CreateBuffer(&bd, nullptr, &viewConstants);
+        D3D11_SAMPLER_DESC sd{};
+        sd.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+        sd.AddressU = sd.AddressV = sd.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+        sd.MaxLOD = D3D11_FLOAT32_MAX;
+        device->CreateSamplerState(&sd, &sampler);
+    }
+
+    // Dibuja la imagen girada en el back buffer; devuelve false si no hay shaders.
+    bool drawRotated(ID3D11Texture2D* back, const ViewRotation& rotation)
+    {
+        if (!rotateVs || !rotatePs)
+            return false;
+        ComPtr<ID3D11RenderTargetView> target;
+        if (FAILED(device->CreateRenderTargetView(back, nullptr, &target)))
+            return false;
+        const float outside[4] = {float((kOutsideColor >> 16) & 0xFF) / 255.0f, float((kOutsideColor >> 8) & 0xFF) / 255.0f,
+                                  float(kOutsideColor & 0xFF) / 255.0f, 1.0f};
+        context->ClearRenderTargetView(target.Get(), outside);
+        const double a = rotation.degrees * 3.14159265358979323846 / 180.0;
+        const ViewConstants c{{float(width), float(height)},
+                              {float(rotation.cx), float(rotation.cy)},
+                              float(std::cos(a)),
+                              float(std::sin(a)),
+                              {0, 0}};
+        context->UpdateSubresource(viewConstants.Get(), 0, nullptr, &c, 0, 0);
+        const D3D11_VIEWPORT viewport{0, 0, float(width), float(height), 0, 1};
+        context->RSSetViewports(1, &viewport);
+        context->OMSetRenderTargets(1, target.GetAddressOf(), nullptr);
+        context->IASetInputLayout(nullptr);
+        context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        context->VSSetShader(rotateVs.Get(), nullptr, 0);
+        context->VSSetConstantBuffers(0, 1, viewConstants.GetAddressOf());
+        context->PSSetShader(rotatePs.Get(), nullptr, 0);
+        context->PSSetShaderResources(0, 1, displayView.GetAddressOf());
+        context->PSSetSamplers(0, 1, sampler.GetAddressOf());
+        context->Draw(4, 0);
+        // Soltar la textura y el destino: el próximo frame se copia y se sube a ellos.
+        ID3D11ShaderResourceView* noView = nullptr;
+        context->PSSetShaderResources(0, 1, &noView);
+        context->OMSetRenderTargets(0, nullptr, nullptr);
         return true;
     }
 
@@ -319,7 +419,13 @@ void Renderer::run()
         }
         ComPtr<ID3D11Texture2D> back;
         d.swapChain->GetBuffer(0, IID_PPV_ARGS(&back));
-        d.context->CopyResource(back.Get(), d.display.Get());
+        ViewRotation rotation;
+        {
+            std::lock_guard rotationLock(m_rotationMutex);
+            rotation = m_rotation;
+        }
+        if (rotation.identity() || !d.drawRotated(back.Get(), rotation))
+            d.context->CopyResource(back.Get(), d.display.Get());
         if (m_overlay) {
             d.context->CopySubresourceRegion(back.Get(), 0, 16, 16, 0, d.stats.Get(), 0, nullptr);
             overlayShown = true;

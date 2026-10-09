@@ -15,6 +15,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/Simulation.h
     include/lienzo/Timing.h
     include/lienzo/Tone.h
+    include/lienzo/ViewRotation.h
     src/Bench.cpp
     src/CanvasWindow.cpp
     src/LeadPicker.cpp
@@ -26,7 +27,7 @@ qt_add_library(lienzo STATIC
     src/Tone.cpp
 )
 target_include_directories(lienzo PUBLIC include)
-target_link_libraries(lienzo PUBLIC drymedia tabletinput appkit d3d11 dxgi dwmapi user32 gdi32)
+target_link_libraries(lienzo PUBLIC drymedia tabletinput appkit d3d11 d3dcompiler dxgi dwmapi user32 gdi32)
 et_target_defaults(lienzo)
 
 add_subdirectory(tests)

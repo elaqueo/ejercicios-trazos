@@ -23,6 +23,13 @@ public:
     CanvasWindow& operator=(const CanvasWindow&) = delete;
 
     HWND hwnd() const { return m_hwnd; }
+    // Gesto de rotación (HU-40): apoyar el lápiz con Shift apretado y arrastrar. Mientras
+    // dura, las muestras no van a la simulación (no dibuja). phase: 0 empieza, 1 sigue,
+    // 2 termina; (x, y) en píxeles del cliente.
+    void setOnRotateGesture(std::function<void(int phase, double x, double y)> callback)
+    {
+        m_onRotateGesture = std::move(callback);
+    }
     // Al apretar el botón lateral del lápiz (flanco de subida; en el hilo de la interfaz).
     void setOnStylusButton(std::function<void()> callback) { m_onStylusButton = std::move(callback); }
     int width() const { return m_width; }
@@ -38,7 +45,10 @@ private:
     SampleQueue& m_queue;
     std::function<void(UINT, bool)> m_onKey;
     std::function<void()> m_onStylusButton;
+    std::function<void(int, double, double)> m_onRotateGesture;
     bool m_barrel = false;
+    bool m_contact = false;  // el lápiz estaba apoyado en la muestra anterior
+    bool m_rotating = false; // gesto de rotación en curso
     tabletinput::PenReader m_reader;
     std::vector<tabletinput::PenSample> m_samples;
 };

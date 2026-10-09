@@ -48,7 +48,8 @@ struct LienzoOptions {
 // medios.json.
 //
 // Teclas comunes: Ctrl+N hoja nueva · Z deshace / Ctrl+Y rehace (si undo) · F5 selector de
-// lápices · 1 a 0 dureza (si gradeKeys) · F3
+// lápices · 1 a 0 dureza (si gradeKeys; si no, 4 y 6 rotan la vista y 5 la vuelve a 0°) ·
+// Shift + arrastrar con el lápiz rota la vista (snap de 15°) · F3
 // latencia y herramienta · calibración de la mina activa ([ ] blandura, , . diámetro,
 // - = techo) o de la goma con el lápiz dado vuelta ([ ] fuerza, , . diámetro) · Ctrl+S
 // guarda en medios.json · F9 calibra el área útil · F10 pasa al monitor siguiente (guarda la

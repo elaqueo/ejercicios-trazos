@@ -145,14 +145,22 @@ void Simulation::run()
         }
 
         m_queue.takeAll(samples);
+        ViewRotation rotation;
+        {
+            std::lock_guard rotationLock(m_rotationMutex);
+            rotation = m_rotation;
+        }
         const Stopwatch batch;
         drymedia::DirtyRect dirty;
         int64_t newest = 0;
         for (const tabletinput::PenSample& s : samples) {
             // Las muestras ya llegan en coordenadas del cliente (CanvasWindow resta su esquina);
             // el mapeo las pasa a celdas de la hoja (a escala de la tableta, HU-52).
-            const drymedia::PencilSample p{m_mapping.cellX(s.x), m_mapping.cellY(s.y), s.pressure, s.azimuth,
-                                          s.altitude};
+            double ix = s.x, iy = s.y;
+            rotation.toImage(ix, iy); // vista rotada: de vuelta a la hoja sin rotar
+            // La inclinación también gira con la vista.
+            const float azimuth = float(std::fmod(double(s.azimuth) - rotation.degrees + 720.0, 360.0));
+            const drymedia::PencilSample p{m_mapping.cellX(ix), m_mapping.cellY(iy), s.pressure, azimuth, s.altitude};
             if (m_recording) {
                 const Lead l = Lead::unpack(lead);
                 std::fprintf(m_recording, "%lld,%.4f,%.4f,%.3f,%.3f,%.4f,%.2f,%.2f,%d,%d,%d,%d,%d\n",

@@ -2,6 +2,7 @@
 
 #include "lienzo/Media.h"
 #include "lienzo/SheetMapping.h"
+#include "lienzo/ViewRotation.h"
 
 #include <atomic>
 #include <cstdio>
@@ -62,6 +63,13 @@ public:
     // Pinta toda la imagen (hoja y afuera). Llamar antes de start().
     void renderAll();
 
+    // Rotación de la vista (HU-40): las muestras se llevan a la imagen sin rotar.
+    void setRotation(const ViewRotation& rotation)
+    {
+        std::lock_guard lock(m_rotationMutex);
+        m_rotation = rotation;
+    }
+
     // Capa de guías (HU-64): BGRA premultiplicado del tamaño de la imagen, o vacía para
     // sacarla. Se puede llamar en cualquier momento: el hilo de simulación la toma y repinta
     // todo una vez.
@@ -97,6 +105,8 @@ private:
     std::mutex m_guidesMutex;
     std::vector<uint32_t> m_pendingGuides; // la que llega de afuera
     std::atomic<bool> m_guidesChanged{false};
+    std::mutex m_rotationMutex;
+    ViewRotation m_rotation;
     std::atomic<uint64_t> m_lead;
     std::atomic<uint64_t> m_eraser;
     std::atomic<bool> m_erasing{false};

@@ -4,6 +4,7 @@
 #include <lienzo/SampleQueue.h>
 #include <lienzo/SheetMapping.h>
 #include <lienzo/Tone.h>
+#include <lienzo/ViewRotation.h>
 
 #include <drymedia/Paper.h>
 
@@ -228,6 +229,25 @@ private slots:
         QTest::keyClick(&picker, Qt::Key_Escape);
         QCOMPARE(cerrado, 1);
         QCOMPARE(elegida, kHbIndex + 2);
+    }
+
+    // HU-40: la rotación de la vista. Pantalla → imagen deshace imagen → pantalla, el centro
+    // no se mueve y 90° lleva la derecha del centro hacia abajo (y hacia abajo: horario).
+    void rotacionDeLaVista()
+    {
+        const ViewRotation r{90, 500, 400};
+        double x = 600, y = 400;
+        r.toScreen(x, y);
+        QVERIFY(qAbs(x - 500) < 1e-9 && qAbs(y - 500) < 1e-9);
+        r.toImage(x, y);
+        QVERIFY(qAbs(x - 600) < 1e-9 && qAbs(y - 400) < 1e-9);
+        double cx = 500, cy = 400;
+        ViewRotation{37, 500, 400}.toImage(cx, cy);
+        QVERIFY(qAbs(cx - 500) < 1e-9 && qAbs(cy - 400) < 1e-9);
+        QCOMPARE(ViewRotation::normalized(190), -170.0);
+        QCOMPARE(ViewRotation::normalized(-180), 180.0);
+        QCOMPARE(ViewRotation::snapped(22), 15.0);
+        QCOMPARE(ViewRotation::snapped(23), 30.0);
     }
 
     // HU-57: la HB de fábrica es exactamente la calibrada en HU-51 (mismo trazo, mismo

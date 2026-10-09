@@ -58,14 +58,30 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         // acá no corre (se consume para que Windows no sintetice mouse): sin esto queda el
         // cursor de "programa iniciando" del arranque.
         SetCursor(LoadCursorW(nullptr, IDC_CROSS));
+        std::vector<tabletinput::PenSample> toDraw;
+        toDraw.reserve(m_samples.size());
         for (tabletinput::PenSample& s : m_samples) { // pantalla → cliente
             s.x -= m_origin.x;
             s.y -= m_origin.y;
             if (s.barrel && !m_barrel && m_onStylusButton)
                 m_onStylusButton();
             m_barrel = s.barrel;
+            // Gesto de rotación: apoyar con Shift empieza; mientras siga apoyado, gira.
+            const bool touching = s.inContact && !s.eraser;
+            if (touching && !m_contact && m_onRotateGesture && (GetKeyState(VK_SHIFT) & 0x8000)) {
+                m_rotating = true;
+                m_onRotateGesture(0, s.x, s.y);
+            } else if (m_rotating && touching) {
+                m_onRotateGesture(1, s.x, s.y);
+            } else if (m_rotating) {
+                m_rotating = false;
+                m_onRotateGesture(2, s.x, s.y);
+            }
+            m_contact = touching;
+            if (!m_rotating)
+                toDraw.push_back(s);
         }
-        m_queue.push(m_samples);
+        m_queue.push(toDraw);
         return 0; // sin mouse sintetizado
     }
     switch (msg) {

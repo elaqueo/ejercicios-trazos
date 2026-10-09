@@ -135,6 +135,8 @@ struct Lienzo::Impl {
     QScreen* screen = nullptr;
     appkit::Config* config = nullptr;
     QPicture guides;                          // las últimas guías (se reubican al calibrar)
+    double viewDegrees = 0;                   // rotación de la vista (HU-40)
+    double gestureStartDegrees = 0, gestureStartPointer = 0;
     std::function<void()> onSheetChanged;
     std::unique_ptr<QWidget> calibrationHost; // F9 (HU-66): ventana propia que cubre el monitor
     appkit::CalibrationOverlay* calibration = nullptr;
@@ -197,7 +199,44 @@ struct Lienzo::Impl {
             sim->setRecording(recording);
         applyMedia();
         sim->setGuides(guideLayer());
+        sim->setRotation(rotation());
+        if (render)
+            render->setRotation(rotation());
         sim->renderAll();
+    }
+
+    ViewRotation rotation() const
+    {
+        return {viewDegrees, mapping.sheetX + mapping.sheetWidth / 2.0, mapping.sheetY + mapping.sheetHeight / 2.0};
+    }
+
+    void setViewRotation(double degrees)
+    {
+        viewDegrees = ViewRotation::normalized(degrees);
+        const ViewRotation r = rotation();
+        sim->setRotation(r);
+        if (render)
+            render->setRotation(r);
+    }
+
+    double pointerAngle(double x, double y) const
+    {
+        const ViewRotation r = rotation();
+        return std::atan2(y - r.cy, x - r.cx) * 180.0 / 3.14159265358979323846;
+    }
+
+    void rotateGesture(int phase, double x, double y)
+    {
+        if (phase == 0) {
+            gestureStartDegrees = viewDegrees;
+            gestureStartPointer = pointerAngle(x, y);
+            return;
+        }
+        // Gira según el ángulo que recorre la punta alrededor del centro de la hoja, con
+        // snap de 15° (como el Ejercicios anterior).
+        setViewRotation(ViewRotation::snapped(gestureStartDegrees + pointerAngle(x, y) - gestureStartPointer));
+        if (phase == 2)
+            qInfo() << "Vista rotada" << viewDegrees << "°";
     }
 
     void relayout()
@@ -377,6 +416,9 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
         impl->focusCanvas();
     });
 
+    d->canvas->setOnRotateGesture(
+        [impl = d.get()](int phase, double x, double y) { impl->rotateGesture(phase, x, y); });
+
     d->picker = std::make_unique<LeadPicker>(&shell);
     d->picker->onPick = [impl = d.get()](int grade) {
         impl->media.active = grade;
@@ -456,6 +498,12 @@ bool Lienzo::handleKey(UINT vk, bool ctrl)
                 qInfo() << "Guardada la" << media.activeName() << "en" << media.path;
         }
         media.updateUnsaved();
+    } else if (!ctrl && !d->options.gradeKeys && (vk == '4' || vk == VK_NUMPAD4)) { // vista: un paso antihorario
+        d->setViewRotation(ViewRotation::snapped(d->viewDegrees) - ViewRotation::kSnapStep);
+    } else if (!ctrl && !d->options.gradeKeys && (vk == '6' || vk == VK_NUMPAD6)) { // un paso horario
+        d->setViewRotation(ViewRotation::snapped(d->viewDegrees) + ViewRotation::kSnapStep);
+    } else if (!ctrl && !d->options.gradeKeys && (vk == '5' || vk == VK_NUMPAD5)) { // vuelve a 0°
+        d->setViewRotation(0);
     } else if (!ctrl && vk >= '0' && vk <= '9' && d->options.gradeKeys) { // 1 a 0: 2H … 6B
         media.active = vk == '0' ? kGradeCount - 1 : int(vk - '1');
         d->applyMedia();

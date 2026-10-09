@@ -1,8 +1,11 @@
 #pragma once
 
+#include "lienzo/ViewRotation.h"
+
 #include <windows.h>
 
 #include <atomic>
+#include <mutex>
 #include <functional>
 #include <string>
 #include <thread>
@@ -29,6 +32,13 @@ public:
     void setOverlay(bool visible) { m_overlay = visible; }
     // Texto extra para el recuadro (por ejemplo, la blandura); se pide cada 250 ms.
     void setExtraInfo(std::function<std::wstring()> extra) { m_extra = std::move(extra); }
+    // Rotación de la vista (HU-40): a 0° se copia la imagen tal cual; girada, la GPU la
+    // dibuja como un rectángulo rotado (afuera, el color de fuera de la hoja).
+    void setRotation(const ViewRotation& rotation)
+    {
+        std::lock_guard lock(m_rotationMutex);
+        m_rotation = rotation;
+    }
     // Mediciones de tiempo para diagnóstico (opcional; llamar antes de start()).
     void setTimings(struct SessionTimings* timings) { m_timings = timings; }
 
@@ -47,6 +57,8 @@ private:
     std::function<std::wstring()> m_extra;
     struct SessionTimings* m_timings = nullptr;
     std::string m_summary;
+    std::mutex m_rotationMutex;
+    ViewRotation m_rotation;
 };
 
 } // namespace lienzo
