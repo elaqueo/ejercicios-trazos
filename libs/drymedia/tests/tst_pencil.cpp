@@ -2,6 +2,7 @@
 #include <drymedia/Pencil.h>
 
 #include <QElapsedTimer>
+#include <QFile>
 #include <QTest>
 
 #include <algorithm>
@@ -187,6 +188,97 @@ private slots:
             }
         }
         QVERIFY(arriba > 100); // la prueba tiene sentido: hay celdas por encima del techo
+    }
+
+    // Cruzar un trazo cargado no desvía el trazo nuevo: el depósito nuevo de cada fila de
+    // un trazo vertical queda centrado en la línea, también donde cruza un trazo 6B
+    // saturado (reporte del 10 de octubre de 2026, no reproducido: el desvío medido es de
+    // ~3 celdas, 0,13 mm, en el cruce y lejos de él).
+    void cruzarNoDesvia()
+    {
+        Paper paper(smallSheet());
+        Medium soft = Medium::hb().withLeadDiameter(1.45);
+        soft.softness = 70;
+        Pencil pencil(paper, soft);
+        const auto horizontal = [](double t) { return PencilSample{200 + t * 1400, 700, 1.0f, 0.0f, 55.0f}; };
+        for (int pasada = 0; pasada < 12; ++pasada)
+            draw(pencil, horizontal, 60);
+        const std::vector<uint16_t> antes = depositOf(paper);
+        const double x = 900.3;
+        const auto vertical = [x](double t) { return PencilSample{x, 400 + t * 600, 0.5f, 45.0f, 40.0f}; };
+        draw(pencil, vertical, 60);
+        const std::vector<uint16_t> despues = depositOf(paper);
+        double peorLejos = 0, peorCruce = 0;
+        for (int y = 450; y < 950; y += 2) {
+            double suma = 0, momento = 0;
+            for (int cx = 840; cx < 960; ++cx) {
+                const size_t i = size_t(y) * size_t(paper.width()) + size_t(cx);
+                const double d = double(despues[i]) - double(antes[i]);
+                suma += d;
+                momento += d * cx;
+            }
+            if (suma <= 0)
+                continue;
+            double& peor = std::abs(y - 700) < 60 ? peorCruce : peorLejos;
+            peor = std::max(peor, std::abs(momento / suma - x));
+        }
+        qInfo() << "desvío máximo en celdas: lejos" << peorLejos << "· en el cruce" << peorCruce;
+        QVERIFY2(peorCruce < 5.0, qPrintable(QString::number(peorCruce))); // 0,2 mm
+    }
+
+    // Diagnóstico: re-simula una grabación de Cartuchera (--grabar) y guarda el depósito
+    // como PGM (reducido 4:1, el más oscuro de cada bloque). Solo corre con DRYMEDIA_REPLAY.
+    void reproducirGrabacion()
+    {
+        const QString csv = qEnvironmentVariable("DRYMEDIA_REPLAY");
+        if (csv.isEmpty())
+            QSKIP("sin DRYMEDIA_REPLAY");
+        QFile in(csv);
+        QVERIFY(in.open(QIODevice::ReadOnly | QIODevice::Text));
+        in.readLine();
+        Paper paper;
+        Pencil pencil(paper, Medium::hb());
+        QString lead;
+        while (!in.atEnd()) {
+            const QList<QByteArray> f = in.readLine().trimmed().split(',');
+            if (f.size() < 13)
+                continue;
+            const QString thisLead = QString::fromLatin1(f[10] + ',' + f[11] + ',' + f[12]);
+            if (thisLead != lead) {
+                if (pencil.inStroke())
+                    pencil.endStroke();
+                lead = thisLead;
+                Medium m = Medium::hb().withLeadDiameter(f[11].toInt() / 100.0);
+                m.softness = uint16_t(f[10].toInt());
+                m.ceiling = uint16_t(f[12].toInt());
+                pencil.setMedium(m);
+            }
+            const PencilSample sample{f[3].toDouble(), f[4].toDouble(), f[5].toFloat(), f[6].toFloat(), f[7].toFloat()};
+            if (f[8] == "1" && f[9] == "0") {
+                if (!pencil.inStroke())
+                    pencil.beginStroke(sample);
+                else
+                    pencil.strokeTo(sample);
+            } else if (pencil.inStroke()) {
+                pencil.endStroke();
+            }
+        }
+        if (pencil.inStroke())
+            pencil.endStroke();
+        const std::vector<uint16_t> dep = depositOf(paper);
+        const int w = paper.width() / 4, h = paper.height() / 4;
+        QByteArray pgm = QStringLiteral("P5 %1 %2 255\n").arg(w).arg(h).toLatin1();
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x) {
+                uint16_t v = 0;
+                for (int dy = 0; dy < 4; ++dy)
+                    for (int dx = 0; dx < 4; ++dx)
+                        v = std::max(v, dep[size_t(y * 4 + dy) * size_t(paper.width()) + size_t(x * 4 + dx)]);
+                pgm.append(char(255 - v / 257));
+            }
+        QFile out(csv + QStringLiteral(".pgm"));
+        QVERIFY(out.open(QIODevice::WriteOnly));
+        out.write(pgm);
     }
 
     // Sin desplazamiento no hay deslizamiento: apoyar sin mover no deposita.

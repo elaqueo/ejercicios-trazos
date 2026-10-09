@@ -1,8 +1,10 @@
 #pragma once
 
+#include "Media.h"
 #include "SheetMapping.h"
 
 #include <atomic>
+#include <cstdio>
 #include <thread>
 
 namespace drymedia {
@@ -43,21 +45,18 @@ public:
         wake();
     }
     static constexpr int kUndoLimit = 100; // decisión del 10 de octubre de 2026
-    // Blandura de la HB (1..255), para calibrar en vivo.
-    void setSoftness(int softness) { m_softness = softness; }
-    int softness() const { return m_softness; }
-    // Diámetro de la mina en centésimas de mm, para calibrar en vivo.
-    void setLeadDiameter(int hundredthsMm) { m_diameter = hundredthsMm; }
-    int leadDiameter() const { return m_diameter; }
-    // Techo de tono de la mina (HU-56): depósito máximo, 1..65535.
-    void setCeiling(int ceiling) { m_ceiling = ceiling; }
-    int ceiling() const { return m_ceiling; }
+    // La mina activa (HU-57): cambia al elegir otra dureza o al calibrar en vivo. Si
+    // cambia en medio de un trazo, el trazo se cierra y sigue como uno nuevo.
+    void setLead(const Lead& lead) { m_lead = lead.pack(); }
+    Lead lead() const { return Lead::unpack(m_lead); }
 
     // Pinta toda la imagen (hoja y afuera). Llamar antes de start().
     void renderAll();
 
     // Mediciones de tiempo para diagnóstico (opcional; llamar antes de start()).
     void setTimings(SessionTimings* timings) { m_timings = timings; }
+    // Grabación de las muestras tal como llegan, en CSV (diagnóstico; llamar antes de start()).
+    void setRecording(std::FILE* file) { m_recording = file; }
 
 private:
     void run();
@@ -73,9 +72,8 @@ private:
     std::atomic<int> m_undoRequests{0};
     std::atomic<int> m_redoRequests{0};
     SessionTimings* m_timings = nullptr;
-    std::atomic<int> m_softness;
-    std::atomic<int> m_diameter;
-    std::atomic<int> m_ceiling;
+    std::FILE* m_recording = nullptr;
+    std::atomic<uint64_t> m_lead;
 };
 
 } // namespace cartuchera

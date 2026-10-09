@@ -19,9 +19,7 @@ Simulation::Simulation(drymedia::Paper& paper, SampleQueue& queue, DisplayImage&
     , m_queue(queue)
     , m_image(image)
     , m_mapping(mapping)
-    , m_softness(drymedia::Medium::hb().softness)
-    , m_diameter(int(std::lround(drymedia::Medium::hb().leadDiameterMm * 100)))
-    , m_ceiling(drymedia::Medium::hb().ceiling)
+    , m_lead(factoryGrades()[kHbIndex].pack())
 {
 }
 
@@ -59,11 +57,8 @@ void Simulation::renderAll()
 void Simulation::run()
 {
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-    int diameter = m_diameter;
-    drymedia::Medium medium = drymedia::Medium::hb().withLeadDiameter(diameter / 100.0);
-    medium.softness = uint16_t(m_softness.load());
-    medium.ceiling = uint16_t(m_ceiling.load());
-    drymedia::Pencil pencil(m_paper, medium);
+    uint64_t lead = m_lead;
+    drymedia::Pencil pencil(m_paper, Lead::unpack(lead).medium());
     // Deshacer y rehacer (HU-53): el lápiz avisa antes de la primera escritura de cada
     // tile en un trazo, y el historial guarda cómo estaba.
     drymedia::History history(kUndoLimit);
@@ -110,12 +105,10 @@ void Simulation::run()
             history.clear(); // la hoja nueva no se deshace
             renderAll();
         }
-        if (medium.softness != m_softness || diameter != m_diameter || medium.ceiling != m_ceiling) {
-            diameter = m_diameter;
-            medium = drymedia::Medium::hb().withLeadDiameter(diameter / 100.0);
-            medium.softness = uint16_t(std::clamp(m_softness.load(), 1, 255));
-            medium.ceiling = uint16_t(std::clamp(m_ceiling.load(), 1, 65535));
-            pencil.setMedium(medium);
+        if (lead != m_lead) {
+            lead = m_lead;
+            endStroke(); // cada trazo con una sola mina: se deshace con la que lo hizo
+            pencil.setMedium(Lead::unpack(lead).medium());
         }
 
         m_queue.takeAll(samples);
@@ -127,6 +120,12 @@ void Simulation::run()
             // el mapeo las pasa a celdas de la hoja (a escala de la tableta, HU-52).
             const drymedia::PencilSample p{m_mapping.cellX(s.x), m_mapping.cellY(s.y), s.pressure, s.azimuth,
                                           s.altitude};
+            if (m_recording) {
+                const Lead l = Lead::unpack(lead);
+                std::fprintf(m_recording, "%lld,%.4f,%.4f,%.3f,%.3f,%.4f,%.2f,%.2f,%d,%d,%d,%d,%d\n",
+                             static_cast<long long>(s.timeUs), s.x, s.y, p.x, p.y, s.pressure, s.azimuth, s.altitude,
+                             int(s.inContact), int(s.eraser), l.softness, l.diameter, l.ceiling);
+            }
             if (s.eraser) {
                 endStroke(); // la goma llega en la Fase 2
                 continue;

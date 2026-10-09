@@ -7,6 +7,8 @@ qt_add_library(cartuchera_core STATIC
     src/CanvasWindow.cpp
     src/DisplayImage.h
     src/LeadController.h
+    src/Media.h
+    src/Media.cpp
     src/Renderer.h
     src/Renderer.cpp
     src/SampleQueue.h

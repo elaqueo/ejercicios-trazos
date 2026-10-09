@@ -1,4 +1,5 @@
 #include <LeadController.h>
+#include <Media.h>
 #include <SampleQueue.h>
 #include <SheetMapping.h>
 #include <Tone.h>
@@ -151,6 +152,57 @@ private slots:
         for (int i = 0; i < LeadController::kCalmFrames - 1; ++i)
             lead.onFrame(false);
         QCOMPARE(lead.leadMs(), after);
+    }
+    // HU-57: la HB de fábrica es exactamente la calibrada en HU-51 (mismo trazo, mismo
+    // hash), y las durezas van de la más clara a la más oscura.
+    void durezasDeFabrica()
+    {
+        const Grades g = factoryGrades();
+        QCOMPARE(QLatin1String(kGradeNames[kHbIndex]), QLatin1String("HB"));
+        const drymedia::Medium hb = g[kHbIndex].medium(), ref = drymedia::Medium::hb();
+        QCOMPARE(hb.softness, ref.softness);
+        QCOMPARE(hb.ceiling, ref.ceiling);
+        QCOMPARE(hb.forceScale, ref.forceScale);
+        QCOMPARE(hb.leadDiameterMm, ref.leadDiameterMm);
+        for (int i = 1; i < kGradeCount; ++i) {
+            QVERIFY(g[i].softness > g[i - 1].softness);
+            QVERIFY(g[i].ceiling >= g[i - 1].ceiling);
+        }
+    }
+
+    void minaEmpaquetada()
+    {
+        for (const Lead& l : factoryGrades())
+            QCOMPARE(Lead::unpack(l.pack()), l);
+        // Fuera de rango se recorta al empaquetar.
+        QCOMPARE(Lead::unpack(Lead{999, 5, 70000}.pack()), (Lead{255, 30, 65535}));
+    }
+
+    // medios.json: ida y vuelta exacta; lo que falta queda de fábrica, lo desconocido se
+    // ignora y lo fuera de rango se recorta; un archivo roto no toca nada.
+    void mediosJson()
+    {
+        Grades g = factoryGrades();
+        g[0] = {9, 66, 21000};
+        g[9].diameter = 123;
+        Grades leido{};
+        QVERIFY(gradesFromJson(gradesToJson(g), leido));
+        QCOMPARE(leido, g);
+
+        Grades parcial{};
+        QVERIFY(gradesFromJson(R"({"minas": [{"nombre": "4B", "blandura": 300, "techo": 10},
+                                             {"nombre": "9H", "blandura": 3}]})",
+                               parcial));
+        Grades esperado = factoryGrades();
+        esperado[7].softness = 255;
+        esperado[7].ceiling = 2000;
+        QCOMPARE(parcial, esperado);
+
+        Grades intacto = g;
+        QString error;
+        QVERIFY(!gradesFromJson("{ esto no es json", intacto, &error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(intacto, g);
     }
 };
 

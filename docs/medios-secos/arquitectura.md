@@ -288,6 +288,8 @@ Tomadas con el Product Owner tras revisar el encaje de este plan con el monorepo
 1. **Formato de hoja por defecto** (decisión abierta 2): A4 apaisado recortado a la altura útil de la tableta, 297 × 203 mm.
 2. **Deshacer:** hasta 100 trazos hacia atrás con Ctrl+Z y rehacer con Ctrl+Y; un trazo nuevo descarta lo rehacible.
 3. **Fase 1 en el tablero** (milestone "Cartuchera · Fase 1"): HU-47 `libs/tabletinput`, HU-48 papel en tiles, HU-49 punta HB y contacto, HU-50 barrido y depósito, HU-51 trazo en vivo, HU-52 hoja = tableta, HU-53 deshacer y rehacer. Quedan para fases siguientes: iluminación, goma, bruñido, desgaste, otras durezas y la curva de presión propia.
+4. **Fase 2 en el tablero** (milestone "Cartuchera · Fase 2"), en el orden pedido en la retro de la Fase 1: HU-56 techo de tono por mina, HU-57 durezas 2H a 6B, HU-58 goma, HU-59 costado, HU-60 bruñido, HU-61 deformación y línea blanca (con el daño de fibra de la goma), HU-62 desgaste y afilado.
+5. **Durezas:** cada mina tiene blandura (cuánto deposita), techo (el negro máximo: las duras se quedan en gris) y diámetro. Teclas 1 a 0 = 2H … 6B; los valores viven en `medios.json` (carpeta de datos de la familia), recargable en caliente; Ctrl+S guarda la mina activa. Calibradas con la tableta en HU-57.
 
 ## Ideas para más adelante
 
