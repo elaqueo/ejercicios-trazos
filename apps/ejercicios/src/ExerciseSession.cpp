@@ -22,12 +22,24 @@ ExerciseSession::ExerciseSession(ExerciseCanvas* canvas, const Exercise* exercis
     , m_canvas(canvas)
     , m_exercise(exercise)
     , m_seed(newSeed(0))
+    , m_currentParams(params(exercise))
 {
+}
+
+QVariantMap ExerciseSession::params(const Exercise* exercise) const
+{
+    return appkit::clampValues(exercise->params(), m_configured.value(exercise->id(), exercise->defaults()));
+}
+
+void ExerciseSession::setParams(const QVariantMap& values)
+{
+    m_configured.insert(m_exercise->id(), appkit::clampValues(m_exercise->params(), values));
 }
 
 void ExerciseSession::next()
 {
     m_seed = newSeed(m_seed);
+    m_currentParams = params(m_exercise);
     m_canvas->clear();
     regenerate();
 }
@@ -49,7 +61,7 @@ void ExerciseSession::regenerate()
     // Coordenadas de la hoja: el origen es su esquina.
     const QRect area(QPoint(0, 0), m_canvas->sheetSize());
     const SafeZone zone = SafeZone::withRandomOrientation(area, m_seed);
-    m_current = m_exercise->generate(m_exercise->defaults(), m_seed, zone);
+    m_current = m_exercise->generate(m_currentParams, m_seed, zone);
     m_canvas->setGuides(m_current.guides);
 }
 

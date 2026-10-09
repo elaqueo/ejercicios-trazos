@@ -3,7 +3,7 @@
 // deshacer: un intento por ejercicio (alcance de v1). Los números quedan para la vista,
 // como en el Ejercicios anterior (5 volvía a 0°; 4 y 6, HU-40).
 //   → o el botón lateral del lápiz: siguiente ejercicio · R repite el mismo (HU-17) · F4 menú
-//   de ejercicios (HU-11) · Alt+F4 sale · Ctrl+N borra la hoja
+//   de ejercicios (HU-11) · F2 panel de configuración (HU-12) · Alt+F4 sale · Ctrl+N borra la hoja
 //   · el resto de las teclas, las del lienzo (lienzo/Lienzo.h): F5 lápices, F9 área útil, F10
 //   monitor, F3, [ ] tamaño, , . blandura, - = techo, Ctrl+S, F12. Todas en el registro
 //   único de atajos (HU-14).
@@ -15,9 +15,13 @@
 #include <appkit/Config.h>
 #include <appkit/Log.h>
 #include <appkit/MenuOverlay.h>
+#include <appkit/ParamForm.h>
+#include <appkit/SidePanel.h>
 #include <lienzo/Lienzo.h>
 
 #include <QApplication>
+#include <QLabel>
+#include <QVBoxLayout>
 #include <QScreen>
 
 namespace {
@@ -65,9 +69,48 @@ int main(int argc, char* argv[])
     // Menú de ejercicios (HU-11): F4 lo abre y lo cierra; elegir genera ese ejercicio.
     appkit::MenuOverlay menu(&shell, QStringLiteral("Ejercicios"), Qt::Key_F4);
     menu.setGroups(ejercicios::exerciseMenu(exercises));
+    // Panel de configuración (HU-12): F2. Pestaña Ejercicio con los parámetros del actual
+    // (rigen desde el siguiente) y las del lienzo (Lápiz, Pantalla).
+    appkit::SidePanel panel(&shell, QStringLiteral("Configuración"), Qt::Key_F2);
+    auto* exercisePage = new QWidget;
+    auto* exerciseLayout = new QVBoxLayout(exercisePage);
+    exerciseLayout->setContentsMargins(0, 0, 0, 0);
+    exerciseLayout->setSpacing(12);
+    auto* exerciseTitle = new QLabel(exercisePage);
+    QFont titleFont = exerciseTitle->font();
+    titleFont.setBold(true);
+    exerciseTitle->setFont(titleFont);
+    auto* exerciseHint = new QLabel(QStringLiteral("Los cambios rigen desde el ejercicio siguiente (→)."), exercisePage);
+    exerciseHint->setObjectName(QStringLiteral("secundario"));
+    exerciseHint->setWordWrap(true);
+    auto* exerciseForm = new appkit::ParamForm(exercisePage);
+    exerciseLayout->addWidget(exerciseTitle);
+    exerciseLayout->addWidget(exerciseHint);
+    exerciseLayout->addWidget(exerciseForm);
+    exerciseForm->onChanged = [&session](const QVariantMap& values) { session.setParams(values); };
+    const auto showExerciseParams = [&session, exerciseTitle, exerciseForm] {
+        const ejercicios::Exercise* exercise = session.exercise();
+        exerciseTitle->setText(exercise->title());
+        exerciseForm->setParams(exercise->params(), session.params(exercise));
+    };
+    showExerciseParams();
+    panel.addTab(exercisePage, QStringLiteral("Ejercicio"));
+    canvas.addPanelTabs(panel);
+    panel.onClose = [&canvas] { canvas.focusCanvas(); };
+    canvas.shortcuts().add(QStringLiteral("Panel de configuración"), {{VK_F2}}, [&] {
+        if (panel.isVisible()) {
+            panel.hide();
+            canvas.focusCanvas();
+            return;
+        }
+        menu.hide();
+        canvas.showSidePanel(panel);
+    });
+
     menu.onPick = [&](const QString& id) {
         if (const ejercicios::Exercise* exercise = ejercicios::findExercise(exercises, id))
             session.setExercise(exercise);
+        showExerciseParams();
         canvas.focusCanvas();
     };
     menu.onClose = [&canvas] { canvas.focusCanvas(); };
@@ -78,6 +121,7 @@ int main(int argc, char* argv[])
             return;
         }
         menu.setCurrent(session.exercise()->id());
+        panel.hide();
         canvas.showOverlay(&menu);
     });
     canvas.shortcuts().add(QStringLiteral("Ejercicio siguiente"), {{VK_RIGHT}}, [&session] { session.next(); });

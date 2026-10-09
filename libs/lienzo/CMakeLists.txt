@@ -16,6 +16,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/Simulation.h
     include/lienzo/Timing.h
     include/lienzo/Tone.h
+    include/lienzo/ToolPage.h
     include/lienzo/ViewRotation.h
     src/Bench.cpp
     src/CanvasWindow.cpp
@@ -27,6 +28,7 @@ qt_add_library(lienzo STATIC
     src/SheetMapping.cpp
     src/Simulation.cpp
     src/Tone.cpp
+    src/ToolPage.cpp
 )
 # Imágenes de la interfaz (encabezado del selector de lápices, pedido del usuario).
 qt_add_resources(lienzo lienzo_imagenes PREFIX /lienzo BASE resources FILES resources/grafito.jpg)

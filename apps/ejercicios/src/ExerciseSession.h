@@ -3,6 +3,7 @@
 #include "ExerciseCanvas.h"
 #include "exercises/Exercise.h"
 
+#include <QHash>
 #include <QObject>
 
 namespace ejercicios {
@@ -18,6 +19,13 @@ public:
 
     quint32 seed() const { return m_seed; }
     const Exercise* exercise() const { return m_exercise; }
+    // Los parámetros con que se generó el ejercicio actual.
+    const QVariantMap& currentParams() const { return m_currentParams; }
+    // Los parámetros configurados para un ejercicio (los de defecto si no se tocaron).
+    QVariantMap params(const Exercise* exercise) const;
+    // Configura los parámetros del ejercicio actual (panel, HU-12). Rigen desde el ejercicio
+    // siguiente: el actual queda como está y R lo repite igual.
+    void setParams(const QVariantMap& values);
     const Generated& current() const { return m_current; }
 
     // Siguiente ejercicio: limpia el lienzo y genera con otra semilla.
@@ -35,6 +43,8 @@ private:
     ExerciseCanvas* m_canvas;
     const Exercise* m_exercise;
     quint32 m_seed;
+    QHash<QString, QVariantMap> m_configured; // por id de ejercicio
+    QVariantMap m_currentParams;
     Generated m_current;
 };
 

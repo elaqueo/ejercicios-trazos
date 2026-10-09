@@ -100,6 +100,37 @@ private slots:
         QCOMPARE(findExercise(exercises, kMixedModeId), nullptr);
     }
 
+    // Los parámetros del panel rigen desde el ejercicio siguiente; R repite con los de antes.
+    void parametrosDesdeElSiguiente()
+    {
+        FakeCanvas canvas;
+        const Recta recta;
+        ExerciseSession session(&canvas, &recta);
+        session.regenerate();
+        const auto ideal = session.current().ideal;
+        const QVariantMap antes = session.currentParams();
+        QCOMPARE(antes, recta.defaults());
+
+        QVariantMap corto = antes;
+        corto.insert(QStringLiteral("distMin"), 0.1);
+        corto.insert(QStringLiteral("distMax"), 0.1);
+        corto.insert(QStringLiteral("otra"), 3); // no es de la recta: se descarta
+        session.setParams(corto);
+        QCOMPARE(session.currentParams(), antes); // el actual no cambia
+        QCOMPARE(session.current().ideal, ideal);
+        session.repeat();
+        QCOMPARE(session.currentParams(), antes);
+        QCOMPARE(session.current().ideal, ideal);
+
+        session.next();
+        QCOMPARE(session.currentParams().value(QStringLiteral("distMax")).toDouble(), 0.1);
+        QVERIFY(!session.currentParams().contains(QStringLiteral("otra")));
+        // Con distMin = distMax = 0,1, el segmento mide 0,1 del diámetro de la zona.
+        const SafeZone zone = SafeZone::withRandomOrientation(QRect(QPoint(0, 0), canvas.size), session.seed());
+        QCOMPARE(qRound(session.current().ideal.first().length()), qRound(0.1 * 2 * zone.radius));
+        QCOMPARE(session.params(&recta), session.currentParams());
+    }
+
     // Regenerar (cambio de área) conserva la semilla y, con la misma área, el ejercicio; no
     // borra la hoja.
     void regenerarConservaElEjercicio()

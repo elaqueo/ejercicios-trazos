@@ -37,9 +37,15 @@ QString Recta::group() const
     return QStringLiteral("Rectas");
 }
 
-QVariantMap Recta::defaults() const
+QList<appkit::Param> Recta::params() const
 {
-    return {{kDistMin, 0.25}, {kDistMax, 0.80}};
+    using Type = appkit::Param::Type;
+    return {
+        {.key = kDistMin, .label = QStringLiteral("Largo mínimo (× diámetro de la zona)"), .type = Type::Real,
+         .minimum = 0.05, .maximum = 1.0, .step = 0.05, .defaultValue = 0.25},
+        {.key = kDistMax, .label = QStringLiteral("Largo máximo (× diámetro de la zona)"), .type = Type::Real,
+         .minimum = 0.05, .maximum = 1.0, .step = 0.05, .defaultValue = 0.80},
+    };
 }
 
 Generated Recta::generate(const QVariantMap& params, quint32 seed, const SafeZone& zone) const

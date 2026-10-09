@@ -19,6 +19,7 @@ class QScreen;
 
 namespace appkit {
 class Config;
+class SidePanel;
 }
 
 namespace lienzo {
@@ -80,6 +81,11 @@ public:
     // (al cerrarla).
     void showOverlay(QWidget* overlay);
     void focusCanvas();
+    // Panel de configuración (HU-12): agrega las pestañas del lienzo ("Lápiz": mina activa y
+    // goma; "Pantalla": área útil y monitor) y lo muestra pegado al borde derecho del área
+    // útil.
+    void addPanelTabs(appkit::SidePanel& panel);
+    void showSidePanel(appkit::SidePanel& panel);
 
     void clear(); // hoja nueva (y, si hay deshacer, sin historial); las guías quedan
 

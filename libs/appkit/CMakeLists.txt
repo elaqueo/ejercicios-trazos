@@ -5,9 +5,12 @@ qt_add_library(appkit STATIC
     include/appkit/Guides.h
     include/appkit/Log.h
     include/appkit/MenuOverlay.h
+    include/appkit/Param.h
+    include/appkit/ParamForm.h
     include/appkit/Paths.h
     include/appkit/ScreenChoice.h
     include/appkit/Shortcuts.h
+    include/appkit/SidePanel.h
     include/appkit/Theme.h
     include/appkit/UsableArea.h
     src/CalibrationOverlay.cpp
@@ -15,9 +18,12 @@ qt_add_library(appkit STATIC
     src/Guides.cpp
     src/Log.cpp
     src/MenuOverlay.cpp
+    src/Param.cpp
+    src/ParamForm.cpp
     src/Paths.cpp
     src/ScreenChoice.cpp
     src/Shortcuts.cpp
+    src/SidePanel.cpp
     src/UsableArea.cpp
 )
 target_include_directories(appkit PUBLIC include)

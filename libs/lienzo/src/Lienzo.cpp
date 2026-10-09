@@ -9,12 +9,14 @@
 #include "lienzo/SampleQueue.h"
 #include "lienzo/Simulation.h"
 #include "lienzo/Timing.h"
+#include "lienzo/ToolPage.h"
 
 #include <appkit/CalibrationOverlay.h>
 #include <appkit/Config.h>
 #include <appkit/Paths.h>
 #include <appkit/ScreenChoice.h>
 #include <appkit/Shortcuts.h>
+#include <appkit/SidePanel.h>
 #include <appkit/UsableArea.h>
 #include <drymedia/Paper.h>
 
@@ -25,6 +27,9 @@
 #include <QFileSystemWatcher>
 #include <QImage>
 #include <QKeyEvent>
+#include <QLabel>
+#include <QPushButton>
+#include <QVBoxLayout>
 #include <QPainter>
 #include <QPicture>
 #include <QProcess>
@@ -147,6 +152,7 @@ struct Lienzo::Impl {
     SampleQueue queue;
     MediaFile media;
     appkit::Shortcuts shortcuts;
+    std::function<void()> refreshPanel; // el panel (HU-12) vuelve a leer mina, goma y pantalla
     std::unique_ptr<CanvasWindow> canvas;
     SheetMapping mapping;
     DisplayImage image;
@@ -300,6 +306,26 @@ struct Lienzo::Impl {
             sim->setLead(media.lead());
             sim->setEraser(media.current.eraser);
         }
+        if (refreshPanel)
+            refreshPanel();
+    }
+
+    // Ctrl+S y los botones Guardar del panel.
+    void saveLead()
+    {
+        const size_t a = size_t(media.active.load());
+        media.saved.grades[a] = media.current.grades[a];
+        if (media.write())
+            qInfo() << "Guardada la" << media.activeName() << "en" << media.path;
+        applyMedia();
+    }
+
+    void saveEraser()
+    {
+        media.saved.eraser = media.current.eraser;
+        if (media.write())
+            qInfo() << "Guardada la goma en" << media.path;
+        applyMedia();
     }
 
     // Calibración en vivo: cambia un valor de la herramienta activa.
@@ -481,18 +507,11 @@ void Lienzo::registerShortcuts()
     keys.add(QStringLiteral("Calibrar el área útil"), {{VK_F9}}, [impl] { impl->startCalibration(); }); // HU-66
     keys.add(QStringLiteral("Monitor siguiente"), {{VK_F10}}, [impl] { impl->nextScreen(); }); // HU-66
     keys.add(QStringLiteral("Imagen de pantalla"), {{VK_F12}}, [impl] { impl->saveScreenImage(); }); // diagnóstico
-    keys.add(QStringLiteral("Guardar el lápiz"), {{'S', true}}, [impl, &media] {
-        if (impl->erasing()) {
-            media.saved.eraser = media.current.eraser;
-            if (media.write())
-                qInfo() << "Guardada la goma en" << media.path;
-        } else {
-            const size_t a = size_t(media.active.load());
-            media.saved.grades[a] = media.current.grades[a];
-            if (media.write())
-                qInfo() << "Guardada la" << media.activeName() << "en" << media.path;
-        }
-        media.updateUnsaved();
+    keys.add(QStringLiteral("Guardar el lápiz"), {{'S', true}}, [impl] {
+        if (impl->erasing())
+            impl->saveEraser();
+        else
+            impl->saveLead();
     });
     if (d->options.gradeKeys) { // 1 a 0: 2H … 6B
         for (int g = 0; g < kGradeCount; ++g) {
@@ -619,6 +638,77 @@ void Lienzo::showOverlay(QWidget* overlay)
 void Lienzo::focusCanvas()
 {
     d->focusCanvas();
+}
+
+void Lienzo::addPanelTabs(appkit::SidePanel& panel)
+{
+    Impl* impl = d.get();
+    auto* tools = new ToolPage;
+    tools->onLeadChanged = [impl](const Lead& lead) {
+        impl->media.lead() = lead;
+        impl->applyMedia();
+    };
+    tools->onEraserChanged = [impl](const Eraser& eraser) {
+        impl->media.current.eraser = eraser;
+        impl->applyMedia();
+    };
+    tools->onSaveLead = [impl] { impl->saveLead(); };
+    tools->onSaveEraser = [impl] { impl->saveEraser(); };
+    panel.addTab(tools, QStringLiteral("Lápiz"));
+
+    auto* screenPage = new QWidget;
+    auto* layout = new QVBoxLayout(screenPage);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(12);
+    auto* monitor = new QLabel(screenPage);
+    monitor->setWordWrap(true);
+    auto* calibrate = new QPushButton(QStringLiteral("Calibrar el área útil (F9)"), screenPage);
+    auto* next = new QPushButton(QStringLiteral("Monitor siguiente (F10)"), screenPage);
+    next->setEnabled(QGuiApplication::screens().size() > 1);
+    auto* nextHint = new QLabel(QStringLiteral("La app se reinicia en el otro monitor; lo dibujado se pierde."), screenPage);
+    nextHint->setObjectName(QStringLiteral("secundario"));
+    nextHint->setWordWrap(true);
+    layout->addWidget(monitor);
+    layout->addWidget(calibrate);
+    layout->addSpacing(8);
+    layout->addWidget(next);
+    layout->addWidget(nextHint);
+    QObject::connect(calibrate, &QPushButton::clicked, [impl, &panel] {
+        panel.hide();
+        impl->startCalibration();
+    });
+    QObject::connect(next, &QPushButton::clicked, [impl] { impl->nextScreen(); });
+    panel.addTab(screenPage, QStringLiteral("Pantalla"));
+
+    d->refreshPanel = [impl, tools, monitor] {
+        tools->setTools(QString::fromLatin1(impl->media.activeName()), impl->media.lead(), impl->media.leadUnsaved,
+                        impl->media.current.eraser, impl->media.eraserUnsaved);
+        const QRect a = impl->area.value_or(QRect());
+        monitor->setText(QStringLiteral("Monitor: %1\nÁrea útil: %2")
+                             .arg(appkit::ScreenId::of(impl->screen).describe(),
+                                  impl->area ? QStringLiteral("%1 × %2 px desde (%3, %4)")
+                                                   .arg(a.width())
+                                                   .arg(a.height())
+                                                   .arg(a.x())
+                                                   .arg(a.y())
+                                             : QStringLiteral("sin calibrar")));
+    };
+    d->refreshPanel();
+}
+
+void Lienzo::showSidePanel(appkit::SidePanel& panel)
+{
+    // Pegado al borde derecho del área útil (lo que alcanza el lápiz), arriba.
+    const QRect a = d->area.value_or(sheetRect());
+    const int margin = 16;
+    panel.resize(appkit::SidePanel::kWidth, std::min(680, a.height() - 2 * margin));
+    panel.move(d->shell->mapToGlobal(QPoint(a.right() + 1 - panel.width() - margin, a.top() + margin)));
+    if (d->refreshPanel)
+        d->refreshPanel();
+    panel.show();
+    panel.raise();
+    panel.activateWindow();
+    panel.setFocus();
 }
 
 QRect Lienzo::sheetRect() const

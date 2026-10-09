@@ -5,10 +5,14 @@
 #include <lienzo/SampleQueue.h>
 #include <lienzo/SheetMapping.h>
 #include <lienzo/Tone.h>
+#include <lienzo/ToolPage.h>
 #include <lienzo/ViewRotation.h>
 
 #include <drymedia/Paper.h>
 
+#include <appkit/ParamForm.h>
+
+#include <QSlider>
 #include <QTest>
 
 #include <thread>
@@ -230,6 +234,40 @@ private slots:
         QTest::keyClick(&picker, Qt::Key_Escape);
         QCOMPARE(cerrado, 1);
         QCOMPARE(elegida, kHbIndex + 2);
+    }
+
+    // HU-12: los controles de la pestaña Lápiz llegan a la mina y a la goma en sus unidades
+    // (centésimas de mm, techo de 0 a 65535), y mover uno no toca los demás.
+    void controlesDelLapiz()
+    {
+        ToolPage page;
+        const Lead f = factoryGrades()[2]; // F: techo 40632, que en % redondea
+        page.setTools(QStringLiteral("F"), f, false, Eraser{}, false);
+        Lead recibida;
+        Eraser goma;
+        page.onLeadChanged = [&](const Lead& l) { recibida = l; };
+        page.onEraserChanged = [&](const Eraser& e) { goma = e; };
+
+        QSlider* blandura = page.leadForm()->slider(QStringLiteral("blandura"));
+        QVERIFY(blandura);
+        blandura->setValue(blandura->value() + 5);
+        QCOMPARE(recibida.softness, f.softness + 5);
+        QCOMPARE(recibida.ceiling, f.ceiling); // intacto, aunque en % no sea exacto
+        QCOMPARE(recibida.diameter, f.diameter);
+
+        QSlider* diametro = page.leadForm()->slider(QStringLiteral("diametro"));
+        diametro->setValue(diametro->maximum());
+        QCOMPARE(recibida.diameter, 200); // 2,00 mm
+        QCOMPARE(recibida.softness, f.softness + 5);
+
+        QSlider* fuerza = page.eraserForm()->slider(QStringLiteral("fuerza"));
+        fuerza->setValue(fuerza->minimum());
+        QCOMPARE(goma.strength, 1);
+        QCOMPARE(goma.diameter, Eraser{}.diameter);
+
+        // Ida y vuelta entre unidades.
+        QCOMPARE(leadFrom(leadValues(f), f), f);
+        QCOMPARE(leadFrom({{QStringLiteral("techo"), 50}}, f).ceiling, 32768);
     }
 
     // El selector lleva arriba la imagen de la colección (recurso del lienzo); tocarla no

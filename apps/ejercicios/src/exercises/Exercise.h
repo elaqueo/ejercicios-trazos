@@ -8,6 +8,8 @@
 #include <QString>
 #include <QVariantMap>
 
+#include <appkit/Param.h>
+
 // Contrato de ejercicio (HU-15). El núcleo (ciclo siguiente/repetir, modo mixto,
 // panel) solo conoce esta interfaz; cada ejercicio concreto implementa generate().
 // Vive en la app, no en appkit: las bibliotecas no saben de ejercicios (RNF-05/06).
@@ -60,8 +62,11 @@ public:
     virtual QString title() const = 0;
     // Grupo del menú ("Rectas"), como en la tabla de ejercicios de docs/alcance-v1.md.
     virtual QString group() const = 0;
-    // Parámetros por defecto; el panel edita y Config guarda este mismo mapa.
-    virtual QVariantMap defaults() const = 0;
+    // Parámetros con tipo, rango y valor por defecto (HU-12): el panel arma sus controles
+    // con appkit::ParamForm.
+    virtual QList<appkit::Param> params() const = 0;
+    // Los valores por defecto de params(); el panel edita y Config guarda este mismo mapa.
+    QVariantMap defaults() const { return appkit::defaultValues(params()); }
     // Determinista: misma semilla y mismos parámetros, misma geometría (RNF-08).
     // Usar QRandomGenerator(seed) y nada más como fuente de azar. Toda la geometría
     // ideal debe quedar dentro de la zona (zone.contains); los puntos de fuga pueden
