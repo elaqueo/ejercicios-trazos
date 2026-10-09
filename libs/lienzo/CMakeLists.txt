@@ -4,6 +4,7 @@
 qt_add_library(lienzo STATIC
     include/lienzo/Bench.h
     include/lienzo/CanvasWindow.h
+    include/lienzo/Cursor.h
     include/lienzo/DisplayImage.h
     include/lienzo/LeadController.h
     include/lienzo/LeadPicker.h
@@ -18,6 +19,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/ViewRotation.h
     src/Bench.cpp
     src/CanvasWindow.cpp
+    src/Cursor.cpp
     src/LeadPicker.cpp
     src/Lienzo.cpp
     src/Media.cpp

@@ -1,4 +1,5 @@
 #include <lienzo/LeadController.h>
+#include <lienzo/Cursor.h>
 #include <lienzo/LeadPicker.h>
 #include <lienzo/Media.h>
 #include <lienzo/SampleQueue.h>
@@ -248,6 +249,26 @@ private slots:
         QCOMPARE(ViewRotation::normalized(-180), 180.0);
         QCOMPARE(ViewRotation::snapped(22), 15.0);
         QCOMPARE(ViewRotation::snapped(23), 30.0);
+    }
+
+    // HU-38: la cruz abierta. Un punto de tinta en el centro y el resto libre; los cuatro
+    // brazos tienen tinta y están rodeados de un borde claro.
+    void punteroCruzAbierta()
+    {
+        const auto px = crossCursorPixels();
+        const auto at = [&](int x, int y) { return px[size_t(y) * kCursorSize + size_t(x)]; };
+        const int c = kCursorHotspot;
+        // Punto central de tinta con su borde claro; a 2 px, libre.
+        QCOMPARE(at(c, c), 0xFF111111u);
+        for (const auto [dx, dy] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}})
+            QCOMPARE(at(c + dx, c + dy), 0xFFF5F0E6u);
+        for (const auto [dx, dy] : {std::pair{2, 0}, {-2, 0}, {0, 2}, {0, -2}, {2, 2}, {-2, -2}})
+            QCOMPARE(at(c + dx, c + dy), 0u);
+        for (const auto [x, y] : {std::pair{c + 6, c}, {c - 6, c}, {c, c + 6}, {c, c - 6}}) {
+            QCOMPARE(at(x, y), 0xFF111111u);
+            QVERIFY(at(x, y - 1) == 0xFFF5F0E6u || at(x - 1, y) == 0xFFF5F0E6u);
+        }
+        QCOMPARE(at(0, 0), 0u);
     }
 
     // HU-57: la HB de fábrica es exactamente la calibrada en HU-51 (mismo trazo, mismo

@@ -1,5 +1,7 @@
 #include "lienzo/CanvasWindow.h"
 
+#include "lienzo/Cursor.h"
+
 #include "lienzo/SampleQueue.h"
 
 namespace lienzo {
@@ -13,11 +15,12 @@ const wchar_t* kClassName = L"LienzoCanvas";
 CanvasWindow::CanvasWindow(HWND parent, SampleQueue& queue, std::function<void(UINT, bool)> onKey)
     : m_queue(queue)
     , m_onKey(std::move(onKey))
+    , m_cursor(createCrossCursor())
 {
     WNDCLASSW wc{};
     wc.lpfnWndProc = proc;
     wc.hInstance = GetModuleHandleW(nullptr);
-    wc.hCursor = LoadCursorW(nullptr, IDC_CROSS);
+    wc.hCursor = nullptr; // lo pone WM_SETCURSOR: la cruz abierta
     wc.lpszClassName = kClassName;
     RegisterClassW(&wc); // si ya estaba registrada, falla sin consecuencias
 
@@ -35,6 +38,8 @@ CanvasWindow::~CanvasWindow()
 {
     if (m_hwnd)
         DestroyWindow(m_hwnd);
+    if (m_cursor)
+        DestroyCursor(m_cursor);
 }
 
 LRESULT CALLBACK CanvasWindow::proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -57,7 +62,7 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         // Con el lápiz el cursor lo pone el procesamiento por defecto de WM_POINTER, que
         // acá no corre (se consume para que Windows no sintetice mouse): sin esto queda el
         // cursor de "programa iniciando" del arranque.
-        SetCursor(LoadCursorW(nullptr, IDC_CROSS));
+        SetCursor(m_cursor);
         std::vector<tabletinput::PenSample> toDraw;
         toDraw.reserve(m_samples.size());
         for (tabletinput::PenSample& s : m_samples) { // pantalla → cliente
@@ -102,7 +107,7 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         break;
     case WM_SETCURSOR:
         if (LOWORD(lParam) == HTCLIENT) {
-            SetCursor(LoadCursorW(nullptr, IDC_CROSS)); // el puntero propio llega más adelante
+            SetCursor(m_cursor);
             return TRUE;
         }
         break;

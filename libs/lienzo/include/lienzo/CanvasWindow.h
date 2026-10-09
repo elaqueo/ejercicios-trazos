@@ -49,6 +49,7 @@ private:
     bool m_barrel = false;
     bool m_contact = false;  // el lápiz estaba apoyado en la muestra anterior
     bool m_rotating = false; // gesto de rotación en curso
+    HCURSOR m_cursor = nullptr; // la cruz abierta (HU-38)
     tabletinput::PenReader m_reader;
     std::vector<tabletinput::PenSample> m_samples;
 };
