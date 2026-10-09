@@ -288,3 +288,8 @@ Tomadas con el Product Owner tras revisar el encaje de este plan con el monorepo
 1. **Formato de hoja por defecto** (decisión abierta 2): A4 apaisado recortado a la altura útil de la tableta, 297 × 203 mm.
 2. **Deshacer:** hasta 100 trazos hacia atrás con Ctrl+Z y rehacer con Ctrl+Y; un trazo nuevo descarta lo rehacible.
 3. **Fase 1 en el tablero** (milestone "Cartuchera · Fase 1"): HU-47 `libs/tabletinput`, HU-48 papel en tiles, HU-49 punta HB y contacto, HU-50 barrido y depósito, HU-51 trazo en vivo, HU-52 hoja = tableta, HU-53 deshacer y rehacer. Quedan para fases siguientes: iluminación, goma, bruñido, desgaste, otras durezas y la curva de presión propia.
+
+## Ideas para más adelante
+
+1. **Editor y administrador de medios secos** (app aparte, [#54](https://github.com/elaqueo/ejercicios-trazos/issues/54)): crear y ordenar los archivos de parámetros de cada medio (dureza, depósito, punta, color), con una hoja de prueba. Hoy la HB calibrada vive en código.
+2. **Editor y administrador de soportes** (app aparte, [#55](https://github.com/elaqueo/ejercicios-trazos/issues/55)): papeles, lienzos, cartulinas; capturar el relieve de un papel real, ajustar color y comportamiento y guardar una biblioteca.
