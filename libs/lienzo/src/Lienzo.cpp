@@ -3,6 +3,7 @@
 #include "lienzo/Bench.h"
 #include "lienzo/CanvasWindow.h"
 #include "lienzo/DisplayImage.h"
+#include "lienzo/LeadPicker.h"
 #include "lienzo/Media.h"
 #include "lienzo/Renderer.h"
 #include "lienzo/SampleQueue.h"
@@ -128,6 +129,8 @@ QScreen* savedScreen(const appkit::Config& config)
 
 struct Lienzo::Impl {
     LienzoOptions options;
+    Shell* shell = nullptr;
+    std::unique_ptr<LeadPicker> picker; // F5 (HU-67)
     std::optional<QRect> area;
     drymedia::Paper paper; // A4 apaisado recortado, 297 × 203 mm
     SampleQueue queue;
@@ -165,6 +168,31 @@ struct Lienzo::Impl {
     // Las teclas de calibración y Ctrl+S van a la goma mientras el lápiz está dado vuelta.
     bool erasing() const { return sim && sim->erasing(); }
 
+    // El foco vuelve al lienzo nativo (las teclas y el lápiz siguen ahí).
+    void focusCanvas()
+    {
+        shell->activateWindow();
+        SetFocus(canvas->hwnd());
+    }
+
+    void togglePicker()
+    {
+        if (picker->isVisible()) {
+            picker->hide();
+            focusCanvas();
+            return;
+        }
+        picker->setLeads(media.current.grades, media.active, mapping.pixelsPerCellX);
+        // A la derecha de la hoja, arriba, en coordenadas de pantalla.
+        const QPoint corner = shell->mapToGlobal(
+            QPoint(mapping.sheetX + mapping.sheetWidth - LeadPicker::kWidth - 16, mapping.sheetY + 16));
+        picker->move(corner);
+        picker->show();
+        picker->raise();
+        picker->activateWindow();
+        picker->setFocus();
+    }
+
     void saveScreenImage()
     {
         QImage copy;
@@ -195,8 +223,8 @@ struct Lienzo::Impl {
             const Lead lead = sim->lead();
             const bool unsaved = media.leadUnsaved;
             swprintf(text, 512,
-                     options.gradeKeys ? L"mina %hs%ls (1-0)   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls"
-                                       : L"mina %hs%ls   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls",
+                     options.gradeKeys ? L"mina %hs%ls (F5, 1-0)   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls"
+                                       : L"mina %hs%ls (F5)   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls",
                      media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
                      int(std::lround(lead.ceiling * 100.0 / 65535)), unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
         }
@@ -208,6 +236,7 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, const appkit::Config& config, Lien
     : d(std::make_unique<Impl>())
 {
     d->options = std::move(options);
+    d->shell = &shell;
     // Área útil: la de la familia de apps (sección común de config.json), la misma que se
     // calibra con F9.
     d->area = appkit::loadUsableArea(config, appkit::ScreenId::of(screen));
@@ -245,14 +274,25 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, const appkit::Config& config, Lien
     if (!area)
         d->render->setOverlay(true); // el aviso tiene que verse sin apretar nada
 
+    d->picker = std::make_unique<LeadPicker>(&shell);
+    d->picker->onPick = [impl = d.get()](int grade) {
+        impl->media.active = grade;
+        impl->applyMedia();
+        impl->focusCanvas();
+    };
+    d->picker->onClose = [impl = d.get()] { impl->focusCanvas(); };
+
     // Recarga en caliente de medios.json. Muchos editores guardan reemplazando el archivo y
     // el watcher lo pierde: se vuelve a agregar.
     d->watcher = std::make_unique<QFileSystemWatcher>(QStringList{d->media.path});
     QObject::connect(d->watcher.get(), &QFileSystemWatcher::fileChanged, [impl = d.get()] {
         if (!impl->watcher->files().contains(impl->media.path) && QFile::exists(impl->media.path))
             impl->watcher->addPath(impl->media.path);
-        if (impl->media.load())
+        if (impl->media.load()) {
             impl->applyMedia();
+            if (impl->picker->isVisible())
+                impl->picker->setLeads(impl->media.current.grades, impl->media.active, impl->mapping.pixelsPerCellX);
+        }
     });
 
     qInfo() << "Monitor" << appkit::ScreenId::of(screen).describe() << (area ? "· área útil" : "· SIN área útil")
@@ -290,6 +330,8 @@ bool Lienzo::handleKey(UINT vk, bool ctrl)
         d->render->toggleOverlay();
     else if (vk == VK_F12) // diagnóstico: guarda la imagen de pantalla
         d->saveScreenImage();
+    else if (vk == VK_F5) // selector de lápices (HU-67)
+        d->togglePicker();
     else if (ctrl && vk == 'S') {
         if (d->erasing()) {
             media.saved.eraser = media.current.eraser;

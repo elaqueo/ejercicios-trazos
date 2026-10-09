@@ -47,8 +47,8 @@ struct LienzoOptions {
 // swapchain, con la simulación y el render en hilos propios; minas 2H … 6B y goma de
 // medios.json.
 //
-// Teclas comunes: Ctrl+N hoja nueva · Z deshace / Ctrl+Y rehace (si undo) · 1 a 0 dureza
-// (si gradeKeys) · F3
+// Teclas comunes: Ctrl+N hoja nueva · Z deshace / Ctrl+Y rehace (si undo) · F5 selector de
+// lápices · 1 a 0 dureza (si gradeKeys) · F3
 // latencia y herramienta · calibración de la mina activa ([ ] blandura, , . diámetro,
 // - = techo) o de la goma con el lápiz dado vuelta ([ ] fuerza, , . diámetro) · Ctrl+S
 // guarda en medios.json · F12 guarda la imagen de pantalla. Opciones de línea de comandos:

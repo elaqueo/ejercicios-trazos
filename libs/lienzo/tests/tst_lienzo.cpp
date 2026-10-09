@@ -1,4 +1,5 @@
 #include <lienzo/LeadController.h>
+#include <lienzo/LeadPicker.h>
 #include <lienzo/Media.h>
 #include <lienzo/SampleQueue.h>
 #include <lienzo/SheetMapping.h>
@@ -190,6 +191,45 @@ private slots:
         QCOMPARE(image[50 * 100 + 50], red);
     }
 
+    // HU-67: la muestra de cada mina tiene grafito, y la 6B es más oscura que la 2H.
+    void muestrasDeMinas()
+    {
+        const Grades g = factoryGrades();
+        const auto darkness = [](const QImage& image) {
+            double sum = 0;
+            for (int y = 0; y < image.height(); ++y)
+                for (int x = 0; x < image.width(); ++x)
+                    sum += 255 - qGray(image.pixel(x, y));
+            return sum;
+        };
+        const QImage dura = leadSample(g[0], QSize(300, 56), 0.2258);
+        const QImage blanda = leadSample(g[9], QSize(300, 56), 0.2258);
+        QCOMPARE(dura.size(), QSize(300, 56));
+        const double papel = darkness(leadSample(Lead{1, 87, 2000}, QSize(300, 56), 0.2258));
+        const double grafitoDura = darkness(dura) - papel, grafitoBlanda = darkness(blanda) - papel;
+        qInfo() << "grafito en la muestra: 2H" << grafitoDura << "· 6B" << grafitoBlanda;
+        QVERIFY(grafitoDura > 0);
+        QVERIFY(grafitoBlanda > grafitoDura * 1.5);
+    }
+
+    // Selector: flechas y Enter eligen; Esc cierra sin elegir.
+    void selectorConTeclado()
+    {
+        LeadPicker picker(nullptr);
+        picker.setLeads(factoryGrades(), kHbIndex, 0.2258);
+        int elegida = -1, cerrado = 0;
+        picker.onPick = [&](int i) { elegida = i; };
+        picker.onClose = [&] { ++cerrado; };
+        QTest::keyClick(&picker, Qt::Key_Down);
+        QTest::keyClick(&picker, Qt::Key_Down);
+        QTest::keyClick(&picker, Qt::Key_Return);
+        QCOMPARE(elegida, kHbIndex + 2); // 2B
+        QTest::keyClick(&picker, Qt::Key_Up);
+        QTest::keyClick(&picker, Qt::Key_Escape);
+        QCOMPARE(cerrado, 1);
+        QCOMPARE(elegida, kHbIndex + 2);
+    }
+
     // HU-57: la HB de fábrica es exactamente la calibrada en HU-51 (mismo trazo, mismo
     // hash), y las durezas van de la más clara a la más oscura.
     void durezasDeFabrica()
@@ -258,5 +298,5 @@ private slots:
     }
 };
 
-QTEST_GUILESS_MAIN(TestLienzo)
+QTEST_MAIN(TestLienzo)
 #include "tst_lienzo.moc"
