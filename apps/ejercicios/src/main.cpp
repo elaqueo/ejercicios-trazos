@@ -16,6 +16,7 @@
 #include "exercises/Curva.h"
 #include "exercises/Direccion.h"
 #include "exercises/Elipse.h"
+#include "exercises/ElipsePerspectiva.h"
 #include "exercises/Hatching.h"
 #include "exercises/Parrafo.h"
 #include "exercises/Radiales.h"
@@ -81,13 +82,14 @@ int main(int argc, char* argv[])
     const ejercicios::Direccion direccion;
     const ejercicios::Elipse elipse;
     const ejercicios::Concentricas concentricas;
+    const ejercicios::ElipsePerspectiva elipsePerspectiva;
     const ejercicios::Renglon renglon;
     const ejercicios::RenglonCurvo renglonCurvo;
     const ejercicios::Parrafo parrafo;
     const ejercicios::Cajas cajas;
     const ejercicios::CajasRotadas cajasRotadas;
     const QList<const ejercicios::Exercise*> exercises{&recta,   &hatching,     &radiales, &direccion,
-                                                       &curva,   &elipse,       &concentricas,
+                                                       &curva,   &elipse,       &concentricas, &elipsePerspectiva,
                                                        &cajas,   &cajasRotadas, &renglon,      &renglonCurvo,
                                                        &parrafo};
     // Lo guardado (HU-13): el último ejercicio elegido y los parámetros de cada uno.

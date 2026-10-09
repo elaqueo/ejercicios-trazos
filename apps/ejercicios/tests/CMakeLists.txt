@@ -11,4 +11,5 @@ et_add_qt_test(tst_renglon_curvo SOURCES tst_renglon_curvo.cpp LIBS ejercicios_c
 et_add_qt_test(tst_parrafo SOURCES tst_parrafo.cpp LIBS ejercicios_core)
 et_add_qt_test(tst_cajas SOURCES tst_cajas.cpp LIBS ejercicios_core)
 et_add_qt_test(tst_cajas_rotadas SOURCES tst_cajas_rotadas.cpp LIBS ejercicios_core)
+et_add_qt_test(tst_elipse_perspectiva SOURCES tst_elipse_perspectiva.cpp LIBS ejercicios_core)
 et_add_qt_test(tst_session SOURCES tst_session.cpp LIBS ejercicios_core)
