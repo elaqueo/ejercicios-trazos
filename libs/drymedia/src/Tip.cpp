@@ -51,8 +51,8 @@ Tip Tip::make(const Medium& medium, float azimuthDeg, float altitudeDeg, const L
                 double h = rho * medium.coneSlope;
                 const size_t at = size_t(y) * kTipSize + size_t(x);
                 if (withWear) {
-                    h += wear->at(px, py) * toHeightAxis;
-                    const int index = wear->index(px, py);
+                    int index;
+                    h += wear->sample(px, py, index) * toHeightAxis;
                     tip.m_lead[at] = index < 0 ? kNoLead : uint16_t(index);
                 }
                 tip.m_heights[at] = uint16_t(std::min(65534.0, std::round(h)));
@@ -128,8 +128,8 @@ Tip Tip::make(const Medium& medium, float azimuthDeg, float altitudeDeg, const L
             if (withWear) {
                 // El punto de la mina sobre esta celda; gastado, la cara sube a lo largo del eje.
                 const double lu = px * e1x + py * e1y + z * e1z, lv = px * e2x + py * e2y + z * e2z;
-                z += wear->at(lu, lv) * sAlt;
-                const int index = wear->index(lu, lv);
+                int index;
+                z += wear->sample(lu, lv, index) * sAlt;
                 tip.m_lead[at] = index < 0 ? kNoLead : uint16_t(index);
             }
             tip.m_heights[at] = uint16_t(std::clamp(std::round(z * toHeight), 0.0, 65534.0));

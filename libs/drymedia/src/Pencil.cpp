@@ -95,9 +95,9 @@ void Pencil::wearAt(const Tip& tip, uint16_t k)
         return;
     const uint16_t* pen = m_contact.penetration();
     const uint64_t scale = uint64_t(k) * m_medium.softness * m_medium.wearRate;
-    for (int i = 0; i < tip.cells(); ++i)
-        if (pen[i] > 0 && lead[size_t(i)] != Tip::kNoLead)
-            m_wear->add(lead[size_t(i)], (uint64_t(pen[i]) * scale) >> 28);
+    for (const uint32_t i : m_contact.contactCells()) // solo las que tocan (HU-76)
+        if (lead[i] != Tip::kNoLead)
+            m_wear->add(lead[i], (uint64_t(pen[i]) * scale) >> 28);
     if (m_wear->takeChanged())
         clearTips(); // la punta cambió: se rearma con el desgaste nuevo
 }
@@ -245,14 +245,20 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
                 if (!m_tileMarked[size_t(index)]) {
                     // Primera escritura del trazo en este tile: avisar antes de tocarlo.
                     if (m_observer)
-                        m_observer(index, m_paper.findDepositTile(tx, ty));
+                        m_observer(index, m_paper.findDepositTile(tx, ty), m_paper.tilePlanes(tx, ty));
                     m_tileMarked[size_t(index)] = true;
                     m_strokeTiles.push_back(index);
                 }
                 uint16_t* tile = m_paper.depositTile(tx, ty);
                 const size_t in = size_t(gy % kTileSize) * kTileSize + size_t(lx), from = size_t(r) * w + size_t(c);
+                uint8_t written = 0;
                 for (int pl = 0; pl < kTilePlanes; ++pl)
-                    std::memcpy(tile + size_t(pl) * kTileCells + in, m_contact.plane(pl) + from, size_t(run) * 2);
+                    if (m_contact.planeDirty(pl)) {
+                        std::memcpy(tile + size_t(pl) * kTileCells + in, m_contact.plane(pl) + from, size_t(run) * 2);
+                        written |= uint8_t(1 << pl);
+                    }
+                if (written & ~1)
+                    m_paper.markTilePlanes(tx, ty, uint8_t(written & ~1));
                 dirty.unite({gx, gy, gx + run, gy + 1});
             }
             c += run;

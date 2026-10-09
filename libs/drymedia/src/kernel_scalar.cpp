@@ -73,20 +73,33 @@ void erase(uint16_t* dep, const uint16_t* burn, const uint16_t* pen, int n, uint
     }
 }
 
-void burnish(uint16_t* dep, uint16_t* burn, const uint16_t* pen, int n, uint16_t kb, uint16_t target)
+bool burnish(uint16_t* dep, uint16_t* burn, const uint16_t* pen, int n, uint16_t kb, uint16_t target)
 {
+    uint32_t changed = 0;
     for (int i = 0; i < n; ++i) {
         const uint32_t h = contribution(pen[i], kb);
         const uint32_t d = dep[i];
-        burn[i] = addSat(burn[i], (h * d) >> 16);
+        const uint32_t db = (h * d) >> 16;
+        changed |= db;
+        burn[i] = addSat(burn[i], db);
         dep[i] = uint16_t(d + ((uint32_t(subSat(target, d)) * h) >> 16));
     }
+    return changed != 0;
 }
 
 void grow(uint16_t* field, const uint16_t* pen, int n, uint16_t threshold, uint16_t rate, uint16_t cap)
 {
     for (int i = 0; i < n; ++i)
         field[i] = std::min<uint16_t>(addSat(field[i], contribution(subSat(pen[i], threshold), rate)), cap);
+}
+
+int contactIndices(const uint16_t* pen, int n, uint32_t* out)
+{
+    int count = 0;
+    for (int i = 0; i < n; ++i)
+        if (pen[i] > 0)
+            out[count++] = uint32_t(i);
+    return count;
 }
 
 uint32_t contactDeposit(const uint16_t* dep, const uint16_t* pen, int n, uint32_t* count)
@@ -103,6 +116,6 @@ uint32_t contactDeposit(const uint16_t* dep, const uint16_t* pen, int n, uint32_
 
 } // namespace
 
-const Impl kScalar{surface, force, penetration, deposit, erase, burnish, grow, contactDeposit};
+const Impl kScalar{surface, force, penetration, deposit, erase, burnish, grow, contactIndices, contactDeposit};
 
 } // namespace drymedia::kernel

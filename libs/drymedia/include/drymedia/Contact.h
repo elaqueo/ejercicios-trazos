@@ -3,6 +3,7 @@
 #include "drymedia/Medium.h"
 #include "drymedia/Tip.h"
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -60,6 +61,10 @@ public:
     // relativo, hasta kMaxDeform (dos dientes).
     void applyDeform(uint16_t rate);
     uint32_t meanPenetration() const;
+    // Si el plano cambió desde find() (los demás no hace falta escribirlos de vuelta).
+    bool planeDirty(int index) const { return m_planeDirty[size_t(index)]; }
+    // Índices, en orden, de las celdas con penetración > 0 (después de find()).
+    const std::vector<uint32_t>& contactCells();
     // Daño de fibra (HU-61, borrar de más): crece ∝ penetración × kd.
     void applyDamage(uint16_t kd);
     const uint16_t* deform() const { return m_deform.data(); }
@@ -81,7 +86,11 @@ private:
     Path m_path;
     int m_cells = 0; // celdas de la última punta (los arreglos tienen ese tamaño)
     std::vector<uint16_t> m_relief, m_crest, m_deposit, m_burnish, m_deform, m_damage, m_surface, m_penetration;
+    std::vector<uint32_t> m_contactCells;
+    std::array<bool, 4> m_planeDirty{}; // depósito, bruñido, deformación, daño
+    std::array<bool, 4> m_planeZero{};  // el arreglo del plano está todo en cero
     uint32_t m_force = 0;
+    uint32_t m_lastDepth = kBase; // punto de partida de la búsqueda (HU-76)
 };
 
 } // namespace drymedia

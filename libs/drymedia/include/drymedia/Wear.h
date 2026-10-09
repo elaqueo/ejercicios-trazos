@@ -30,6 +30,31 @@ public:
     int index(double u, double v) const;
     // Desgaste en (u, v) en celdas, interpolado.
     double at(double u, double v) const;
+    // index() y at() en una sola cuenta, sin std::floor ni std::lround (en MSVC son llamadas
+    // a funciones; Tip lo llama por cada celda al armarse, HU-76). Mismo resultado.
+    double sample(double u, double v, int& index) const
+    {
+        // Más cercano como lround(u) + centro: los empates en .5 (la punta vertical los tiene en
+        // todas las celdas) se redondean hacia afuera.
+        const int nx = m_center + (u < 0 ? -int(0.5 - u) : int(u + 0.5));
+        const int ny = m_center + (v < 0 ? -int(0.5 - v) : int(v + 0.5));
+        index = nx >= 0 && ny >= 0 && nx < m_size && ny < m_size && m_cap[size_t(ny) * size_t(m_size) + size_t(nx)]
+                    ? ny * m_size + nx
+                    : -1;
+        if (!m_any)
+            return 0;
+        const double fx = u + m_center, fy = v + m_center;
+        if (fx < 0 || fy < 0)
+            return at(u, v);
+        const int x0 = int(fx), y0 = int(fy); // = floor: positivos
+        if (x0 + 1 >= m_size || y0 + 1 >= m_size)
+            return at(u, v);
+        const double tx = fx - x0, ty = fy - y0;
+        const uint32_t* row = m_wear.data() + size_t(y0) * size_t(m_size) + size_t(x0);
+        const double w = (double(row[0]) * (1 - tx) + double(row[1]) * tx) * (1 - ty) +
+                         (double(row[m_size]) * (1 - tx) + double(row[m_size + 1]) * tx) * ty;
+        return w / kUnit;
+    }
     // Suma desgaste a un punto, hasta su tope.
     void add(int index, uint64_t amount);
     // true si algún punto se gastó más de kRegenerate desde la última vez que dio true: la

@@ -85,7 +85,9 @@ void Simulation::run()
     // Deshacer y rehacer (HU-53): el lápiz y la goma avisan antes de la primera escritura
     // de cada tile en un trazo, y el historial guarda cómo estaba.
     drymedia::History history(kUndoLimit);
-    const auto observer = [&history](int tile, const uint16_t* before) { history.beforeTileWrite(tile, before); };
+    const auto observer = [&history](int tile, const uint16_t* before, uint8_t planes) {
+        history.beforeTileWrite(tile, before, planes);
+    };
     if (m_undoEnabled) {
         pencil.setTileObserver(observer);
         eraser.setTileObserver(observer);

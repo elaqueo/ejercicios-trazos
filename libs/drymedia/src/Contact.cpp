@@ -12,8 +12,6 @@ namespace drymedia {
 
 namespace {
 
-constexpr int kSearchSteps = 16; // búsqueda binaria sobre D (u16)
-
 const kernel::Impl& impl(Contact::Path path)
 {
     return path == Contact::Path::Avx2 ? kernel::kAvx2 : kernel::kScalar;
@@ -56,6 +54,26 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
         m_cells = tip.cells();
         for (auto* v : {&m_relief, &m_crest, &m_deposit, &m_burnish, &m_deform, &m_damage, &m_surface, &m_penetration})
             v->resize(size_t(m_cells));
+        m_planeZero.fill(false);
+    }
+    m_planeDirty.fill(false);
+    // Planos opcionales (bruñido, deformación, daño): solo se copian si algún tile de la huella
+    // los usa; si no, el arreglo queda en cero (y se borra una sola vez). HU-76: copiar y
+    // escribir planos vacíos era la mitad del costo de cada subpaso.
+    uint8_t used = 0;
+    for (int ty = std::max(0, y0) / kTileSize; ty <= std::min(paper.height() - 1, y0 + h - 1) / kTileSize; ++ty)
+        for (int tx = std::max(0, x0) / kTileSize; tx <= std::min(paper.width() - 1, x0 + w - 1) / kTileSize; ++tx)
+            used |= paper.tilePlanes(tx, ty);
+    bool copy[kTilePlanes] = {true, false, false, false};
+    std::vector<uint16_t>* const planeVectors[kTilePlanes] = {&m_deposit, &m_burnish, &m_deform, &m_damage};
+    for (int pl = 1; pl < kTilePlanes; ++pl) {
+        copy[pl] = (used >> pl) & 1;
+        if (copy[pl]) {
+            m_planeZero[size_t(pl)] = false;
+        } else if (!m_planeZero[size_t(pl)]) {
+            std::fill(planeVectors[pl]->begin(), planeVectors[pl]->end(), uint16_t(0));
+            m_planeZero[size_t(pl)] = true;
+        }
     }
     bool anyOutside = false;
     for (int r = 0; r < h; ++r) {
@@ -70,8 +88,9 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
             if (gy < 0 || gy >= paper.height() || gx < 0 || gx >= paper.width()) {
                 relief[c] = 0;
                 crest[c] = 0;
-                for (uint16_t* plane : planes)
-                    plane[c] = 0;
+                for (int pl = 0; pl < kTilePlanes; ++pl)
+                    if (copy[pl])
+                        planes[pl][c] = 0;
                 anyOutside = true;
                 ++c;
                 continue;
@@ -84,6 +103,8 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
             const uint16_t* tile = paper.findDepositTile(gx / kTileSize, gy / kTileSize);
             const size_t in = size_t(gy % kTileSize) * kTileSize + size_t(lx);
             for (int pl = 0; pl < kTilePlanes; ++pl) {
+                if (!copy[pl])
+                    continue;
                 if (tile)
                     std::memcpy(planes[pl] + c, tile + size_t(pl) * kTileCells + in, size_t(run) * 2);
                 else
@@ -109,15 +130,52 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
     // 2. Mayor D (punta más alta) con fuerza ≥ objetivo: la profundidad de contacto.
     const float p = std::clamp(pressure, 0.0f, 1.0f);
     const uint32_t target = uint32_t(double(p) * double(medium.forceScale) + 0.5);
-    uint32_t lo = 0, hi = 65535;
-    for (int it = 0; it < kSearchSteps; ++it) {
+    // La fuerza nunca sube al subir la punta, así que la respuesta es única (el mayor D en
+    // [0, 65535] con fuerza ≥ objetivo, o 0 si no hay). En vez de 16 pasos de búsqueda binaria
+    // sobre todo el rango, se arranca de la profundidad del subpaso anterior (cambia poco), se
+    // acota alrededor con pasos que se duplican y se termina con la binaria: la misma
+    // respuesta con la mitad de evaluaciones (HU-76).
+    const auto reaches = [&](uint32_t d) {
+        return k.force(m_surface.data(), tip.heights(), m_cells, uint16_t(d)) >= target;
+    };
+    uint32_t lo = 0, hi = 0;
+    const uint32_t start = m_lastDepth;
+    if (reaches(start)) {
+        lo = start;
+        for (uint32_t step = 64;; step *= 2) {
+            if (lo + step > 65535) {
+                hi = 65535;
+                break;
+            }
+            if (!reaches(lo + step)) {
+                hi = lo + step - 1;
+                break;
+            }
+            lo += step;
+        }
+    } else if (start > 0) {
+        hi = start - 1;
+        for (uint32_t step = 64;; step *= 2) {
+            if (start <= step) {
+                lo = 0; // si ni D = 0 alcanza, la respuesta es 0
+                break;
+            }
+            if (reaches(start - step)) {
+                lo = start - step;
+                break;
+            }
+            hi = start - step - 1;
+        }
+    }
+    while (lo < hi) {
         const uint32_t mid = (lo + hi + 1) / 2;
-        if (k.force(m_surface.data(), tip.heights(), m_cells, uint16_t(mid)) >= target)
+        if (reaches(mid))
             lo = mid;
         else
             hi = mid - 1;
     }
     const uint16_t depth = uint16_t(lo);
+    m_lastDepth = depth;
     k.penetration(m_penetration.data(), m_surface.data(), tip.heights(), m_cells, depth);
     m_force = k.force(m_surface.data(), tip.heights(), m_cells, depth);
     return depth;
@@ -127,11 +185,20 @@ void Contact::applyDeposit(uint16_t k, uint16_t ceiling)
 {
     impl(m_path).deposit(m_deposit.data(), m_burnish.data(), m_damage.data(), m_penetration.data(), m_cells, k,
                          ceiling);
+    m_planeDirty[kDepositPlane] = true;
 }
 
 void Contact::applyErase(uint16_t k)
 {
     impl(m_path).erase(m_deposit.data(), m_burnish.data(), m_penetration.data(), m_cells, k);
+    m_planeDirty[kDepositPlane] = true;
+}
+
+const std::vector<uint32_t>& Contact::contactCells()
+{
+    m_contactCells.resize(size_t(m_cells));
+    m_contactCells.resize(size_t(impl(m_path).contactIndices(m_penetration.data(), m_cells, m_contactCells.data())));
+    return m_contactCells;
 }
 
 uint32_t Contact::meanPenetration() const
@@ -152,11 +219,15 @@ void Contact::applyDeform(uint16_t rate)
         return;
     const uint16_t k = uint16_t(std::min<uint32_t>((uint32_t(rate) * (mean - kYield)) / kYield, 65535));
     impl(m_path).grow(m_deform.data(), m_penetration.data(), m_cells, 0, k, kMaxDeform);
+    m_planeDirty[kDeformPlane] = true;
+    m_planeZero[kDeformPlane] = false;
 }
 
 void Contact::applyDamage(uint16_t kd)
 {
     impl(m_path).grow(m_damage.data(), m_penetration.data(), m_cells, 0, kd, 65535);
+    m_planeDirty[kDamagePlane] = true;
+    m_planeZero[kDamagePlane] = false;
 }
 
 void Contact::applyBurnish(uint16_t kb)
@@ -168,7 +239,10 @@ void Contact::applyBurnish(uint16_t kb)
         return;
     // Hacia el promedio de las celdas en contacto. Sin el techo de la mina: arrastra grafito
     // que ya estaba (la 2H bruñe y empareja una capa de 4B más oscura que su techo).
-    k.burnish(m_deposit.data(), m_burnish.data(), m_penetration.data(), m_cells, kb, uint16_t(sum / cells));
+    if (k.burnish(m_deposit.data(), m_burnish.data(), m_penetration.data(), m_cells, kb, uint16_t(sum / cells))) {
+        m_planeDirty[kBurnishPlane] = true;
+        m_planeZero[kBurnishPlane] = false;
+    }
 }
 
 int Contact::cellsInContact() const

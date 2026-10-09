@@ -24,7 +24,8 @@ struct Rig {
     explicit Rig(int limit = 100)
         : history(limit)
     {
-        pencil.setTileObserver([this](int i, const uint16_t* before) { history.beforeTileWrite(i, before); });
+        pencil.setTileObserver(
+            [this](int i, const uint16_t* before, uint8_t planes) { history.beforeTileWrite(i, before, planes); });
     }
 
     // Trazo horizontal en la fila y.

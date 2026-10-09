@@ -104,8 +104,9 @@ void erase(uint16_t* dep, const uint16_t* burn, const uint16_t* pen, int n, uint
     }
 }
 
-void burnish(uint16_t* dep, uint16_t* burn, const uint16_t* pen, int n, uint16_t kb, uint16_t target)
+bool burnish(uint16_t* dep, uint16_t* burn, const uint16_t* pen, int n, uint16_t kb, uint16_t target)
 {
+    __m256i changed = _mm256_setzero_si256();
     const __m256i kbv = _mm256_set1_epi16(static_cast<short>(kb));
     const __m256i tv = _mm256_set1_epi16(static_cast<short>(target));
     for (int i = 0; i < n; i += 16) {
@@ -113,9 +114,12 @@ void burnish(uint16_t* dep, uint16_t* burn, const uint16_t* pen, int n, uint16_t
         __m256i* dp = reinterpret_cast<__m256i*>(dep + i);
         __m256i* bp = reinterpret_cast<__m256i*>(burn + i);
         const __m256i d = _mm256_loadu_si256(dp);
-        _mm256_storeu_si256(bp, _mm256_adds_epu16(_mm256_loadu_si256(bp), _mm256_mulhi_epu16(h, d)));
+        const __m256i db = _mm256_mulhi_epu16(h, d);
+        changed = _mm256_or_si256(changed, db);
+        _mm256_storeu_si256(bp, _mm256_adds_epu16(_mm256_loadu_si256(bp), db));
         _mm256_storeu_si256(dp, _mm256_add_epi16(d, _mm256_mulhi_epu16(_mm256_subs_epu16(tv, d), h)));
     }
+    return !_mm256_testz_si256(changed, changed);
 }
 
 void grow(uint16_t* field, const uint16_t* pen, int n, uint16_t threshold, uint16_t rate, uint16_t cap)
@@ -128,6 +132,23 @@ void grow(uint16_t* field, const uint16_t* pen, int n, uint16_t threshold, uint1
         const __m256i add = contribution(_mm256_subs_epu16(load(pen + i), tv), rv);
         _mm256_storeu_si256(fp, _mm256_min_epu16(_mm256_adds_epu16(_mm256_loadu_si256(fp), add), cv));
     }
+}
+
+int contactIndices(const uint16_t* pen, int n, uint32_t* out)
+{
+    const __m256i zero = _mm256_setzero_si256();
+    int count = 0;
+    for (int i = 0; i < n; i += 16) {
+        // Dos bits por celda de 16 bits: se toma uno de cada par.
+        uint32_t m = ~uint32_t(_mm256_movemask_epi8(_mm256_cmpeq_epi16(load(pen + i), zero))) & 0x55555555u;
+        while (m) {
+            unsigned long bit;
+            _BitScanForward(&bit, m);
+            out[count++] = uint32_t(i) + bit / 2;
+            m &= m - 1;
+        }
+    }
+    return count;
 }
 
 uint32_t contactDeposit(const uint16_t* dep, const uint16_t* pen, int n, uint32_t* count)
@@ -151,6 +172,6 @@ uint32_t contactDeposit(const uint16_t* dep, const uint16_t* pen, int n, uint32_
 
 } // namespace
 
-const Impl kAvx2{surface, force, penetration, deposit, erase, burnish, grow, contactDeposit};
+const Impl kAvx2{surface, force, penetration, deposit, erase, burnish, grow, contactIndices, contactDeposit};
 
 } // namespace drymedia::kernel

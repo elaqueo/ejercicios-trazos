@@ -57,7 +57,8 @@ public:
     // Se llama justo antes de la primera escritura del trazo en cada tile, con el
     // contenido previo del tile (nullptr si el trazo lo va a crear). Lo usa el deshacer
     // (History, HU-53) para guardar el estado anterior.
-    using TileObserver = std::function<void(int tileIndex, const uint16_t* before)>;
+    // `planes`: Paper::tilePlanes del tile (los planos vacíos no hace falta guardarlos).
+    using TileObserver = std::function<void(int tileIndex, const uint16_t* before, uint8_t planes)>;
     void setTileObserver(TileObserver observer) { m_observer = std::move(observer); }
 
     // Cambia el medio (por ejemplo, para calibrar la blandura en vivo). Vale desde el

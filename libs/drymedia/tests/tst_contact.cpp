@@ -262,9 +262,11 @@ private slots:
         QRandomGenerator rng(1234);
         // Depósito y bruñido al azar en algunos tiles, para que la superficie no sea solo relieve.
         for (int t = 0; t < 20; ++t) {
-            uint16_t* tile = paper.depositTile(int(rng.bounded(paper.tilesX())), int(rng.bounded(paper.tilesY())));
+            const int tx = int(rng.bounded(paper.tilesX())), ty = int(rng.bounded(paper.tilesY()));
+            uint16_t* tile = paper.depositTile(tx, ty);
             for (int i = 0; i < kTileStride; ++i)
                 tile[i] = uint16_t(rng.bounded(65536));
+            paper.markTilePlanes(tx, ty, 0x0E);
         }
         Contact scalar(Contact::Path::Scalar), avx2(Contact::Path::Avx2);
         QCOMPARE(avx2.path(), Contact::Path::Avx2);

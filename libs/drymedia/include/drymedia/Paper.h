@@ -59,6 +59,13 @@ public:
     // kTileStride en total); lo crea en cero si no
     // existía. nullptr fuera de la hoja.
     uint16_t* depositTile(int tx, int ty);
+    // Qué planos además del depósito tienen algo en cada tile (bit 1 << plano; HU-76): el
+    // contacto no copia los que están vacíos. Lo mantienen quienes escriben los tiles (Pencil
+    // al escribir un plano, History al restaurar).
+    uint8_t tilePlanes(int tx, int ty) const;
+    void markTilePlanes(int tx, int ty, uint8_t planes);
+    void setTilePlanes(int tx, int ty, uint8_t planes);
+    void refreshTilePlanes(int tx, int ty); // lo recalcula mirando el tile
     // El tile si ya existe; nullptr si nunca se tocó o está fuera de la hoja.
     const uint16_t* findDepositTile(int tx, int ty) const;
     size_t tileCount() const;

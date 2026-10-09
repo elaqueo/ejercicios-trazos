@@ -43,10 +43,14 @@ struct Impl {
     // el depósito por debajo de `target` sube hacia él: + ((sat0(target − depósito) · h) >> 16)
     // (el grafito se arrastra a los valles y el tono se empareja; nunca aclara). Todo con el
     // depósito de antes de este paso.
-    void (*burnish)(uint16_t* deposit, uint16_t* burnish, const uint16_t* penetration, int n, uint16_t kb,
+    // Devuelve si el plano de bruñido cambió (si no, no hace falta escribirlo).
+    bool (*burnish)(uint16_t* deposit, uint16_t* burnish, const uint16_t* penetration, int n, uint16_t kb,
                     uint16_t target);
     // Deformación y daño (HU-61): campo = min(sat(campo + min((sat0(p − umbral) · rate) >> 12, 65535)), tope).
     void (*grow)(uint16_t* field, const uint16_t* penetration, int n, uint16_t threshold, uint16_t rate, uint16_t cap);
+    // Índices (en orden) de las celdas con penetración > 0; devuelve cuántas (HU-76: el
+    // desgaste recorre solo esas, ~1/7 de la huella de costado).
+    int (*contactIndices)(const uint16_t* penetration, int n, uint32_t* out);
     // Suma del depósito y cantidad de celdas con penetración > 0.
     uint32_t (*contactDeposit)(const uint16_t* deposit, const uint16_t* penetration, int n, uint32_t* count);
 };

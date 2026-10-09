@@ -10,7 +10,7 @@ namespace drymedia {
 namespace {
 
 // Tiles que reserva el pool de una vez (256 × 8 KB = 2 MB).
-constexpr int kPoolBlock = 256;
+constexpr int kPoolBlock = 64; // 2 MB por bloque con 4 planos: llenar con ceros 8 MB de golpe frenaba la simulación (HU-76)
 // Separación de la grilla de la ondulación, en celdas.
 constexpr int kWaveCell = 8;
 
@@ -65,6 +65,7 @@ struct Paper::Impl {
     uint64_t reliefHash = 0;
 
     std::vector<uint16_t*> tiles; // tilesX × tilesY; nullptr = no tocado
+    std::vector<uint8_t> planes;  // tilesX × tilesY: qué planos usa cada tile
     std::vector<std::unique_ptr<uint16_t[]>> blocks;
     uint16_t* nextFree = nullptr;
     int freeInBlock = 0;
@@ -129,6 +130,7 @@ Paper::Paper(const PaperSpec& spec)
     d->tilesX = (d->width + kTileSize - 1) / kTileSize;
     d->tilesY = (d->height + kTileSize - 1) / kTileSize;
     d->tiles.assign(size_t(d->tilesX) * size_t(d->tilesY), nullptr);
+    d->planes.assign(d->tiles.size(), 0);
     d->generateRelief();
     d->reserveBlock(); // el primer bloque, antes de que empiece el dibujo
 }
@@ -194,8 +196,44 @@ const uint16_t* Paper::findDepositTile(int tx, int ty) const
     return d->tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
 }
 
+uint8_t Paper::tilePlanes(int tx, int ty) const
+{
+    if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
+        return 0;
+    return d->planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
+}
+
+void Paper::markTilePlanes(int tx, int ty, uint8_t planes)
+{
+    if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
+        return;
+    d->planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)] |= planes;
+}
+
+void Paper::setTilePlanes(int tx, int ty, uint8_t planes)
+{
+    if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
+        return;
+    d->planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)] = planes;
+}
+
+void Paper::refreshTilePlanes(int tx, int ty)
+{
+    if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
+        return;
+    const size_t i = size_t(ty) * size_t(d->tilesX) + size_t(tx);
+    uint8_t used = 0;
+    if (const uint16_t* tile = d->tiles[i])
+        for (int pl = 1; pl < kTilePlanes; ++pl)
+            if (std::any_of(tile + size_t(pl) * kTileCells, tile + size_t(pl + 1) * kTileCells,
+                            [](uint16_t v) { return v != 0; }))
+                used |= uint8_t(1 << pl);
+    d->planes[i] = used;
+}
+
 void Paper::clear()
 {
+    std::fill(d->planes.begin(), d->planes.end(), uint8_t(0));
     for (uint16_t*& slot : d->tiles) {
         if (!slot)
             continue;
@@ -216,6 +254,7 @@ void Paper::releaseTile(int tx, int ty)
     std::fill(slot, slot + kTileStride, uint16_t(0));
     d->recycled.push_back(slot);
     slot = nullptr;
+    d->planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)] = 0;
     --d->tileCount;
 }
 
