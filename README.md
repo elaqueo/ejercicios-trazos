@@ -64,6 +64,8 @@ pwsh scripts/build.ps1                  # también corre las pruebas
 ctest --preset debug                    # solo las pruebas (con MSVC cargado)
 ```
 
+**Prueba de la app real** (`pwsh scripts/smoke.ps1`): abre Ejercicios en Release y la maneja con el teclado como lo haría el usuario (→, R, G, menú F4 con el modo mixto, F2), verificando en su log lo que pasó. Encuentra lo que los tests de lógica no ven, como teclas, foco o la navegación de un menú. Toma la pantalla unos 20 s y deja `config.json` como estaba.
+
 ## Licencia
 
 [MIT](LICENSE). Qt se usa bajo LGPLv3 con enlace dinámico.

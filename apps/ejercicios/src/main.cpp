@@ -181,15 +181,20 @@ int main(int argc, char* argv[])
     };
     panel.addTab(exercisePage, QStringLiteral("Ejercicio"));
     canvas.addPanelTabs(panel);
-    panel.onClose = [&canvas] { canvas.focusCanvas(); };
+    panel.onClose = [&canvas] {
+        qInfo() << "Panel: cerrado";
+        canvas.focusCanvas();
+    };
     canvas.shortcuts().add(QStringLiteral("Panel de configuración"), {{VK_F2}}, [&] {
         if (panel.isVisible()) {
             panel.hide();
+            qInfo() << "Panel: cerrado";
             canvas.focusCanvas();
             return;
         }
         menu.hide();
         canvas.showSidePanel(panel);
+        qInfo() << "Panel: abierto";
     });
 
     menu.onPick = [&](const QString& id) {
@@ -216,9 +221,15 @@ int main(int argc, char* argv[])
         canvas.showOverlay(&menu);
     });
     canvas.shortcuts().add(QStringLiteral("Ejercicio siguiente"), {{VK_RIGHT}}, [&session] { session.next(); });
-    canvas.shortcuts().add(QStringLiteral("Repetir el ejercicio"), {{'R'}}, [&session] { session.repeat(); }); // HU-17
-    canvas.shortcuts().add(QStringLiteral("Mostrar u ocultar las guías"), {{'G'}}, // HU-35: comparar
-                           [&session] { session.toggleGuides(); });
+    // Las acciones quedan en el log: las verifica la prueba de la app real (scripts/smoke.ps1, HU-71).
+    canvas.shortcuts().add(QStringLiteral("Repetir el ejercicio"), {{'R'}}, [&session] { // HU-17
+        session.repeat();
+        qInfo() << "Repetir:" << session.exercise()->id();
+    });
+    canvas.shortcuts().add(QStringLiteral("Mostrar u ocultar las guías"), {{'G'}}, [&session] { // HU-35: comparar
+        session.toggleGuides();
+        qInfo() << "Guías:" << (session.guidesVisible() ? "visibles" : "ocultas");
+    });
     // Calibrar con F9 mueve la hoja: el mismo ejercicio, adaptado a la hoja nueva.
     canvas.setOnSheetChanged([&session] { session.regenerate(); });
     // El botón lateral del lápiz hace lo mismo que →, sin soltar el lápiz.
