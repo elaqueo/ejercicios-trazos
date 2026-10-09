@@ -6,6 +6,7 @@ add_library(drymedia STATIC
     include/drymedia/Paper.h
     include/drymedia/Pencil.h
     include/drymedia/Tip.h
+    include/drymedia/Wear.h
     src/Contact.cpp
     src/History.cpp
     src/kernel.h
@@ -14,6 +15,7 @@ add_library(drymedia STATIC
     src/Paper.cpp
     src/Pencil.cpp
     src/Tip.cpp
+    src/Wear.cpp
 )
 target_include_directories(drymedia PUBLIC include)
 et_target_defaults(drymedia)

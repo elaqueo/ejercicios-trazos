@@ -40,6 +40,7 @@ Pencil::Pencil(Paper& paper, const Medium& medium, Contact::Path path)
     , m_tips(360 * 91)
     , m_tileMarked(size_t(paper.tilesX()) * size_t(paper.tilesY()), false)
 {
+    setupWear();
 }
 
 Pencil::~Pencil() = default;
@@ -47,8 +48,58 @@ Pencil::~Pencil() = default;
 void Pencil::setMedium(const Medium& medium)
 {
     m_medium = medium;
-    for (auto& tip : m_tips)
-        tip.reset();
+    setupWear();
+    clearTips();
+}
+
+void Pencil::setupWear()
+{
+    if (wears())
+        m_wear->setup(m_medium.leadDiameterMm * kCellsPerMm / 2.0, m_medium.coneHalfAngleDeg);
+}
+
+void Pencil::clearTips()
+{
+    for (const size_t i : m_filledTips)
+        m_tips[i].reset();
+    m_filledTips.clear();
+}
+
+void Pencil::setMedium(const Medium& medium, LeadWear* wear)
+{
+    m_medium = medium;
+    m_wear = wear ? wear : &m_ownWear;
+    setupWear();
+    clearTips();
+}
+
+void Pencil::setWear(LeadWear* wear)
+{
+    m_wear = wear ? wear : &m_ownWear;
+    setupWear();
+    clearTips();
+}
+
+void Pencil::sharpen()
+{
+    m_wear->reset();
+    clearTips();
+}
+
+void Pencil::wearAt(const Tip& tip, uint16_t k)
+{
+    // Cada punto de la mina que tocó pierde ∝ lo que depositó × blandura: penetración × k ×
+    // blandura × wearRate.
+    const std::vector<uint16_t>& lead = tip.leadIndex();
+    if (lead.empty() || k == 0)
+        return;
+    const uint16_t* pen = m_contact.penetration();
+    const uint64_t scale = uint64_t(k) * m_medium.softness * m_medium.wearRate;
+    for (int i = 0; i < tip.cells(); ++i)
+        if (pen[i] > 0 && lead[size_t(i)] != Tip::kNoLead)
+            m_wear->add(lead[size_t(i)], (uint64_t(pen[i]) * scale) >> 28);
+    if (m_wear->takeChanged())
+        clearTips(); // la punta cambió: se rearma con el desgaste nuevo
 }
 
 Pencil::FixedSample Pencil::toFixed(const PencilSample& s)
@@ -73,8 +124,10 @@ const Tip& Pencil::tipFor(float azimuth, float altitude)
         az += 360;
     const int alt = std::clamp(int(std::lround(altitude)), 0, 90);
     std::unique_ptr<Tip>& slot = m_tips[size_t(az) * 91 + size_t(alt)];
-    if (!slot)
-        slot = std::make_unique<Tip>(Tip::make(m_medium, float(az), float(alt)));
+    if (!slot) {
+        slot = std::make_unique<Tip>(Tip::make(m_medium, float(az), float(alt), wears() ? m_wear : nullptr));
+        m_filledTips.push_back(size_t(az) * 91 + size_t(alt));
+    }
     return *slot;
 }
 
@@ -205,6 +258,8 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
             c += run;
         }
     }
+    if (!erasing && wears())
+        wearAt(tip, k); // al final: puede rearmar la punta
     return dirty;
 }
 

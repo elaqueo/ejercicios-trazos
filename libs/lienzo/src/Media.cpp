@@ -12,7 +12,8 @@ namespace lienzo {
 Lead Lead::clamped() const
 {
     return {std::clamp(softness, 1, 255), std::clamp(diameter, 30, 200), std::clamp(ceiling, 2000, 65535),
-            std::clamp(halfAngle, 5, 30), std::clamp(minAltitude, 10, 80), std::clamp(burnish, 0, 20000)};
+            std::clamp(halfAngle, 5, 30), std::clamp(minAltitude, 10, 80), (std::clamp(burnish, 0, 20000) + 50) / 100 * 100,
+            std::clamp(wear, 0, 60)};
 }
 
 drymedia::Medium Lead::medium() const
@@ -24,21 +25,23 @@ drymedia::Medium Lead::medium() const
     m.coneHalfAngleDeg = l.halfAngle;
     m.minTabletAltitudeDeg = l.minAltitude;
     m.burnishRate = uint16_t(l.burnish);
+    m.wearRate = uint16_t(l.wear);
     return m;
 }
 
 uint64_t Lead::pack() const
 {
     const Lead l = clamped();
-    // blandura ≤ 255 y diámetro ≤ 200 entran en 8 bits; el bruñido usa los 16 que liberan.
+    // Blandura ≤ 255, diámetro ≤ 200 y bruñido / 100 ≤ 200 entran en 8 bits.
     return uint64_t(l.softness) | uint64_t(l.diameter) << 8 | uint64_t(l.ceiling) << 16 | uint64_t(l.halfAngle) << 32 |
-           uint64_t(l.minAltitude) << 40 | uint64_t(l.burnish) << 48;
+           uint64_t(l.minAltitude) << 40 | uint64_t(l.burnish / 100) << 48 | uint64_t(l.wear) << 56;
 }
 
 Lead Lead::unpack(uint64_t packed)
 {
     return {int(packed & 0xff),       int(packed >> 8 & 0xff),  int(packed >> 16 & 0xffff),
-            int(packed >> 32 & 0xff), int(packed >> 40 & 0xff), int(packed >> 48 & 0xffff)};
+            int(packed >> 32 & 0xff), int(packed >> 40 & 0xff), int(packed >> 48 & 0xff) * 100,
+            int(packed >> 56 & 0xff)};
 }
 
 Grades factoryGrades()
@@ -122,6 +125,7 @@ bool mediaFromJson(const QByteArray& json, MediaSet& media, QString* error)
     for (Lead& lead : result.grades) {
         lead.halfAngle = punta.value(QStringLiteral("semianguloGrados")).toInt(lead.halfAngle);
         lead.minAltitude = punta.value(QStringLiteral("altitudMinimaTableta")).toInt(lead.minAltitude);
+        lead.wear = punta.value(QStringLiteral("desgaste")).toInt(lead.wear);
         lead = lead.clamped();
     }
     media = result;
@@ -144,7 +148,8 @@ QByteArray mediaToJson(const MediaSet& media)
                            {QStringLiteral("minas"), leads},
                            {QStringLiteral("punta"),
                             QJsonObject{{QStringLiteral("semianguloGrados"), media.grades[kHbIndex].halfAngle},
-                                        {QStringLiteral("altitudMinimaTableta"), media.grades[kHbIndex].minAltitude}}},
+                                        {QStringLiteral("altitudMinimaTableta"), media.grades[kHbIndex].minAltitude},
+                                        {QStringLiteral("desgaste"), media.grades[kHbIndex].wear}}},
                            {QStringLiteral("goma"), QJsonObject{{QStringLiteral("fuerza"), media.eraser.strength},
                                                                 {QStringLiteral("diametroMm"), media.eraser.diameter / 100.0}}}};
     return QJsonDocument(root).toJson(QJsonDocument::Indented);

@@ -5,6 +5,8 @@
 #include "lienzo/Timing.h"
 #include "lienzo/Tone.h"
 
+#include <array>
+
 #include <drymedia/History.h>
 #include <drymedia/Paper.h>
 #include <drymedia/Pencil.h>
@@ -74,7 +76,10 @@ void Simulation::run()
 {
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
     uint64_t lead = m_lead, eraserParams = m_eraser;
+    int grade = m_grade;
+    std::array<drymedia::LeadWear, kGradeCount> wears; // desgaste por dureza (HU-62)
     drymedia::Pencil pencil(m_paper, Lead::unpack(lead).medium());
+    pencil.setWear(&wears[size_t(grade)]);
     drymedia::Pencil eraser(m_paper, Eraser::unpack(eraserParams).medium()); // goma (HU-58)
     drymedia::Pencil stylus(m_paper, drymedia::Medium::stylus());           // punta seca (HU-61)
     // Deshacer y rehacer (HU-53): el lápiz y la goma avisan antes de la primera escritura
@@ -135,11 +140,14 @@ void Simulation::run()
             history.clear(); // la hoja nueva no se deshace
             renderAll();
         }
-        if (lead != m_lead) {
+        if (lead != m_lead || grade != m_grade) {
+            grade = m_grade;
             lead = m_lead;
             endStroke(); // cada trazo con una sola mina: se deshace con la que lo hizo
-            pencil.setMedium(Lead::unpack(lead).medium());
+            pencil.setMedium(Lead::unpack(lead).medium(), &wears[size_t(std::clamp(grade, 0, kGradeCount - 1))]);
         }
+        if (m_sharpenRequested.exchange(false))
+            pencil.sharpen();
         if (eraserParams != m_eraser) {
             eraserParams = m_eraser;
             endStroke();
@@ -185,6 +193,7 @@ void Simulation::run()
             }
         }
         const double pencilMs = batch.ms();
+        m_wearPercent = pencil.wear().percent();
 
         // Deshacer y rehacer después de las muestras del lote: si llegan en medio de un
         // trazo, primero se cierra el trazo (y deshacer lo borra entero).

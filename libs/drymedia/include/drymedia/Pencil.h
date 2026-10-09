@@ -41,6 +41,8 @@ class Pencil {
 public:
     Pencil(Paper& paper, const Medium& medium, Contact::Path path = Contact::Path::Auto);
     ~Pencil();
+    Pencil(const Pencil&) = delete;
+    Pencil& operator=(const Pencil&) = delete;
 
     void beginStroke(const PencilSample& sample);
     // Barre desde la muestra anterior hasta esta y devuelve las celdas que cambiaron.
@@ -63,6 +65,15 @@ public:
     void setMedium(const Medium& medium);
     const Medium& medium() const { return m_medium; }
 
+    // Desgaste de la mina (HU-62). Por defecto el lápiz tiene el suyo; la app puede darle uno
+    // por dureza (cada lápiz guarda su punta). sharpen() vuelve a la punta cónica nueva.
+    void setWear(LeadWear* wear);
+    // Otro medio con su desgaste (la app, al cambiar de dureza: cada una tiene el suyo).
+    void setMedium(const Medium& medium, LeadWear* wear);
+    LeadWear& wear() { return *m_wear; }
+    const LeadWear& wear() const { return *m_wear; }
+    void sharpen();
+
     Contact::Path path() const { return m_contact.path(); }
     uint64_t substeps() const { return m_substeps; }
 
@@ -73,6 +84,10 @@ private:
     };
     static FixedSample toFixed(const PencilSample& s);
     const Tip& tipFor(float azimuth, float altitude);
+    bool wears() const { return m_medium.kind == Medium::Kind::Lead && m_medium.wearRate > 0; }
+    void setupWear();
+    void clearTips();
+    void wearAt(const Tip& tip, uint16_t k);
     DirtyRect depositAt(int64_t x, int64_t y, float pressure, const Tip& tip, uint16_t k, uint16_t kb,
                         uint16_t kd);
 
@@ -80,6 +95,9 @@ private:
     Medium m_medium;
     Contact m_contact;
     std::vector<std::unique_ptr<Tip>> m_tips; // caché: 360 azimuts × 91 altitudes
+    std::vector<size_t> m_filledTips;         // los lugares del caché con punta
+    LeadWear m_ownWear;
+    LeadWear* m_wear = &m_ownWear;
     FixedSample m_last;
     bool m_inStroke = false;
     std::vector<int> m_strokeTiles;

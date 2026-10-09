@@ -40,6 +40,11 @@ struct Medium {
     // presión³, por celda deslizada.
     uint16_t deformRate = 3000;
     uint16_t damageRate = 0;
+    // Desgaste (HU-62): cada punto de la mina pierde material ∝ penetración × k (lo que
+    // deposita) × blandura × wearRate. La blandura entra dos veces: las blandas tienen menos
+    // arcilla que las sostenga y se gastan mucho más que lo que depositan de más (y las duras,
+    // de cono chico, si no se gastaban casi como ellas). 0 = no se gasta.
+    uint16_t wearRate = 0;
     double minTabletAltitudeDeg = 30.0;
 
     // HB calibrada con la tableta el 10 de octubre de 2026 (HU-51): mina de 0,87 mm y
@@ -49,6 +54,7 @@ struct Medium {
         Medium m = Medium{}.withLeadDiameter(0.87);
         m.softness = 20;
         m.burnishRate = 3000; // HU-60, a calibrar con la tableta
+        m.wearRate = 6;       // HU-62, a calibrar con la tableta
         return m;
     }
 
@@ -78,6 +84,7 @@ struct Medium {
         m.name = "punta seca";
         m.leadDiameterMm = 0.5;
         m.softness = 0;
+        m.wearRate = 0; // de acero
         return m;
     }
 

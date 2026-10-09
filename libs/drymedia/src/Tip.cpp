@@ -27,22 +27,35 @@ double Tip::effectiveAltitude(const Medium& medium, double tabletAltitudeDeg)
     return 90.0 - t * (90.0 - flat);
 }
 
-Tip Tip::make(const Medium& medium, float azimuthDeg, float altitudeDeg)
+Tip Tip::make(const Medium& medium, float azimuthDeg, float altitudeDeg, const LeadWear* wear)
 {
     if (medium.kind == Medium::Kind::Eraser)
         return makeEraser(medium);
     Tip tip;
     const double radius = medium.leadDiameterMm * kCellsPerMm / 2.0;
     const double altitude = effectiveAltitude(medium, altitudeDeg);
+    const bool withWear = wear && !wear->empty();
+    const double toHeightAxis = medium.coneSlope * std::tan(std::clamp(medium.coneHalfAngleDeg, 1.0, 45.0) * kRadians);
     if (altitude >= 90.0) {
-        // Vertical: el cono de siempre, idéntico al de la Fase 1.
+        // Vertical: el cono de siempre, idéntico al de la Fase 1 (sin desgaste). La base de la
+        // mina es la de la hoja: u = x, v = y.
         tip.m_heights.assign(size_t(kTipCells), kNoContact);
+        if (withWear)
+            tip.m_lead.assign(size_t(kTipCells), kNoLead);
         for (int y = 0; y < kTipSize; ++y)
             for (int x = 0; x < kTipSize; ++x) {
-                const double rho = std::hypot(x + 0.5 - kTipCenter, y + 0.5 - kTipCenter);
-                if (rho <= radius)
-                    tip.m_heights[size_t(y) * kTipSize + size_t(x)] =
-                        uint16_t(std::min(65534.0, std::round(rho * medium.coneSlope)));
+                const double px = x + 0.5 - kTipCenter, py = y + 0.5 - kTipCenter;
+                const double rho = std::hypot(px, py);
+                if (rho > radius)
+                    continue;
+                double h = rho * medium.coneSlope;
+                const size_t at = size_t(y) * kTipSize + size_t(x);
+                if (withWear) {
+                    h += wear->at(px, py) * toHeightAxis;
+                    const int index = wear->index(px, py);
+                    tip.m_lead[at] = index < 0 ? kNoLead : uint16_t(index);
+                }
+                tip.m_heights[at] = uint16_t(std::min(65534.0, std::round(h)));
             }
         return tip;
     }
@@ -76,6 +89,13 @@ Tip Tip::make(const Medium& medium, float azimuthDeg, float altitudeDeg)
     tip.m_width = (tip.m_originX + int(std::ceil(maxX)) + 3) / 4 * 4;
     tip.m_height = (tip.m_originY + int(std::ceil(maxY)) + 3) / 4 * 4;
     tip.m_heights.assign(size_t(tip.cells()), kNoContact);
+    if (withWear)
+        tip.m_lead.assign(size_t(tip.cells()), kNoLead);
+    // Base de la mina (HU-62): e1 = x de la hoja proyectado ⊥ al eje, e2 = eje × e1.
+    double e1x = 1.0 - ax * ax, e1y = -ax * ay, e1z = -ax * sAlt;
+    const double e1n = std::sqrt(e1x * e1x + e1y * e1y + e1z * e1z);
+    e1x /= e1n, e1y /= e1n, e1z /= e1n;
+    const double e2x = ay * e1z - sAlt * e1y, e2y = sAlt * e1x - ax * e1z, e2z = ax * e1y - ay * e1x;
     const double a = sAlt * sAlt - c2; // ≠ 0 salvo en un ángulo exacto; ver abajo
     for (int y = 0; y < tip.m_height; ++y)
         for (int x = 0; x < tip.m_width; ++x) {
@@ -104,8 +124,15 @@ Tip Tip::make(const Medium& medium, float azimuthDeg, float altitudeDeg)
             }
             if (u + z * sAlt > length)
                 continue; // ya es madera
-            tip.m_heights[size_t(y) * size_t(tip.m_width) + size_t(x)] =
-                uint16_t(std::clamp(std::round(z * toHeight), 0.0, 65534.0));
+            const size_t at = size_t(y) * size_t(tip.m_width) + size_t(x);
+            if (withWear) {
+                // El punto de la mina sobre esta celda; gastado, la cara sube a lo largo del eje.
+                const double lu = px * e1x + py * e1y + z * e1z, lv = px * e2x + py * e2y + z * e2z;
+                z += wear->at(lu, lv) * sAlt;
+                const int index = wear->index(lu, lv);
+                tip.m_lead[at] = index < 0 ? kNoLead : uint16_t(index);
+            }
+            tip.m_heights[at] = uint16_t(std::clamp(std::round(z * toHeight), 0.0, 65534.0));
         }
     return tip;
 }

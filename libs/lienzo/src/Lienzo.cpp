@@ -253,6 +253,13 @@ struct Lienzo::Impl {
         tilt = config->value(QStringLiteral("tilt"), true).toBool();
     }
 
+    // Afilar (HU-62): la mina activa vuelve a la punta cónica nueva.
+    void sharpen()
+    {
+        sim->requestSharpen();
+        qInfo() << "Afilada:" << media.activeName();
+    }
+
     // Punta seca (HU-61): no se guarda; al abrir la app siempre está la mina.
     void toggleStylus()
     {
@@ -346,6 +353,7 @@ struct Lienzo::Impl {
     {
         media.updateUnsaved();
         if (sim) {
+            sim->setGrade(media.active); // antes que la mina: el desgaste es de esta dureza
             sim->setLead(media.lead());
             sim->setEraser(media.current.eraser);
         }
@@ -440,10 +448,10 @@ struct Lienzo::Impl {
             const Lead lead = sim->lead();
             const bool unsaved = media.leadUnsaved;
             swprintf(text, 512,
-                     options.gradeKeys ? L"mina %hs%ls (F5, 1-0)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   costado %ls (I)%ls%ls"
-                                       : L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   costado %ls (I)%ls%ls",
+                     options.gradeKeys ? L"mina %hs%ls (F5, 1-0)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   punta %d %% gastada (A afila)   ·   costado %ls (I)%ls%ls"
+                                       : L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   punta %d %% gastada (A afila)   ·   costado %ls (I)%ls%ls",
                      media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
-                     int(std::lround(lead.ceiling * 100.0 / 65535)), tilt ? L"sí" : L"no",
+                     int(std::lround(lead.ceiling * 100.0 / 65535)), sim->wearPercent(), tilt ? L"sí" : L"no",
                      unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
         }
         return text;
@@ -554,6 +562,7 @@ void Lienzo::registerShortcuts()
     keys.add(QStringLiteral("Selector de lápices"), {{VK_F5}}, [impl] { impl->togglePicker(); }); // HU-67
     keys.add(QStringLiteral("Costado sí o no"), {{'I'}}, [impl] { impl->toggleTilt(); }); // HU-73
     keys.add(QStringLiteral("Punta seca o mina"), {{'E'}}, [impl] { impl->toggleStylus(); }); // HU-61
+    keys.add(QStringLiteral("Afilar"), {{'A'}}, [impl] { impl->sharpen(); });                 // HU-62
     keys.add(QStringLiteral("Calibrar el área útil"), {{VK_F9}}, [impl] { impl->startCalibration(); }); // HU-66
     keys.add(QStringLiteral("Monitor siguiente"), {{VK_F10}}, [impl] { impl->nextScreen(); }); // HU-66
     keys.add(QStringLiteral("Imagen de pantalla"), {{VK_F12}}, [impl] { impl->saveScreenImage(); }); // diagnóstico

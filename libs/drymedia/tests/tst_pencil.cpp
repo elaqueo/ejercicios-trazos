@@ -398,10 +398,11 @@ private slots:
         }
         // Medido el 10 de octubre de 2026 (igual en Debug y Release); cambió a propósito con el
         // cono inclinado y el grafito que llena el diente (HU-59), con el bruñido (HU-60) y con
-        // la deformación y el daño de fibra (HU-61, cuatro planos por tile). Si cambia el modelo a propósito, se actualiza acá; si cambia
+        // la deformación y el daño de fibra (HU-61, cuatro planos por tile) y con el desgaste de
+        // la punta (HU-62). Si cambia el modelo a propósito, se actualiza acá; si cambia
         // sin querer, este test lo marca.
         qInfo() << "hash" << Qt::hex << scalar.hash();
-        QCOMPARE(scalar.hash(), uint64_t(0x28902f38c229dc5cULL));
+        QCOMPARE(scalar.hash(), uint64_t(0xad46ae05a9e1bf6dULL));
     }
 
     // Repasar de costado sigue oscureciendo (reporte del 9 de octubre de 2026): el grafito
@@ -638,6 +639,116 @@ private slots:
                 << "(sano" << variacion(800) << ")";
         QVERIFY(danada > sana * 1.1);
         QVERIFY(variacion(300) > variacion(800) * 1.1);
+    }
+
+    // HU-62: sin desgaste, la punta es idéntica a la de antes.
+    void sinDesgasteLaPuntaNoCambia()
+    {
+        const Medium m = Medium::hb();
+        LeadWear wear;
+        wear.setup(m.leadDiameterMm * kCellsPerMm / 2.0, m.coneHalfAngleDeg);
+        for (const float alt : {90.0f, 70.0f, 45.0f, 30.0f})
+            for (const float az : {0.0f, 33.0f, 200.0f}) {
+                const Tip a = Tip::make(m, az, alt), b = Tip::make(m, az, alt, &wear);
+                QCOMPARE(b.cells(), a.cells());
+                QVERIFY(std::equal(a.heights(), a.heights() + a.cells(), b.heights()));
+                QVERIFY(!b.leadIndex().empty());
+            }
+    }
+
+    static Medium grade(double mm, uint16_t softness)
+    {
+        Medium m = Medium::hb().withLeadDiameter(mm);
+        m.softness = softness;
+        return m;
+    }
+
+    // Va y viene sobre la misma línea: gasta la mina.
+    static void wearDown(Pencil& pencil, int passes, float azimuth, float altitude)
+    {
+        for (int pasada = 0; pasada < passes; ++pasada) {
+            const double x0 = pasada % 2 ? 1600 : 200, x1 = pasada % 2 ? 200 : 1600;
+            draw(pencil, [=](double t) { return PencilSample{x0 + t * (x1 - x0), 300, 0.7f, azimuth, altitude}; }, 60);
+        }
+    }
+
+    // Las blandas se gastan más: depositan más.
+    void lasBlandasSeGastanMas()
+    {
+        Paper paper(smallSheet());
+        Pencil h2(paper, grade(0.70, 13)), b6(paper, grade(1.45, 70));
+        wearDown(h2, 20, 0, 80);
+        wearDown(b6, 20, 0, 80);
+        qInfo() << "desgaste después de 20 pasadas: 2H" << h2.wear().percent() << "% · 6B" << b6.wear().percent() << "%";
+        QVERIFY(b6.wear().percent() > 0);
+        QVERIFY(b6.wear().percent() > 2 * std::max(1, h2.wear().percent()));
+    }
+
+    // Centro del desgaste en la sección de la mina, en fracciones del radio.
+    static double wearOffset(const Pencil& pencil)
+    {
+        const LeadWear& w = pencil.wear();
+        double s = 0, su = 0, sv = 0;
+        for (int y = 0; y < w.size(); ++y)
+            for (int x = 0; x < w.size(); ++x) {
+                const double v = w.values()[size_t(y) * size_t(w.size()) + size_t(x)];
+                s += v, su += v * (x - w.size() / 2), sv += v * (y - w.size() / 2);
+            }
+        const double radius = pencil.medium().leadDiameterMm * kCellsPerMm / 2.0;
+        return s > 0 ? std::hypot(su / s, sv / s) / radius : 0;
+    }
+
+    // Facetas: con el lápiz siempre inclinado hacia el mismo lado se gasta ese costado; si la
+    // inclinación va girando, se gasta parejo.
+    void facetaSegunComoSeSostiene()
+    {
+        Paper paper(smallSheet());
+        Pencil fija(paper, grade(1.45, 70)), girando(paper, grade(1.45, 70));
+        wearDown(fija, 20, 0, 45);
+        for (int pasada = 0; pasada < 20; ++pasada) {
+            const double x0 = pasada % 2 ? 1600 : 200, x1 = pasada % 2 ? 200 : 1600;
+            const auto path = [=](double t) {
+                return PencilSample{x0 + t * (x1 - x0), 900, 0.7f, float(std::fmod((pasada + t) * 137.0, 360.0)), 45.0f};
+            };
+            draw(girando, path, 120);
+        }
+        qInfo() << "centro del desgaste (fracción del radio): inclinación fija" << wearOffset(fija) << "· girando"
+                << wearOffset(girando);
+        QVERIFY(wearOffset(fija) > 0.3);
+        QVERIFY(wearOffset(girando) < wearOffset(fija) / 2);
+    }
+
+    // Gastada, la punta se achata y la línea engorda; afilar vuelve exactamente a la nueva.
+    void gastadaEngordaYAfilarVuelve()
+    {
+        Paper paper(smallSheet());
+        Pencil pencil(paper, grade(1.45, 70));
+        const auto line = [](double y) { return [y](double t) { return PencilSample{300 + t * 1200, y, 0.5f, 0.0f, 85.0f}; }; };
+        const auto width = [&](int y0) {
+            const std::vector<uint16_t> d = depositOf(paper);
+            int rows = 0;
+            for (int y = y0 - 60; y < y0 + 60; ++y) {
+                double s = 0;
+                for (int x = 600; x < 1200; ++x)
+                    s += d[size_t(y) * size_t(paper.width()) + size_t(x)];
+                rows += s / 600 > 2000 ? 1 : 0;
+            }
+            return rows;
+        };
+        draw(pencil, line(700), 60);
+        wearDown(pencil, 100, 0, 85);
+        const int gastada = pencil.wear().percent();
+        draw(pencil, line(1000), 60);
+        pencil.sharpen();
+        QCOMPARE(pencil.wear().percent(), 0);
+        LeadWear fresh;
+        fresh.setup(1.45 * kCellsPerMm / 2.0, 12.0);
+        QVERIFY(pencil.wear().values() == fresh.values());
+        draw(pencil, line(1300), 60);
+        qInfo() << "ancho de la línea: nueva" << width(700) << "· gastada (" << gastada << "%)" << width(1000)
+                << "· afilada" << width(1300);
+        QVERIFY(width(1000) > width(700));
+        QCOMPARE(width(1300), width(700));
     }
 
     void velocidad()

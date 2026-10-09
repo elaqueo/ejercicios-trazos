@@ -66,6 +66,15 @@ public:
     void setEraser(const Eraser& eraser) { m_eraser = eraser.pack(); }
     Eraser eraser() const { return Eraser::unpack(m_eraser); }
     bool erasing() const { return m_erasing; }
+    // Desgaste (HU-62): cada dureza (índice de kGradeNames) guarda su punta durante la sesión.
+    // Llamar setGrade antes de setLead al cambiar de mina. requestSharpen afila la activa.
+    void setGrade(int grade) { m_grade = grade; }
+    void requestSharpen()
+    {
+        m_sharpenRequested = true;
+        wake();
+    }
+    int wearPercent() const { return m_wearPercent; }
     // Punta seca (HU-61, tecla E): en vez de la mina, un estilete que no deposita y hunde el
     // papel (líneas blancas). La goma sigue en el otro extremo.
     void setStylus(bool stylus) { m_stylus = stylus; }
@@ -126,6 +135,9 @@ private:
     std::atomic<bool> m_erasing{false};
     std::atomic<bool> m_tilt{true};
     std::atomic<bool> m_stylus{false};
+    std::atomic<int> m_grade{kHbIndex};
+    std::atomic<bool> m_sharpenRequested{false};
+    std::atomic<int> m_wearPercent{0};
 };
 
 } // namespace lienzo

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "drymedia/Medium.h"
+#include "drymedia/Wear.h"
 
 #include <cstdint>
 #include <vector>
@@ -24,8 +25,11 @@ public:
     static constexpr int kTipCells = kTipSize * kTipSize;
     static constexpr uint16_t kNoContact = 65535;
 
-    // azimut y altitud en grados, como los entrega tabletinput (la goma los ignora).
-    static Tip make(const Medium& medium, float azimuthDeg, float altitudeDeg);
+    // azimut y altitud en grados, como los entrega tabletinput (la goma los ignora). Con
+    // `wear` (HU-62), la cara del cono baja lo que se gastó cada punto, y leadIndex() dice
+    // qué punto de la mina está sobre cada celda (para gastarlo).
+    static Tip make(const Medium& medium, float azimuthDeg, float altitudeDeg, const LeadWear* wear = nullptr);
+    static constexpr uint16_t kNoLead = 65535;
     // La altitud del lápiz para una altitud de la tableta: 90° queda 90°, y la máxima
     // inclinación de la tableta (medium.minTabletAltitudeDeg) es el lápiz acostado.
     static double effectiveAltitude(const Medium& medium, double tabletAltitudeDeg);
@@ -37,6 +41,8 @@ public:
     int originY() const { return m_originY; }
     int cells() const { return m_width * m_height; }
     int cellsInside() const; // celdas de la mina (huella máxima posible)
+    // Índice de LeadWear por celda (kNoLead fuera de la mina); vacío si se armó sin desgaste.
+    const std::vector<uint16_t>& leadIndex() const { return m_lead; }
 
 private:
     static Tip makeEraser(const Medium& medium);
@@ -44,6 +50,7 @@ private:
     int m_width = kTipSize, m_height = kTipSize;
     int m_originX = kTipCenter, m_originY = kTipCenter;
     std::vector<uint16_t> m_heights;
+    std::vector<uint16_t> m_lead;
 };
 
 } // namespace drymedia
