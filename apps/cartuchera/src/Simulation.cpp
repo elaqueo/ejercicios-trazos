@@ -4,6 +4,7 @@
 #include "SampleQueue.h"
 #include "Tone.h"
 
+#include <drymedia/History.h>
 #include <drymedia/Paper.h>
 #include <drymedia/Pencil.h>
 
@@ -41,6 +42,11 @@ void Simulation::stop()
         m_thread.join();
 }
 
+void Simulation::wake()
+{
+    m_queue.wake();
+}
+
 void Simulation::renderAll()
 {
     std::lock_guard lock(m_image.mutex);
@@ -55,6 +61,33 @@ void Simulation::run()
     drymedia::Medium medium = drymedia::Medium::hb().withLeadDiameter(diameter / 100.0);
     medium.softness = uint16_t(m_softness.load());
     drymedia::Pencil pencil(m_paper, medium);
+    // Deshacer y rehacer (HU-53): el lápiz avisa antes de la primera escritura de cada
+    // tile en un trazo, y el historial guarda cómo estaba.
+    drymedia::History history(kUndoLimit);
+    pencil.setTileObserver([&history](int tile, const uint16_t* before) { history.beforeTileWrite(tile, before); });
+    const auto beginStroke = [&](const drymedia::PencilSample& p) {
+        history.beginStroke();
+        pencil.beginStroke(p);
+    };
+    const auto endStroke = [&] {
+        if (!pencil.inStroke())
+            return;
+        pencil.endStroke();
+        history.endStroke(m_paper);
+    };
+    // Vuelve a pintar el tono de los tiles que cambió el deshacer o el rehacer.
+    const auto repaintTiles = [&](const std::vector<int>& tiles) {
+        std::lock_guard lock(m_image.mutex);
+        for (const int t : tiles) {
+            const int tx = t % m_paper.tilesX(), ty = t / m_paper.tilesX();
+            int px0, py0, px1, py1;
+            if (m_mapping.pixelsOfCells(tx * drymedia::kTileSize, ty * drymedia::kTileSize, (tx + 1) * drymedia::kTileSize,
+                                        (ty + 1) * drymedia::kTileSize, px0, py0, px1, py1)) {
+                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data());
+                m_image.markDirty(px0, py0, px1, py1);
+            }
+        }
+    };
     std::vector<tabletinput::PenSample> samples;
 
     while (!m_quit) {
@@ -63,8 +96,9 @@ void Simulation::run()
             break;
 
         if (m_clearRequested.exchange(false)) {
-            pencil.endStroke();
+            endStroke();
             m_paper.clear();
+            history.clear(); // la hoja nueva no se deshace
             renderAll();
         }
         if (medium.softness != m_softness || diameter != m_diameter) {
@@ -75,9 +109,6 @@ void Simulation::run()
         }
 
         m_queue.takeAll(samples);
-        if (samples.empty())
-            continue;
-
         drymedia::DirtyRect dirty;
         int64_t newest = 0;
         for (const tabletinput::PenSample& s : samples) {
@@ -86,19 +117,29 @@ void Simulation::run()
             const drymedia::PencilSample p{m_mapping.cellX(s.x), m_mapping.cellY(s.y), s.pressure, s.azimuth,
                                           s.altitude};
             if (s.eraser) {
-                if (pencil.inStroke())
-                    pencil.endStroke(); // la goma llega en la Fase 2
+                endStroke(); // la goma llega en la Fase 2
                 continue;
             }
             if (s.inContact) {
                 newest = s.timeUs;
                 if (!pencil.inStroke())
-                    pencil.beginStroke(p);
+                    beginStroke(p);
                 else
                     dirty.unite(pencil.strokeTo(p));
-            } else if (pencil.inStroke()) {
-                pencil.endStroke();
+            } else {
+                endStroke();
             }
+        }
+
+        // Deshacer y rehacer después de las muestras del lote: si llegan en medio de un
+        // trazo, primero se cierra el trazo (y deshacer lo borra entero).
+        for (int n = m_undoRequests.exchange(0); n > 0; --n) {
+            endStroke();
+            repaintTiles(history.undo(m_paper));
+        }
+        for (int n = m_redoRequests.exchange(0); n > 0; --n) {
+            endStroke();
+            repaintTiles(history.redo(m_paper));
         }
 
         int px0 = 0, py0 = 0, px1 = 0, py1 = 0;

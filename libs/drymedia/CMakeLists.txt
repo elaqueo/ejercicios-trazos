@@ -1,11 +1,13 @@
 # drymedia: motor de medios secos de Cartuchera. Sin Qt ni D3D; solo la STL.
 add_library(drymedia STATIC
     include/drymedia/Contact.h
+    include/drymedia/History.h
     include/drymedia/Medium.h
     include/drymedia/Paper.h
     include/drymedia/Pencil.h
     include/drymedia/Tip.h
     src/Contact.cpp
+    src/History.cpp
     src/kernel.h
     src/kernel_avx2.cpp
     src/kernel_scalar.cpp

@@ -1,7 +1,7 @@
 // Cartuchera: dibujo con medios secos (docs/medios-secos/arquitectura.md). Fase 1:
 // grafito HB sobre una hoja A4, sin interfaz.
-//   Alt+F4 sale · Ctrl+N hoja nueva · F3 latencia en vivo · [ y ] blandura · , y . diámetro
-//   de la mina (calibración)
+//   Alt+F4 sale · Ctrl+N hoja nueva · Ctrl+Z deshace y Ctrl+Y rehace (hasta 100 trazos) ·
+//   F3 latencia en vivo · [ y ] blandura · , y . diámetro de la mina (calibración)
 
 #include "CanvasWindow.h"
 #include "DisplayImage.h"
@@ -89,6 +89,10 @@ int main(int argc, char* argv[])
     const auto onKey = [&](UINT vk, bool ctrl) {
         if (ctrl && vk == 'N' && simulation)
             simulation->requestClear();
+        else if (ctrl && vk == 'Z' && simulation)
+            simulation->requestUndo();
+        else if (ctrl && vk == 'Y' && simulation)
+            simulation->requestRedo();
         else if (vk == VK_F3 && renderer)
             renderer->toggleOverlay();
         else if ((vk == VK_OEM_4 || vk == VK_OEM_6) && simulation) { // [ y ]

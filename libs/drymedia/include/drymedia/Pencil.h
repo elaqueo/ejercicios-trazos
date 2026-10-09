@@ -4,6 +4,7 @@
 #include "drymedia/Medium.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -48,8 +49,14 @@ public:
     bool inStroke() const { return m_inStroke; }
 
     // Tiles (índice ty · tilesX + tx) que el trazo actual modificó, en el orden en que
-    // los tocó por primera vez. Lo usa el deshacer (HU-53).
+    // los tocó por primera vez.
     const std::vector<int>& strokeTiles() const { return m_strokeTiles; }
+
+    // Se llama justo antes de la primera escritura del trazo en cada tile, con el
+    // contenido previo del tile (nullptr si el trazo lo va a crear). Lo usa el deshacer
+    // (History, HU-53) para guardar el estado anterior.
+    using TileObserver = std::function<void(int tileIndex, const uint16_t* before)>;
+    void setTileObserver(TileObserver observer) { m_observer = std::move(observer); }
 
     // Cambia el medio (por ejemplo, para calibrar la blandura en vivo). Vale desde el
     // próximo segmento; vacía el caché de puntas.
@@ -76,6 +83,7 @@ private:
     bool m_inStroke = false;
     std::vector<int> m_strokeTiles;
     std::vector<bool> m_tileMarked;
+    TileObserver m_observer;
     uint64_t m_substeps = 0;
 };
 

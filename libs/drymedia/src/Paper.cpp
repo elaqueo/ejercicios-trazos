@@ -194,6 +194,19 @@ void Paper::clear()
     d->tileCount = 0;
 }
 
+void Paper::releaseTile(int tx, int ty)
+{
+    if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
+        return;
+    uint16_t*& slot = d->tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
+    if (!slot)
+        return;
+    std::fill(slot, slot + kTileCells, uint16_t(0));
+    d->recycled.push_back(slot);
+    slot = nullptr;
+    --d->tileCount;
+}
+
 size_t Paper::tileCount() const
 {
     return d->tileCount;

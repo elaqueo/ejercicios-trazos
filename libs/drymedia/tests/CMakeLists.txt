@@ -2,3 +2,4 @@
 et_add_qt_test(tst_paper SOURCES tst_paper.cpp LIBS drymedia)
 et_add_qt_test(tst_contact SOURCES tst_contact.cpp LIBS drymedia)
 et_add_qt_test(tst_pencil SOURCES tst_pencil.cpp LIBS drymedia)
+et_add_qt_test(tst_history SOURCES tst_history.cpp LIBS drymedia)

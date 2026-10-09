@@ -57,6 +57,8 @@ public:
     // Hoja nueva con el mismo relieve: borra todo el depósito y devuelve los tiles al
     // pool (no libera memoria ni regenera el relieve).
     void clear();
+    // Devuelve un tile al pool, como si nunca se hubiera tocado (lo usa el deshacer).
+    void releaseTile(int tx, int ty);
 
     // Hash del relieve (se calcula una vez) y del estado completo (relieve + depósito
     // de los tiles tocados, en orden de tile).

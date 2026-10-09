@@ -155,14 +155,17 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
             const uint16_t* penRun = pen + size_t(r) * s + size_t(c);
             if (std::any_of(penRun, penRun + run, [](uint16_t v) { return v > 0; })) {
                 const int tx = gx / kTileSize, ty = gy / kTileSize;
-                uint16_t* tile = m_paper.depositTile(tx, ty);
-                std::memcpy(tile + size_t(gy % kTileSize) * kTileSize + size_t(lx), dep + size_t(r) * s + size_t(c),
-                            size_t(run) * 2);
                 const int index = ty * m_paper.tilesX() + tx;
                 if (!m_tileMarked[size_t(index)]) {
+                    // Primera escritura del trazo en este tile: avisar antes de tocarlo.
+                    if (m_observer)
+                        m_observer(index, m_paper.findDepositTile(tx, ty));
                     m_tileMarked[size_t(index)] = true;
                     m_strokeTiles.push_back(index);
                 }
+                uint16_t* tile = m_paper.depositTile(tx, ty);
+                std::memcpy(tile + size_t(gy % kTileSize) * kTileSize + size_t(lx), dep + size_t(r) * s + size_t(c),
+                            size_t(run) * 2);
                 dirty.unite({gx, gy, gx + run, gy + 1});
             }
             c += run;
