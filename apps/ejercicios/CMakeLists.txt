@@ -15,6 +15,8 @@ qt_add_library(ejercicios_core STATIC
     src/exercises/Exercise.cpp
     src/exercises/Hatching.h
     src/exercises/Hatching.cpp
+    src/exercises/Concentricas.h
+    src/exercises/Concentricas.cpp
     src/exercises/Curva.h
     src/exercises/Curva.cpp
     src/exercises/Radiales.h
