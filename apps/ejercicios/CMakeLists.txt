@@ -9,6 +9,8 @@ qt_add_library(ejercicios_core STATIC
     src/ExerciseSession.cpp
     src/exercises/Direccion.h
     src/exercises/Direccion.cpp
+    src/exercises/Elipse.h
+    src/exercises/Elipse.cpp
     src/exercises/Exercise.h
     src/exercises/Exercise.cpp
     src/exercises/Hatching.h
