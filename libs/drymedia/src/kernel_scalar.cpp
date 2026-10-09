@@ -17,10 +17,13 @@ inline uint16_t subSat(uint32_t a, uint32_t b)
     return static_cast<uint16_t>(a > b ? a - b : 0u);
 }
 
-void surface(uint16_t* out, const uint16_t* relief, const uint16_t* deposit, int n, uint16_t base, int shift)
+void surface(uint16_t* out, const uint16_t* relief, const uint16_t* crest, const uint16_t* deposit, int n,
+             uint16_t base, int shift)
 {
-    for (int i = 0; i < n; ++i)
-        out[i] = addSat(addSat(relief[i] >> shift, base), deposit[i] >> 4);
+    for (int i = 0; i < n; ++i) {
+        const uint32_t r = relief[i] >> shift;
+        out[i] = addSat(addSat(r, base), (uint32_t(subSat(crest[i] >> shift, r)) * deposit[i]) >> 16);
+    }
 }
 
 uint32_t force(const uint16_t* surf, const uint16_t* tip, int n, uint16_t d)

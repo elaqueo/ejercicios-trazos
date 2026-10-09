@@ -11,7 +11,8 @@ namespace lienzo {
 
 Lead Lead::clamped() const
 {
-    return {std::clamp(softness, 1, 255), std::clamp(diameter, 30, 200), std::clamp(ceiling, 2000, 65535)};
+    return {std::clamp(softness, 1, 255), std::clamp(diameter, 30, 200), std::clamp(ceiling, 2000, 65535),
+            std::clamp(halfAngle, 5, 30), std::clamp(minAltitude, 10, 80)};
 }
 
 drymedia::Medium Lead::medium() const
@@ -20,18 +21,22 @@ drymedia::Medium Lead::medium() const
     drymedia::Medium m = drymedia::Medium::hb().withLeadDiameter(l.diameter / 100.0);
     m.softness = uint16_t(l.softness);
     m.ceiling = uint16_t(l.ceiling);
+    m.coneHalfAngleDeg = l.halfAngle;
+    m.minTabletAltitudeDeg = l.minAltitude;
     return m;
 }
 
 uint64_t Lead::pack() const
 {
     const Lead l = clamped();
-    return uint64_t(l.softness) | uint64_t(l.diameter) << 16 | uint64_t(l.ceiling) << 32;
+    return uint64_t(l.softness) | uint64_t(l.diameter) << 16 | uint64_t(l.ceiling) << 32 |
+           uint64_t(l.halfAngle) << 48 | uint64_t(l.minAltitude) << 56;
 }
 
 Lead Lead::unpack(uint64_t packed)
 {
-    return {int(packed & 0xffff), int(packed >> 16 & 0xffff), int(packed >> 32 & 0xffff)};
+    return {int(packed & 0xffff), int(packed >> 16 & 0xffff), int(packed >> 32 & 0xffff), int(packed >> 48 & 0xff),
+            int(packed >> 56 & 0xff)};
 }
 
 Grades factoryGrades()
@@ -105,6 +110,12 @@ bool mediaFromJson(const QByteArray& json, MediaSet& media, QString* error)
     result.eraser.diameter =
         int(std::lround(goma.value(QStringLiteral("diametroMm")).toDouble(result.eraser.diameter / 100.0) * 100));
     result.eraser = result.eraser.clamped();
+    const QJsonObject punta = doc.object().value(QStringLiteral("punta")).toObject();
+    for (Lead& lead : result.grades) {
+        lead.halfAngle = punta.value(QStringLiteral("semianguloGrados")).toInt(lead.halfAngle);
+        lead.minAltitude = punta.value(QStringLiteral("altitudMinimaTableta")).toInt(lead.minAltitude);
+        lead = lead.clamped();
+    }
     media = result;
     return true;
 }
@@ -122,6 +133,9 @@ QByteArray mediaToJson(const MediaSet& media)
     const QJsonObject root{{QStringLiteral("version"), 1},
                            {QStringLiteral("nota"), QStringLiteral("techo: depósito máximo, de 2000 a 65535 (negro)")},
                            {QStringLiteral("minas"), leads},
+                           {QStringLiteral("punta"),
+                            QJsonObject{{QStringLiteral("semianguloGrados"), media.grades[kHbIndex].halfAngle},
+                                        {QStringLiteral("altitudMinimaTableta"), media.grades[kHbIndex].minAltitude}}},
                            {QStringLiteral("goma"), QJsonObject{{QStringLiteral("fuerza"), media.eraser.strength},
                                                                 {QStringLiteral("diametroMm"), media.eraser.diameter / 100.0}}}};
     return QJsonDocument(root).toJson(QJsonDocument::Indented);

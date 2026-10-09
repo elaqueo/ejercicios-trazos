@@ -605,12 +605,14 @@ void Lienzo::start()
     }
     d->sim->start();
     d->render->start();
-    // --bench [undo]: trazos sintéticos durante 30 s, para medir sin la tableta.
+    // --bench [undo] [costado]: trazos sintéticos durante 30 s, para medir sin la tableta.
     if (args.contains(QStringLiteral("--bench"))) {
         const bool withUndo = args.contains(QStringLiteral("undo")) && d->options.undo;
-        qInfo() << "Benchmark sintético" << (withUndo ? "con deshacer" : "sin deshacer");
-        d->bench = std::thread([impl = d.get(), withUndo] {
-            runBench(impl->queue, *impl->sim, impl->mapping, withUndo);
+        const bool side = args.contains(QStringLiteral("costado"));
+        qInfo() << "Benchmark sintético" << (withUndo ? "con deshacer" : "sin deshacer")
+                << (side ? "· 6B de costado" : "");
+        d->bench = std::thread([impl = d.get(), withUndo, side] {
+            runBench(impl->queue, *impl->sim, impl->mapping, withUndo, side);
         });
     }
 }

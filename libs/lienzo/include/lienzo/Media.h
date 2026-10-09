@@ -16,13 +16,18 @@ struct Lead {
     int softness = 20;   // blandura, 1..255
     int diameter = 87;   // diámetro en centésimas de mm, 30..200
     int ceiling = 65535; // techo de tono (HU-56), 2000..65535
+    // Forma de la punta (HU-59), igual para todas las minas: semiángulo del cono afilado
+    // (5..30°) y la altitud de la máxima inclinación de la tableta (10..80°), que se toma
+    // como el lápiz acostado. En medios.json van una sola vez, en "punta".
+    int halfAngle = 12;
+    int minAltitude = 30;
 
     bool operator==(const Lead&) const = default;
     Lead clamped() const;
     drymedia::Medium medium() const;
 
-    // En 64 bits, para pasarla al hilo de simulación con un solo atómico (los tres
-    // valores cambian juntos al elegir otra mina).
+    // En 64 bits, para pasarla al hilo de simulación con un solo atómico (los valores
+    // cambian juntos al elegir otra mina).
     uint64_t pack() const;
     static Lead unpack(uint64_t packed);
 };

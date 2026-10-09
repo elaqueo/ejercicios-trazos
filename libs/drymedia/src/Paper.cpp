@@ -29,9 +29,13 @@ uint32_t cellHash(uint32_t x, uint32_t y, uint32_t seed)
     return hash32(x * 73856093U ^ y * 19349663U ^ hash32(seed));
 }
 
-// Relieve en (x, y): grano fino por celda (0..2047) + ondulación suave interpolada
-// en una grilla de kWaveCell (0..2047). Solo enteros: igual en cualquier máquina.
-uint16_t reliefValue(int x, int y, uint32_t seed)
+constexpr uint32_t kGrainMax = 2047;
+
+// Relieve en (x, y): grano fino por celda (0..kGrainMax) + ondulación suave interpolada
+// en una grilla de kWaveCell (0..2047). Solo enteros: igual en cualquier máquina. `crest`
+// es el nivel de las crestas de la zona (la ondulación + el grano máximo): hasta ahí llena
+// el grafito un valle (Contact).
+uint16_t reliefValue(int x, int y, uint32_t seed, uint16_t& crest)
 {
     const uint32_t grain = cellHash(uint32_t(x), uint32_t(y), seed) >> 21;
     const uint32_t gx = uint32_t(x / kWaveCell), gy = uint32_t(y / kWaveCell);
@@ -41,6 +45,7 @@ uint16_t reliefValue(int x, int y, uint32_t seed)
     const uint32_t c01 = cellHash(gx, gy + 1, waveSeed) >> 21, c11 = cellHash(gx + 1, gy + 1, waveSeed) >> 21;
     const uint32_t k = kWaveCell;
     const uint32_t wave = (c00 * (k - fx) * (k - fy) + c10 * fx * (k - fy) + c01 * (k - fx) * fy + c11 * fx * fy) / (k * k);
+    crest = uint16_t(wave + kGrainMax);
     return uint16_t(grain + wave);
 }
 
@@ -56,7 +61,7 @@ void fnv(uint64_t& h, const void* data, size_t bytes)
 struct Paper::Impl {
     PaperSpec spec;
     int width = 0, height = 0, tilesX = 0, tilesY = 0;
-    std::vector<uint16_t> relief;
+    std::vector<uint16_t> relief, crest;
     uint64_t reliefHash = 0;
 
     std::vector<uint16_t*> tiles; // tilesX × tilesY; nullptr = no tocado
@@ -69,14 +74,16 @@ struct Paper::Impl {
     void generateRelief()
     {
         relief.resize(size_t(width) * size_t(height));
+        crest.resize(relief.size());
         const unsigned threads = std::max(1u, std::thread::hardware_concurrency());
         std::vector<std::thread> pool;
         for (unsigned t = 0; t < threads; ++t) {
             pool.emplace_back([this, t, threads] {
                 for (int y = int(t); y < height; y += int(threads)) {
                     uint16_t* row = relief.data() + size_t(y) * size_t(width);
+                    uint16_t* crestRow = crest.data() + size_t(y) * size_t(width);
                     for (int x = 0; x < width; ++x)
-                        row[x] = reliefValue(x, y, spec.seed);
+                        row[x] = reliefValue(x, y, spec.seed, crestRow[x]);
                 }
             });
         }
@@ -156,6 +163,11 @@ int Paper::tilesY() const
 const uint16_t* Paper::relief() const
 {
     return d->relief.data();
+}
+
+const uint16_t* Paper::crest() const
+{
+    return d->crest.data();
 }
 
 uint16_t Paper::reliefAt(int x, int y) const

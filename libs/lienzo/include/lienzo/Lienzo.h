@@ -59,7 +59,7 @@ struct LienzoOptions {
 // guarda en medios.json · F9 calibra el área útil · F10 pasa al monitor siguiente (guarda la
 // elección y reinicia la app ahí: el lienzo nativo no cambia de tamaño en caliente) · F12
 // guarda la imagen de pantalla. Opciones de línea de comandos:
-// --grabar (muestras crudas en CSV) y --bench [undo] (30 s de trazos sintéticos).
+// --grabar (muestras crudas en CSV) y --bench [undo] [costado] (30 s de trazos sintéticos).
 class Lienzo {
 public:
     // Crea la ventana nativa dentro de `shell` (ya ubicado en `screen` y visible).

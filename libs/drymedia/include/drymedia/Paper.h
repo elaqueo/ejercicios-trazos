@@ -46,6 +46,9 @@ public:
     // Relieve de toda la hoja, fila por fila (width() × height()).
     const uint16_t* relief() const;
     uint16_t reliefAt(int x, int y) const;
+    // Nivel de las crestas de la zona de cada celda (≥ relieve), igual de grande: hasta ahí
+    // llena el grafito los valles.
+    const uint16_t* crest() const;
 
     // Tile de depósito (kTileCells valores, fila por fila); lo crea en cero si no
     // existía. nullptr fuera de la hoja.

@@ -26,6 +26,12 @@ struct Medium {
                                          // (k = distancia × softness, ≤ 65280 por celda)
     uint16_t ceiling = 65535;            // techo: el depósito máximo (negro) que alcanza esta
                                          // mina; las duras tienen más arcilla y quedan en gris
+    // Forma de la punta afilada (HU-59): el cono de madera y mina tiene este semiángulo; la
+    // mina es la parte del cono dentro de su radio. Y la inclinación de la tableta: a esta
+    // altitud (la máxima inclinación que reporta; la Intuos4 llega a ~30°) el lápiz se toma
+    // como acostado, con el costado del cono sobre el papel.
+    double coneHalfAngleDeg = 12.0;
+    double minTabletAltitudeDeg = 30.0;
 
     // HB calibrada con la tableta el 10 de octubre de 2026 (HU-51): mina de 0,87 mm y
     // blandura 20, mirando el tono, el grano y las pasadas repetidas.

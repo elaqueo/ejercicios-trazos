@@ -28,13 +28,16 @@ inline __m256i contribution(__m256i p, __m256i kv)
     return _mm256_blendv_epi8(_mm256_set1_epi16(-1), shifted, fits);
 }
 
-void surface(uint16_t* out, const uint16_t* relief, const uint16_t* deposit, int n, uint16_t base, int shift)
+void surface(uint16_t* out, const uint16_t* relief, const uint16_t* crest, const uint16_t* deposit, int n,
+             uint16_t base, int shift)
 {
     const __m256i b = _mm256_set1_epi16(static_cast<short>(base));
     const __m128i sh = _mm_cvtsi32_si128(shift);
     for (int i = 0; i < n; i += 16) {
         const __m256i r = _mm256_srl_epi16(load(relief + i), sh);
-        const __m256i s = _mm256_adds_epu16(_mm256_adds_epu16(r, b), _mm256_srli_epi16(load(deposit + i), 4));
+        const __m256i top = _mm256_srl_epi16(load(crest + i), sh);
+        const __m256i fill = _mm256_mulhi_epu16(_mm256_subs_epu16(top, r), load(deposit + i));
+        const __m256i s = _mm256_adds_epu16(_mm256_adds_epu16(r, b), fill);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(out + i), s);
     }
 }

@@ -36,6 +36,7 @@ Contact::Contact(Path path)
     : m_path(path == Path::Scalar || !avx2Available() ? Path::Scalar : Path::Avx2)
     , m_cells(Tip::kTipCells)
     , m_relief(size_t(Tip::kTipCells))
+    , m_crest(size_t(Tip::kTipCells))
     , m_deposit(size_t(Tip::kTipCells))
     , m_surface(size_t(Tip::kTipCells))
     , m_penetration(size_t(Tip::kTipCells))
@@ -46,31 +47,35 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
 {
     // 1. Copiar la huella del papel (relieve y depósito) a arreglos contiguos. Fuera de la
     //    hoja, superficie 0: ahí la punta nunca toca.
-    const int s = tip.size();
-    const int x0 = x - tip.center(), y0 = y - tip.center();
+    const int w = tip.width(), h = tip.height();
+    const int x0 = x - tip.originX(), y0 = y - tip.originY();
     if (m_cells != tip.cells()) {
         m_cells = tip.cells();
-        for (auto* v : {&m_relief, &m_deposit, &m_surface, &m_penetration})
+        for (auto* v : {&m_relief, &m_crest, &m_deposit, &m_surface, &m_penetration})
             v->resize(size_t(m_cells));
     }
     bool anyOutside = false;
-    for (int r = 0; r < s; ++r) {
+    for (int r = 0; r < h; ++r) {
         const int gy = y0 + r;
-        uint16_t* relief = m_relief.data() + size_t(r) * s;
-        uint16_t* deposit = m_deposit.data() + size_t(r) * s;
+        uint16_t* relief = m_relief.data() + size_t(r) * w;
+        uint16_t* crest = m_crest.data() + size_t(r) * w;
+        uint16_t* deposit = m_deposit.data() + size_t(r) * w;
         int c = 0;
-        while (c < s) {
+        while (c < w) {
             const int gx = x0 + c;
             if (gy < 0 || gy >= paper.height() || gx < 0 || gx >= paper.width()) {
                 relief[c] = 0;
+                crest[c] = 0;
                 deposit[c] = 0;
                 anyOutside = true;
                 ++c;
                 continue;
             }
             const int lx = gx % kTileSize;
-            const int run = std::min({s - c, kTileSize - lx, paper.width() - gx});
-            std::memcpy(relief + c, paper.relief() + size_t(gy) * size_t(paper.width()) + size_t(gx), size_t(run) * 2);
+            const int run = std::min({w - c, kTileSize - lx, paper.width() - gx});
+            const size_t at = size_t(gy) * size_t(paper.width()) + size_t(gx);
+            std::memcpy(relief + c, paper.relief() + at, size_t(run) * 2);
+            std::memcpy(crest + c, paper.crest() + at, size_t(run) * 2);
             const uint16_t* tile = paper.findDepositTile(gx / kTileSize, gy / kTileSize);
             if (tile)
                 std::memcpy(deposit + c, tile + size_t(gy % kTileSize) * kTileSize + size_t(lx), size_t(run) * 2);
@@ -81,13 +86,14 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
     }
 
     const kernel::Impl& k = impl(m_path);
-    k.surface(m_surface.data(), m_relief.data(), m_deposit.data(), m_cells, kBase, std::clamp(medium.reliefShift, 0, 15));
+    const int shift = std::clamp(medium.reliefShift, 0, 15);
+    k.surface(m_surface.data(), m_relief.data(), m_crest.data(), m_deposit.data(), m_cells, kBase, shift);
     if (anyOutside) {
-        for (int r = 0; r < s; ++r)
-            for (int c = 0; c < s; ++c) {
+        for (int r = 0; r < h; ++r)
+            for (int c = 0; c < w; ++c) {
                 const int gx = x0 + c, gy = y0 + r;
                 if (gy < 0 || gy >= paper.height() || gx < 0 || gx >= paper.width())
-                    m_surface[size_t(r) * s + size_t(c)] = 0;
+                    m_surface[size_t(r) * w + size_t(c)] = 0;
             }
     }
 

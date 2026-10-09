@@ -153,22 +153,22 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
 
     // Escribir el depósito de vuelta en los tiles, solo en los tramos con contacto (así no
     // se crean tiles donde la punta no tocó; la goma tampoco los crea donde no hay grafito).
-    const int s = tip.size();
-    const int x0 = cx - tip.center(), y0 = cy - tip.center();
+    const int w = tip.width(), h = tip.height();
+    const int x0 = cx - tip.originX(), y0 = cy - tip.originY();
     const uint16_t* pen = m_contact.penetration();
     const uint16_t* dep = m_contact.deposit();
     DirtyRect dirty;
-    for (int r = 0; r < s; ++r) {
+    for (int r = 0; r < h; ++r) {
         const int gy = y0 + r;
         if (gy < 0 || gy >= m_paper.height())
             continue;
         int c = std::max(0, -x0);
-        const int cEnd = std::min(s, m_paper.width() - x0);
+        const int cEnd = std::min(w, m_paper.width() - x0);
         while (c < cEnd) {
             const int gx = x0 + c;
             const int lx = gx % kTileSize;
             const int run = std::min(cEnd - c, kTileSize - lx);
-            const uint16_t* penRun = pen + size_t(r) * s + size_t(c);
+            const uint16_t* penRun = pen + size_t(r) * w + size_t(c);
             if (std::any_of(penRun, penRun + run, [](uint16_t v) { return v > 0; })) {
                 const int tx = gx / kTileSize, ty = gy / kTileSize;
                 const int index = ty * m_paper.tilesX() + tx;
@@ -184,7 +184,7 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
                     m_strokeTiles.push_back(index);
                 }
                 uint16_t* tile = m_paper.depositTile(tx, ty);
-                std::memcpy(tile + size_t(gy % kTileSize) * kTileSize + size_t(lx), dep + size_t(r) * s + size_t(c),
+                std::memcpy(tile + size_t(gy % kTileSize) * kTileSize + size_t(lx), dep + size_t(r) * w + size_t(c),
                             size_t(run) * 2);
                 dirty.unite({gx, gy, gx + run, gy + 1});
             }

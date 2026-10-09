@@ -61,6 +61,17 @@ std::vector<uint16_t> depositOf(const Paper& paper)
     return all;
 }
 
+// Depósito medio (0..1) en el rectángulo [x0, x1) × [y0, y1).
+double meanDeposit(const Paper& paper, int x0, int x1, int y0, int y1)
+{
+    const std::vector<uint16_t> d = depositOf(paper);
+    double sum = 0;
+    for (int y = y0; y < y1; ++y)
+        for (int x = x0; x < x1; ++x)
+            sum += d[size_t(y) * size_t(paper.width()) + size_t(x)];
+    return sum / (double(x1 - x0) * double(y1 - y0) * 65535.0);
+}
+
 double total(const std::vector<uint16_t>& v)
 {
     double s = 0;
@@ -191,9 +202,10 @@ private slots:
     }
 
     // Cruzar un trazo cargado no desvía el trazo nuevo: el depósito nuevo de cada fila de
-    // un trazo vertical queda centrado en la línea, también donde cruza un trazo 6B
-    // saturado (reporte del 10 de octubre de 2026, no reproducido: el desvío medido es de
-    // ~3 celdas, 0,13 mm, en el cruce y lejos de él).
+    // un trazo vertical queda donde queda lejos del cruce, también donde cruza un trazo 6B
+    // saturado (reporte del 10 de octubre de 2026, no reproducido). Desde HU-59 la huella
+    // inclinada está corrida hacia el cuerpo del lápiz, así que la referencia es el centro
+    // del mismo trazo lejos del cruce, no la posición del lápiz.
     void cruzarNoDesvia()
     {
         Paper paper(smallSheet());
@@ -205,25 +217,43 @@ private slots:
             draw(pencil, horizontal, 60);
         const std::vector<uint16_t> antes = depositOf(paper);
         const double x = 900.3;
-        const auto vertical = [x](double t) { return PencilSample{x, 400 + t * 600, 0.5f, 45.0f, 40.0f}; };
+        // Lápiz poco inclinado, como en el reporte. De costado (HU-59) la huella mide ~70
+        // celdas en diagonal y el centro por fila ya no mide un desvío: sobre el trazo
+        // saturado casi no entra grafito nuevo y el depósito lo levanta un diente entero
+        // (36 celdas con esta métrica; se revisa con el bruñido, HU-60).
+        const auto vertical = [x](double t) { return PencilSample{x, 400 + t * 600, 0.5f, 45.0f, 75.0f}; };
         draw(pencil, vertical, 60);
         const std::vector<uint16_t> despues = depositOf(paper);
-        double peorLejos = 0, peorCruce = 0;
-        for (int y = 450; y < 950; y += 2) {
+        std::vector<std::pair<int, double>> centros; // fila → centro del depósito nuevo
+        for (int y = 500; y < 900; y += 2) {
             double suma = 0, momento = 0;
-            for (int cx = 840; cx < 960; ++cx) {
+            for (int cx = 840; cx < 1000; ++cx) {
                 const size_t i = size_t(y) * size_t(paper.width()) + size_t(cx);
                 const double d = double(despues[i]) - double(antes[i]);
                 suma += d;
                 momento += d * cx;
             }
-            if (suma <= 0)
-                continue;
-            double& peor = std::abs(y - 700) < 60 ? peorCruce : peorLejos;
-            peor = std::max(peor, std::abs(momento / suma - x));
+            if (suma > 0)
+                centros.emplace_back(y, momento / suma);
         }
-        qInfo() << "desvío máximo en celdas: lejos" << peorLejos << "· en el cruce" << peorCruce;
-        QVERIFY2(peorCruce < 5.0, qPrintable(QString::number(peorCruce))); // 0,2 mm
+        double referencia = 0;
+        int lejos = 0;
+        for (const auto& [y, c] : centros)
+            if (std::abs(y - 700) >= 100)
+                referencia += c, ++lejos;
+        QVERIFY(lejos > 50);
+        referencia /= lejos;
+        double peorLejos = 0, peorCruce = 0;
+        for (const auto& [y, c] : centros) {
+            double& peor = std::abs(y - 700) < 100 ? peorCruce : peorLejos;
+            peor = std::max(peor, std::abs(c - referencia));
+        }
+        qInfo() << "centro lejos del cruce" << referencia - x << "celdas del lápiz · desvío máximo: lejos" << peorLejos
+                << "· en el cruce" << peorCruce;
+        // Con el grafito que llena el diente (HU-59): 6,6 celdas (antes 5,0); sobre el trazo
+        // saturado casi no entra grafito nuevo y la métrica mide dónde queda lugar. De costado,
+        // 18,6 (antes 36).
+        QVERIFY2(peorCruce < 8.0, qPrintable(QString::number(peorCruce))); // 0,34 mm
     }
 
     // Diagnóstico: re-simula una grabación de Cartuchera (--grabar) y guarda el depósito
@@ -298,7 +328,9 @@ private slots:
         draw(goma, suave, 40);
         const double despues = total(depositOf(paper));
         qInfo() << "goma suave: queda" << despues / antes * 100 << "%";
-        QVERIFY(despues < antes * 0.97);
+        // Con el grafito dentro del diente (HU-59), una goma apenas apoyada toca también crestas
+        // limpias: queda ~97 % (antes ~82 %, cuando el grafito sobresalía del papel).
+        QVERIFY(despues < antes * 0.99);
         QVERIFY(despues > antes * 0.6);
     }
 
@@ -363,10 +395,51 @@ private slots:
             QCOMPARE(hv.hash(), hs.hash());
             QVERIFY(hs.hash() != scalar.hash());
         }
-        // Medido el 10 de octubre de 2026 (igual en Debug y Release). Si cambia el modelo a
-        // propósito, se actualiza acá; si cambia sin querer, este test lo marca.
+        // Medido el 10 de octubre de 2026 (igual en Debug y Release); cambió a propósito con el
+        // cono inclinado y el grafito que llena el diente (HU-59). Si cambia el modelo a propósito, se actualiza acá; si cambia
+        // sin querer, este test lo marca.
         qInfo() << "hash" << Qt::hex << scalar.hash();
-        QCOMPARE(scalar.hash(), uint64_t(0x49030d56c130aadcULL));
+        QCOMPARE(scalar.hash(), uint64_t(0xaacc597fc5c52499ULL));
+    }
+
+    // Repasar de costado sigue oscureciendo (reporte del 9 de octubre de 2026): el grafito
+    // llena el diente hasta las crestas de la zona y no más. Antes una celda saturada subía
+    // un diente entero, la mina acostada quedaba apoyada en esas celdas y las pasadas
+    // siguientes no agregaban nada.
+    void repasarDeCostadoOscurece()
+    {
+        Paper paper(smallSheet());
+        Medium m = Medium::hb().withLeadDiameter(1.45);
+        m.softness = 70;
+        Pencil pencil(paper, m);
+        double tono[11] = {};
+        for (int pasada = 1; pasada <= 10; ++pasada) {
+            const double jx = (pasada % 3 - 1) * 3.0;
+            draw(pencil, [jx](double t) { return PencilSample{900 + jx, 300 + t * 600, 0.6f, 90.0f, 32.0f}; }, 120);
+            tono[pasada] = meanDeposit(paper, 885, 925, 450, 750);
+        }
+        qInfo() << "tono de la 6B de costado: pasada 1" << tono[1] << "· 3" << tono[3] << "· 10" << tono[10];
+        // Con el modelo viejo: 0,088 · 0,091 · 0,092 (clavado); el canal de abajo quedaba en 0.
+        QVERIFY2(tono[10] > tono[3] * 1.05 && tono[10] > 0.2, qPrintable(QStringLiteral("%1 %2").arg(tono[3]).arg(tono[10])));
+    }
+
+    // El caso del reporte: dos líneas oscuras y, entre ellas, un canal que la mina de costado
+    // no podía pintar porque quedaba apoyada sobre las dos líneas.
+    void costadoPintaEntreDosLineas()
+    {
+        Paper paper(smallSheet());
+        Medium m = Medium::hb().withLeadDiameter(1.45);
+        m.softness = 70;
+        Pencil pencil(paper, m);
+        for (int pasada = 0; pasada < 8; ++pasada)
+            for (const double x : {880.0, 925.0})
+                draw(pencil, [x](double t) { return PencilSample{x, 300 + t * 600, 1.0f, 0.0f, 88.0f}; }, 120);
+        const double antes = meanDeposit(paper, 897, 909, 450, 750);
+        for (int pasada = 0; pasada < 6; ++pasada)
+            draw(pencil, [](double t) { return PencilSample{862, 300 + t * 600, 0.6f, 0.0f, 32.0f}; }, 120);
+        const double canal = meanDeposit(paper, 897, 909, 450, 750), lineas = meanDeposit(paper, 876, 884, 450, 750);
+        qInfo() << "canal antes" << antes << "· después" << canal << "· líneas" << lineas;
+        QVERIFY2(canal > 0.3 * lineas, qPrintable(QStringLiteral("%1 / %2").arg(canal).arg(lineas)));
     }
 
     void velocidad()

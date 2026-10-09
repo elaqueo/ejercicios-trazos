@@ -1,5 +1,6 @@
 #include "lienzo/Bench.h"
 
+#include "lienzo/Media.h"
 #include "lienzo/SampleQueue.h"
 #include "lienzo/Simulation.h"
 
@@ -34,8 +35,10 @@ int64_t nowUs()
 
 } // namespace
 
-void runBench(SampleQueue& queue, Simulation& sim, const SheetMapping& m, bool withUndo)
+void runBench(SampleQueue& queue, Simulation& sim, const SheetMapping& m, bool withUndo, bool side)
 {
+    if (side)
+        sim.setLead(factoryGrades()[kGradeCount - 1]); // 6B: la mina más gruesa
     HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
     const int64_t periodUs = int64_t(1e6 / kSampleRate);
     const int total = int(kDurationS * kSampleRate);
@@ -51,7 +54,8 @@ void runBench(SampleQueue& queue, Simulation& sim, const SheetMapping& m, bool w
         s.x = cx + rx * std::sin(t * 1.3 + stroke);
         s.y = cy + ry * std::sin(t * 2.1 + stroke * 0.7);
         s.pressure = float(0.5 + 0.2 * std::sin(t * 5));
-        s.altitude = 70;
+        s.altitude = side ? 25.0f : 70.0f; // de costado, más allá de la máxima inclinación
+        s.azimuth = side ? float(std::fmod(t * 40.0, 360.0)) : 0.0f;
         s.inContact = inCycle < kStrokeSamples;
         s.timeUs = nowUs();
         queue.push({s});

@@ -14,29 +14,43 @@ namespace {
 
 // Huella: celdas de la punta con altura finita; devuelve el cociente largo/ancho de su
 // caja (largo en x, ancho en y).
+struct Box {
+    int minX, maxX, minY, maxY;
+    int width() const { return maxX - minX + 1; }
+    int height() const { return maxY - minY + 1; }
+};
+
+Box footprintBox(const Tip& tip)
+{
+    const int w = tip.width(), h = tip.height();
+    Box b{w, -1, h, -1};
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x)
+            if (tip.heights()[y * w + x] != Tip::kNoContact) {
+                b.minX = qMin(b.minX, x);
+                b.maxX = qMax(b.maxX, x);
+                b.minY = qMin(b.minY, y);
+                b.maxY = qMax(b.maxY, y);
+            }
+    return b;
+}
+
 double footprintAspect(const Tip& tip)
 {
-    int minX = Tip::kTipSize, maxX = -1, minY = Tip::kTipSize, maxY = -1;
-    for (int y = 0; y < Tip::kTipSize; ++y)
-        for (int x = 0; x < Tip::kTipSize; ++x)
-            if (tip.heights()[y * Tip::kTipSize + x] != Tip::kNoContact) {
-                minX = qMin(minX, x);
-                maxX = qMax(maxX, x);
-                minY = qMin(minY, y);
-                maxY = qMax(maxY, y);
-            }
-    return double(maxX - minX + 1) / double(maxY - minY + 1);
+    const Box b = footprintBox(tip);
+    return double(b.width()) / double(b.height());
 }
 
 // Relieve promedio de las celdas en contacto.
-double meanContactRelief(const Contact& contact, const Paper& paper, int x, int y)
+double meanContactRelief(const Contact& contact, const Tip& tip, const Paper& paper, int x, int y)
 {
     double sum = 0;
     int n = 0;
-    for (int r = 0; r < Tip::kTipSize; ++r)
-        for (int c = 0; c < Tip::kTipSize; ++c)
-            if (contact.penetration()[r * Tip::kTipSize + c] > 0) {
-                sum += paper.reliefAt(x - Tip::kTipCenter + c, y - Tip::kTipCenter + r);
+    const int w = tip.width();
+    for (int r = 0; r < tip.height(); ++r)
+        for (int c = 0; c < w; ++c)
+            if (contact.penetration()[r * w + c] > 0) {
+                sum += paper.reliefAt(x - tip.originX() + c, y - tip.originY() + r);
                 ++n;
             }
     return n ? sum / n : 0;
@@ -60,16 +74,121 @@ private slots:
         QCOMPARE(tip.heights()[Tip::kTipCenter * Tip::kTipSize + Tip::kTipCenter] < 600, true); // centro, lo más bajo
     }
 
+    // HU-59: vertical, el cono de siempre (mapa de 48, el mismo con cualquier azimut).
+    void verticalSinCambios()
+    {
+        const Medium hb = Medium::hb();
+        const Tip a = Tip::make(hb, 0, 90), b = Tip::make(hb, 137, 90);
+        QCOMPARE(a.width(), Tip::kTipSize);
+        QCOMPARE(a.height(), Tip::kTipSize);
+        QCOMPARE(a.originX(), Tip::kTipCenter);
+        QVERIFY(std::equal(a.heights(), a.heights() + a.cells(), b.heights()));
+        const double radius = hb.leadDiameterMm * kCellsPerMm / 2.0;
+        for (int y = 0; y < Tip::kTipSize; ++y)
+            for (int x = 0; x < Tip::kTipSize; ++x) {
+                const double rho = std::hypot(x + 0.5 - Tip::kTipCenter, y + 0.5 - Tip::kTipCenter);
+                const uint16_t esperado = rho <= radius ? uint16_t(std::round(rho * hb.coneSlope)) : Tip::kNoContact;
+                QCOMPARE(a.heights()[y * Tip::kTipSize + x], esperado);
+            }
+    }
+
+    // La altitud de la tableta se estira hasta el lápiz acostado: 90° queda igual, la
+    // máxima inclinación (30°) es el costado del cono (12° + 1°).
+    void inclinacionDeLaTableta()
+    {
+        const Medium hb = Medium::hb();
+        QCOMPARE(Tip::effectiveAltitude(hb, 90), 90.0);
+        QVERIFY(qAbs(Tip::effectiveAltitude(hb, 30) - 13.0) < 1e-9);
+        QVERIFY(qAbs(Tip::effectiveAltitude(hb, 20) - 13.0) < 1e-9);
+        double previa = 91;
+        for (int alt = 90; alt >= 30; alt -= 5) {
+            const double e = Tip::effectiveAltitude(hb, alt);
+            QVERIFY(e < previa);
+            previa = e;
+        }
+    }
+
+    // Inclinada, la huella empieza en el vértice (el centro del mapa) y crece hacia donde
+    // se inclina el lápiz: casi toda queda de ese lado.
+    void huellaAsimetricaHaciaElAzimut()
+    {
+        const Medium hb = Medium::hb();
+        for (const float az : {0.0f, 90.0f, 180.0f, 270.0f}) {
+            const Tip tip = Tip::make(hb, az, 50);
+            const int w = tip.width(), ox = tip.originX(), oy = tip.originY();
+            const double dx = std::cos(az * std::numbers::pi / 180), dy = std::sin(az * std::numbers::pi / 180);
+            int adelante = 0, atras = 0;
+            for (int y = 0; y < tip.height(); ++y)
+                for (int x = 0; x < w; ++x)
+                    if (tip.heights()[y * w + x] != Tip::kNoContact)
+                        ((x + 0.5 - ox) * dx + (y + 0.5 - oy) * dy > 0 ? adelante : atras)++;
+            QVERIFY2(adelante > 4 * atras, qPrintable(QStringLiteral("az %1: %2 / %3").arg(az).arg(adelante).arg(atras)));
+            // Lo más bajo está junto al vértice (en la esquina de las celdas del centro; cerca
+            // del vértice el cono es más fino que una celda y puede no cubrir esas cuatro).
+            const uint16_t* h = tip.heights();
+            const int lowest = int(std::min_element(h, h + tip.cells()) - h);
+            QVERIFY2(std::hypot(lowest % w + 0.5 - ox, lowest / w + 0.5 - oy) < 4.0, qPrintable(QString::number(lowest)));
+            // Mapa ajustado: no mucho más grande que la huella.
+            const Box b = footprintBox(tip);
+            QVERIFY2(tip.width() <= b.width() + 8 && tip.height() <= b.height() + 8,
+                     qPrintable(QStringLiteral("%1x%2").arg(tip.width()).arg(tip.height())));
+        }
+    }
+
+    // Cuanto más se acuesta, más larga la huella en la dirección del azimut, y no más
+    // ancha que la mina.
     void inclinacionAlargaLaHuella()
     {
         const Medium hb = Medium::hb();
-        const double vertical = footprintAspect(Tip::make(hb, 0, 90));
-        const double a60 = footprintAspect(Tip::make(hb, 0, 60));
-        const double a35 = footprintAspect(Tip::make(hb, 0, 35));
-        QVERIFY2(vertical < a60 && a60 < a35, qPrintable(QStringLiteral("%1 %2 %3").arg(vertical).arg(a60).arg(a35)));
-        QVERIFY2(qAbs(a35 - 1.0 / std::sin(35 * 3.14159265 / 180)) < 0.25, qPrintable(QString::number(a35)));
+        const int ancho = footprintBox(Tip::make(hb, 0, 90)).height();
+        int previo = 0;
+        for (const float alt : {90.0f, 75.0f, 60.0f, 45.0f, 30.0f}) {
+            const Box b = footprintBox(Tip::make(hb, 0, alt));
+            QVERIFY2(b.width() > previo, qPrintable(QStringLiteral("%1: %2").arg(alt).arg(b.width())));
+            QVERIFY(b.height() <= ancho + 1);
+            previo = b.width();
+        }
+        // Acostada: el costado del cono de mina, de largo radio / tan 12° ≈ 48 celdas.
+        QVERIFY2(previo > 45 && previo < 60, qPrintable(QString::number(previo)));
         // Azimut 90° (hacia abajo): se alarga en y.
-        QVERIFY(footprintAspect(Tip::make(hb, 90, 35)) < 0.8);
+        QVERIFY(footprintAspect(Tip::make(hb, 90, 35)) < 0.5);
+    }
+
+    // Sin saltos: 1° de diferencia cambia poco la huella.
+    void continuidadPorGrado()
+    {
+        const Medium hb = Medium::hb();
+        for (int alt = 30; alt < 90; ++alt) {
+            const int a = Tip::make(hb, 20, float(alt)).cellsInside();
+            const int b = Tip::make(hb, 20, float(alt + 1)).cellsInside();
+            QVERIFY2(std::abs(a - b) <= std::max(a, b) / 10 + 2,
+                     qPrintable(QStringLiteral("%1: %2 / %3").arg(alt).arg(a).arg(b)));
+        }
+        const int a = Tip::make(hb, 20, 40).cellsInside(), b = Tip::make(hb, 21, 40).cellsInside();
+        QVERIFY(std::abs(a - b) <= a / 20 + 2);
+    }
+
+    // El criterio de la historia: de costado el peso se reparte en más celdas, la punta se
+    // hunde menos y toca más las crestas que la punta vertical con la misma presión.
+    void costadoTocaLasCrestas()
+    {
+        const Paper paper({.seed = 3, .widthMm = 50, .heightMm = 50});
+        const Medium hb = Medium::hb();
+        const Tip vertical = Tip::make(hb, 0, 90), costado = Tip::make(hb, 0, 30);
+        Contact contact;
+        int crestas = 0;
+        const int casos = 40;
+        for (int i = 0; i < casos; ++i) {
+            const int x = 150 + i * 25, y = 300 + (i % 7) * 40;
+            contact.find(paper, vertical, hb, x, y, 0.5f);
+            const double reliefVertical = meanContactRelief(contact, vertical, paper, x, y);
+            const int celdasVertical = contact.cellsInContact();
+            contact.find(paper, costado, hb, x, y, 0.5f);
+            const double reliefCostado = meanContactRelief(contact, costado, paper, x, y);
+            QVERIFY(contact.cellsInContact() > celdasVertical); // más área
+            crestas += reliefCostado > reliefVertical ? 1 : 0;
+        }
+        QVERIFY2(crestas >= 34, qPrintable(QString::number(crestas)));
     }
 
     void presionCeroNoToca()
@@ -93,10 +212,10 @@ private slots:
             const int x = 100 + i * 25, y = 300 + (i % 7) * 40;
             contact.find(paper, tip, medium, x, y, 0.15f);
             const int pocas = contact.cellsInContact();
-            const double reliefPoca = meanContactRelief(contact, paper, x, y);
+            const double reliefPoca = meanContactRelief(contact, tip, paper, x, y);
             contact.find(paper, tip, medium, x, y, 0.9f);
             const int muchas = contact.cellsInContact();
-            const double reliefMucha = meanContactRelief(contact, paper, x, y);
+            const double reliefMucha = meanContactRelief(contact, tip, paper, x, y);
             if (pocas == 0 || muchas <= pocas)
                 return -1; // con poca presión tiene que tocar, y con más, tocar más
             crestas += reliefPoca > reliefMucha ? 1 : 0;
@@ -153,21 +272,22 @@ private slots:
         for (int i = 0; i < 500; ++i) {
             // También posiciones en el borde y fuera de la hoja.
             const int x = int(rng.bounded(paper.width() + 40)) - 20, y = int(rng.bounded(paper.height() + 40)) - 20;
-            const Tip tip = Tip::make(hb, float(rng.bounded(360.0)), float(30 + rng.bounded(60.0)));
+            // Incluye el costado (por debajo de 30°): mapas más grandes que 48.
+            const Tip tip = Tip::make(hb, float(rng.bounded(360.0)), float(20 + rng.bounded(70.0)));
             const float p = float(rng.bounded(1.0));
             const uint16_t ds = scalar.find(paper, tip, hb, x, y, p);
             const uint16_t dv = avx2.find(paper, tip, hb, x, y, p);
             QCOMPARE(dv, ds);
-            QVERIFY(std::equal(scalar.penetration(), scalar.penetration() + Tip::kTipCells, avx2.penetration()));
+            QVERIFY(std::equal(scalar.penetration(), scalar.penetration() + tip.cells(), avx2.penetration()));
             // Depósito con k y techo al azar (HU-56): también idéntico.
             const uint16_t k = uint16_t(rng.bounded(65536)), ceiling = uint16_t(rng.bounded(65536));
             scalar.applyDeposit(k, ceiling);
             avx2.applyDeposit(k, ceiling);
-            QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + Tip::kTipCells, avx2.deposit()));
+            QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + tip.cells(), avx2.deposit()));
             // Goma (HU-58): también idéntica.
             scalar.applyErase(k);
             avx2.applyErase(k);
-            QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + Tip::kTipCells, avx2.deposit()));
+            QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + tip.cells(), avx2.deposit()));
         }
         // Y con la punta grande de la goma (otro tamaño de huella).
         const Medium goma = Medium::eraser(5.0, 40);
@@ -188,13 +308,14 @@ private slots:
     void puntaDeGoma()
     {
         const Tip tip = Tip::make(Medium::eraser(5.0, 40), 37, 45);
-        QCOMPARE(tip.size() % 4, 0);
-        QVERIFY(tip.size() >= int(5.0 * kCellsPerMm));
-        const int c = tip.center();
+        QCOMPARE(tip.width() % 4, 0);
+        QCOMPARE(tip.height(), tip.width());
+        QVERIFY(tip.width() >= int(5.0 * kCellsPerMm));
+        const int c = tip.originX();
         const int flatRadius = int((2.5 - 0.3) * kCellsPerMm) - 1;
-        QCOMPARE(tip.heights()[size_t(c) * size_t(tip.size()) + size_t(c)], uint16_t(0));
-        QCOMPARE(tip.heights()[size_t(c) * size_t(tip.size()) + size_t(c + flatRadius)], uint16_t(0));
-        QCOMPARE(tip.heights()[size_t(c + flatRadius) * size_t(tip.size()) + size_t(c)], uint16_t(0));
+        QCOMPARE(tip.heights()[size_t(c) * size_t(tip.width()) + size_t(c)], uint16_t(0));
+        QCOMPARE(tip.heights()[size_t(c) * size_t(tip.width()) + size_t(c + flatRadius)], uint16_t(0));
+        QCOMPARE(tip.heights()[size_t(c + flatRadius) * size_t(tip.width()) + size_t(c)], uint16_t(0));
         QCOMPARE(tip.heights()[0], Tip::kNoContact); // esquina: fuera de la goma
         const double area = std::numbers::pi * std::pow(2.5 * kCellsPerMm, 2);
         QVERIFY(std::abs(tip.cellsInside() - area) < area * 0.02);

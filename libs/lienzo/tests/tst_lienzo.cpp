@@ -374,6 +374,8 @@ private slots:
         m.grades[0] = {9, 66, 21000};
         m.grades[9].diameter = 123;
         m.eraser = {33, 650};
+        for (Lead& l : m.grades)
+            l.halfAngle = 15, l.minAltitude = 35; // la punta (HU-59), una sola vez en el archivo
         MediaSet leido;
         leido.eraser = {};
         QVERIFY(mediaFromJson(mediaToJson(m), leido));

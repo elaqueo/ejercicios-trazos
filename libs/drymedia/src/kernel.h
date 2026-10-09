@@ -9,8 +9,10 @@
 namespace drymedia::kernel {
 
 struct Impl {
-    // superficie = sat(relieve >> shift + base + depósito >> 4)
-    void (*surface)(uint16_t* out, const uint16_t* relief, const uint16_t* deposit, int n, uint16_t base, int shift);
+    // r = relieve >> shift; superficie = sat(r + base + ((sat0((cresta >> shift) − r) · depósito) >> 16)):
+    // el grafito llena el diente hasta las crestas de la zona, sin subir por encima (HU-59).
+    void (*surface)(uint16_t* out, const uint16_t* relief, const uint16_t* crest, const uint16_t* deposit, int n,
+                    uint16_t base, int shift);
     uint32_t (*force)(const uint16_t* surface, const uint16_t* tip, int n, uint16_t d);
     void (*penetration)(uint16_t* out, const uint16_t* surface, const uint16_t* tip, int n, uint16_t d);
     // aporte a = min((p · k) >> 12, 65535); delta = (a · sat0(techo − depósito)) >> 16;

@@ -15,7 +15,11 @@ class Paper;
 // presión toca solo las crestas del relieve; con más, llega a los valles.
 //
 // Aritmética entera de 16 bits con saturación, igual en las dos rutas (AVX2 y escalar):
-//   superficie = sat(relieve / 2^reliefShift + kBase + depósito / 16)
+//   r = relieve / 2^reliefShift
+//   superficie = sat(r + kBase + (crestas de la zona / 2^reliefShift − r) · depósito / 65536)
+//   (el grafito llena el diente: saturado, la celda queda al nivel de las crestas; antes
+//   sumaba depósito / 16 y una celda saturada subía un diente entero por encima del papel,
+//   así que la mina de costado se apoyaba en ella y no volvía a tocar el resto, HU-59)
 //   penetración = sat0(superficie − sat(altura de la punta + D))
 //   fuerza(D) = Σ penetración  (decrece con D; se busca el mayor D con fuerza ≥ objetivo)
 class Contact {
@@ -51,7 +55,7 @@ public:
 private:
     Path m_path;
     int m_cells = 0; // celdas de la última punta (los arreglos tienen ese tamaño)
-    std::vector<uint16_t> m_relief, m_deposit, m_surface, m_penetration;
+    std::vector<uint16_t> m_relief, m_crest, m_deposit, m_surface, m_penetration;
     uint32_t m_force = 0;
 };
 
