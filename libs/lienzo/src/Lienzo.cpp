@@ -253,6 +253,13 @@ struct Lienzo::Impl {
         tilt = config->value(QStringLiteral("tilt"), true).toBool();
     }
 
+    // Punta seca (HU-61): no se guarda; al abrir la app siempre está la mina.
+    void toggleStylus()
+    {
+        sim->setStylus(!sim->stylus());
+        qInfo() << "Punta seca:" << (sim->stylus() ? "activada" : "desactivada");
+    }
+
     // Costado (HU-73): apagado, la punta es siempre la vertical; queda guardado.
     void toggleTilt()
     {
@@ -421,7 +428,10 @@ struct Lienzo::Impl {
         wchar_t text[512];
         const wchar_t* warning =
             area ? L"" : L"\nSin área calibrada en este monitor: calibrala con F9.";
-        if (sim->erasing()) {
+        if (!sim->erasing() && sim->stylus()) {
+            swprintf(text, 512, L"punta seca: hunde el papel sin dejar grafito (E vuelve a la mina)   ·   costado %ls (I)%ls",
+                     tilt ? L"sí" : L"no", warning);
+        } else if (sim->erasing()) {
             const Eraser eraser = sim->eraser();
             const bool unsaved = media.eraserUnsaved;
             swprintf(text, 512, L"goma%ls   ·   fuerza %d (, .)   ·   %.1f mm ([ ])%ls%ls", unsaved ? L"*" : L"",
@@ -543,6 +553,7 @@ void Lienzo::registerShortcuts()
     keys.add(QStringLiteral("Latencia y herramienta"), {{VK_F3}}, [impl] { impl->render->toggleOverlay(); });
     keys.add(QStringLiteral("Selector de lápices"), {{VK_F5}}, [impl] { impl->togglePicker(); }); // HU-67
     keys.add(QStringLiteral("Costado sí o no"), {{'I'}}, [impl] { impl->toggleTilt(); }); // HU-73
+    keys.add(QStringLiteral("Punta seca o mina"), {{'E'}}, [impl] { impl->toggleStylus(); }); // HU-61
     keys.add(QStringLiteral("Calibrar el área útil"), {{VK_F9}}, [impl] { impl->startCalibration(); }); // HU-66
     keys.add(QStringLiteral("Monitor siguiente"), {{VK_F10}}, [impl] { impl->nextScreen(); }); // HU-66
     keys.add(QStringLiteral("Imagen de pantalla"), {{VK_F12}}, [impl] { impl->saveScreenImage(); }); // diagnóstico

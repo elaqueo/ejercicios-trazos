@@ -14,9 +14,11 @@ constexpr double kCellsPerMm = 600.0 / 25.4;
 // Tiles de depósito: kTileSize × kTileSize celdas.
 constexpr int kTileSize = 64;
 constexpr int kTileCells = kTileSize * kTileSize;
-// Un tile guarda dos planos seguidos de kTileCells valores: el depósito y el bruñido
-// (HU-60). Copiar el tile entero (deshacer) restaura los dos.
-constexpr int kTileStride = 2 * kTileCells;
+// Un tile guarda planos seguidos de kTileCells valores: el depósito, el bruñido (HU-60),
+// la deformación y el daño de fibra (HU-61). Copiar el tile entero (deshacer) restaura todo.
+constexpr int kDepositPlane = 0, kBurnishPlane = 1, kDeformPlane = 2, kDamagePlane = 3;
+constexpr int kTilePlanes = 4;
+constexpr int kTileStride = kTilePlanes * kTileCells;
 
 struct PaperSpec {
     uint32_t seed = 1;
@@ -53,7 +55,7 @@ public:
     // llena el grafito los valles.
     const uint16_t* crest() const;
 
-    // Tile de depósito (kTileCells valores, fila por fila, seguidos del plano de bruñido:
+    // Tile de depósito (kTileCells valores, fila por fila, seguidos de los otros planos:
     // kTileStride en total); lo crea en cero si no
     // existía. nullptr fuera de la hoja.
     uint16_t* depositTile(int tx, int ty);

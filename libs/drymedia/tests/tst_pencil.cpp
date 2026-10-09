@@ -397,10 +397,11 @@ private slots:
             QVERIFY(hs.hash() != scalar.hash());
         }
         // Medido el 10 de octubre de 2026 (igual en Debug y Release); cambió a propósito con el
-        // cono inclinado y el grafito que llena el diente (HU-59), y con el bruñido (HU-60). Si cambia el modelo a propósito, se actualiza acá; si cambia
+        // cono inclinado y el grafito que llena el diente (HU-59), con el bruñido (HU-60) y con
+        // la deformación y el daño de fibra (HU-61, cuatro planos por tile). Si cambia el modelo a propósito, se actualiza acá; si cambia
         // sin querer, este test lo marca.
         qInfo() << "hash" << Qt::hex << scalar.hash();
-        QCOMPARE(scalar.hash(), uint64_t(0x4522d00f1274dc5cULL));
+        QCOMPARE(scalar.hash(), uint64_t(0x28902f38c229dc5cULL));
     }
 
     // Repasar de costado sigue oscureciendo (reporte del 9 de octubre de 2026): el grafito
@@ -535,6 +536,108 @@ private slots:
         qInfo() << "la 6B agrega: sobre la capa bruñida" << sobreBrunida << "· sin bruñir" << sobreLibre;
         QVERIFY(granoDespues < granoAntes * 0.8);
         QVERIFY(sobreBrunida < sobreLibre * 0.5);
+    }
+
+    // HU-61: celdas hundidas en un rectángulo, y el hundimiento máximo.
+    static std::pair<int, int> deformedCells(const Paper& paper, int x0, int x1, int y0, int y1)
+    {
+        int n = 0, maximo = 0;
+        for (int y = y0; y < y1; ++y)
+            for (int x = x0; x < x1; ++x)
+                if (const uint16_t* t = paper.findDepositTile(x / kTileSize, y / kTileSize)) {
+                    const uint16_t v = t[kDeformPlane * kTileCells + (y % kTileSize) * kTileSize + x % kTileSize];
+                    n += v > 0 ? 1 : 0;
+                    maximo = std::max(maximo, int(v));
+                }
+        return {n, maximo};
+    }
+
+    // Un trazo normal no hunde el papel; apretando al máximo con la mina, algo.
+    void trazoNormalNoDeforma()
+    {
+        for (const float p : {0.6f, 1.0f}) {
+            Paper paper(smallSheet());
+            {
+                Contact contact;
+                contact.find(paper, Tip::make(Medium::hb(), 0, 80), Medium::hb(), 700, 600, p);
+                const uint32_t hb = contact.meanPenetration();
+                contact.find(paper, Tip::make(Medium::stylus(), 0, 85), Medium::stylus(), 700, 600, p);
+                qInfo() << "penetración media con presión" << p << ": HB" << hb << "· punta seca" << contact.meanPenetration()
+                        << "· cede en" << Contact::kYield;
+            }
+            Pencil pencil(paper, Medium::hb());
+            for (int pasada = 0; pasada < 3; ++pasada)
+                draw(pencil, [p](double t) { return PencilSample{200 + t * 1200, 600, p, 0.0f, 80.0f}; }, 60);
+            const auto [n, maximo] = deformedCells(paper, 150, 1450, 560, 640);
+            qInfo() << "HB con presión" << p << ": celdas hundidas" << n << "· máximo" << maximo;
+            if (p < 0.7f)
+                QCOMPARE(n, 0);
+        }
+    }
+
+    // La técnica de la línea blanca: un surco con la punta seca, y encima un sombreado de
+    // costado; el surco queda mucho más claro que alrededor.
+    void puntaSecaDejaLineaBlanca()
+    {
+        Paper paper(smallSheet());
+        Pencil seca(paper, Medium::stylus());
+        draw(seca, [](double t) { return PencilSample{900, 300 + t * 600, 0.8f, 0.0f, 85.0f}; }, 60);
+        const auto [n, maximo] = deformedCells(paper, 880, 920, 400, 800);
+        QCOMPARE(total(depositOf(paper)), 0.0); // la punta seca no deposita
+        Medium b4 = Medium::hb().withLeadDiameter(1.02);
+        b4.softness = 50;
+        Pencil sombra(paper, b4);
+        for (int pasada = 0; pasada < 40; ++pasada) {
+            const double y = 350 + pasada * 12.0;
+            draw(sombra, [y](double t) { return PencilSample{820 + t * 160, y, 0.6f, 90.0f, 30.0f}; }, 30);
+        }
+        const double surco = meanDeposit(paper, 898, 903, 450, 750);
+        const double alrededor = (meanDeposit(paper, 860, 885, 450, 750) + meanDeposit(paper, 915, 940, 450, 750)) / 2;
+        qInfo() << "punta seca: celdas hundidas" << n << "· máximo" << maximo << "· tono en el surco" << surco
+                << "· alrededor" << alrededor;
+        QVERIFY(n > 300);
+        QVERIFY(surco < 0.4 * alrededor);
+    }
+
+    // Borrar de más daña la fibra: al volver a sombrear, la zona borrada toma más grafito y
+    // con más grano que el papel sano.
+    void borrarDeMasDanaLaFibra()
+    {
+        Paper paper(smallSheet());
+        Pencil pencil(paper, Medium::hb());
+        const auto banda = [](double y0, float p) {
+            return [y0, p](int pasada) {
+                return [y0, p, pasada](double t) {
+                    return PencilSample{300 + t * 1000, y0 + (pasada % 10) * 6.0, p, 0.0f, 80.0f};
+                };
+            };
+        };
+        for (int pasada = 0; pasada < 10; ++pasada)
+            draw(pencil, banda(300, 0.6f)(pasada), 60);
+        Pencil goma(paper, Medium::eraser(5.0, 255));
+        for (int pasada = 0; pasada < 30; ++pasada)
+            draw(goma, banda(300, 1.0f)(pasada), 60);
+        QCOMPARE(meanDeposit(paper, 500, 1100, 320, 350), 0.0);
+        for (const double y0 : {300.0, 800.0})
+            for (int pasada = 0; pasada < 10; ++pasada)
+                draw(pencil, banda(y0, 0.5f)(pasada), 60);
+        const auto variacion = [&](int y0) {
+            const std::vector<uint16_t> d = depositOf(paper);
+            double s = 0, s2 = 0;
+            int n = 0;
+            for (int y = y0 + 20; y < y0 + 50; ++y)
+                for (int x = 500; x < 1100; ++x) {
+                    const double v = d[size_t(y) * size_t(paper.width()) + size_t(x)];
+                    s += v, s2 += v * v, ++n;
+                }
+            const double mean = s / n;
+            return std::sqrt(std::max(0.0, s2 / n - mean * mean)) / mean;
+        };
+        const double danada = meanDeposit(paper, 500, 1100, 320, 350), sana = meanDeposit(paper, 500, 1100, 820, 850);
+        qInfo() << "después de borrar de más: tono" << danada << "(sano" << sana << ") · grano" << variacion(300)
+                << "(sano" << variacion(800) << ")";
+        QVERIFY(danada > sana * 1.1);
+        QVERIFY(variacion(300) > variacion(800) * 1.1);
     }
 
     void velocidad()

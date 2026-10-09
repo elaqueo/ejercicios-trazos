@@ -294,6 +294,14 @@ private slots:
             avx2.applyBurnish(kb);
             QVERIFY(std::equal(scalar.deposit(), scalar.deposit() + tip.cells(), avx2.deposit()));
             QVERIFY(std::equal(scalar.burnish(), scalar.burnish() + tip.cells(), avx2.burnish()));
+            // Deformación y daño de fibra (HU-61).
+            const uint16_t rate = uint16_t(rng.bounded(65536));
+            scalar.applyDeform(rate);
+            avx2.applyDeform(rate);
+            QVERIFY(std::equal(scalar.deform(), scalar.deform() + tip.cells(), avx2.deform()));
+            scalar.applyDamage(rate);
+            avx2.applyDamage(rate);
+            QVERIFY(std::equal(scalar.damage(), scalar.damage() + tip.cells(), avx2.damage()));
         }
         // Y con la punta grande de la goma (otro tamaño de huella).
         const Medium goma = Medium::eraser(5.0, 40);

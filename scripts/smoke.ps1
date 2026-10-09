@@ -37,7 +37,7 @@ try {
     $seen = 0
     function Take() {
         Start-Sleep -Milliseconds 400
-        $lines = @(Get-Content $log -Encoding utf8 | Where-Object { $_ -match 'Menú:|Ejercicio:|Repetir:|Guías:|Panel:|Costado:' })
+        $lines = @(Get-Content $log -Encoding utf8 | Where-Object { $_ -match 'Menú:|Ejercicio:|Repetir:|Guías:|Panel:|Costado:|Punta seca:' })
         $new = $lines | Select-Object -Skip $script:seen
         $script:seen = $lines.Count
         return @($new)
@@ -62,6 +62,10 @@ try {
     Send 'i' 2
     $l = Take
     Check 'I desactiva y vuelve a activar el costado' (($l -join ' ') -match 'Costado: desactivado.*Costado: activado') ($l -join ' | ')
+
+    Send 'e' 2
+    $l = Take
+    Check 'E cambia a la punta seca y vuelve a la mina' (($l -join ' ') -match 'Punta seca: activada.*Punta seca: desactivada') ($l -join ' | ')
 
     # Menú: subir de más se frena en el modo mixto (antes daba la vuelta).
     Send '{F4}' 1 600

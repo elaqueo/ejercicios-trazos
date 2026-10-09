@@ -39,6 +39,8 @@ Contact::Contact(Path path)
     , m_crest(size_t(Tip::kTipCells))
     , m_deposit(size_t(Tip::kTipCells))
     , m_burnish(size_t(Tip::kTipCells))
+    , m_deform(size_t(Tip::kTipCells))
+    , m_damage(size_t(Tip::kTipCells))
     , m_surface(size_t(Tip::kTipCells))
     , m_penetration(size_t(Tip::kTipCells))
 {
@@ -46,13 +48,13 @@ Contact::Contact(Path path)
 
 uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium, int x, int y, float pressure)
 {
-    // 1. Copiar la huella del papel (relieve, depósito y bruñido) a arreglos contiguos. Fuera de la
+    // 1. Copiar la huella del papel (relieve y los planos de los tiles) a arreglos contiguos. Fuera de la
     //    hoja, superficie 0: ahí la punta nunca toca.
     const int w = tip.width(), h = tip.height();
     const int x0 = x - tip.originX(), y0 = y - tip.originY();
     if (m_cells != tip.cells()) {
         m_cells = tip.cells();
-        for (auto* v : {&m_relief, &m_crest, &m_deposit, &m_burnish, &m_surface, &m_penetration})
+        for (auto* v : {&m_relief, &m_crest, &m_deposit, &m_burnish, &m_deform, &m_damage, &m_surface, &m_penetration})
             v->resize(size_t(m_cells));
     }
     bool anyOutside = false;
@@ -60,16 +62,16 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
         const int gy = y0 + r;
         uint16_t* relief = m_relief.data() + size_t(r) * w;
         uint16_t* crest = m_crest.data() + size_t(r) * w;
-        uint16_t* deposit = m_deposit.data() + size_t(r) * w;
-        uint16_t* burnish = m_burnish.data() + size_t(r) * w;
+        uint16_t* const planes[kTilePlanes] = {m_deposit.data() + size_t(r) * w, m_burnish.data() + size_t(r) * w,
+                                               m_deform.data() + size_t(r) * w, m_damage.data() + size_t(r) * w};
         int c = 0;
         while (c < w) {
             const int gx = x0 + c;
             if (gy < 0 || gy >= paper.height() || gx < 0 || gx >= paper.width()) {
                 relief[c] = 0;
                 crest[c] = 0;
-                deposit[c] = 0;
-                burnish[c] = 0;
+                for (uint16_t* plane : planes)
+                    plane[c] = 0;
                 anyOutside = true;
                 ++c;
                 continue;
@@ -80,13 +82,12 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
             std::memcpy(relief + c, paper.relief() + at, size_t(run) * 2);
             std::memcpy(crest + c, paper.crest() + at, size_t(run) * 2);
             const uint16_t* tile = paper.findDepositTile(gx / kTileSize, gy / kTileSize);
-            if (tile) {
-                const size_t in = size_t(gy % kTileSize) * kTileSize + size_t(lx);
-                std::memcpy(deposit + c, tile + in, size_t(run) * 2);
-                std::memcpy(burnish + c, tile + kTileCells + in, size_t(run) * 2);
-            } else {
-                std::memset(deposit + c, 0, size_t(run) * 2);
-                std::memset(burnish + c, 0, size_t(run) * 2);
+            const size_t in = size_t(gy % kTileSize) * kTileSize + size_t(lx);
+            for (int pl = 0; pl < kTilePlanes; ++pl) {
+                if (tile)
+                    std::memcpy(planes[pl] + c, tile + size_t(pl) * kTileCells + in, size_t(run) * 2);
+                else
+                    std::memset(planes[pl] + c, 0, size_t(run) * 2);
             }
             c += run;
         }
@@ -94,8 +95,8 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
 
     const kernel::Impl& k = impl(m_path);
     const int shift = std::clamp(medium.reliefShift, 0, 15);
-    k.surface(m_surface.data(), m_relief.data(), m_crest.data(), m_deposit.data(), m_burnish.data(), m_cells, kBase,
-              shift);
+    k.surface(m_surface.data(), m_relief.data(), m_crest.data(), m_deposit.data(), m_burnish.data(), m_deform.data(),
+              m_damage.data(), m_cells, kBase, shift);
     if (anyOutside) {
         for (int r = 0; r < h; ++r)
             for (int c = 0; c < w; ++c) {
@@ -124,12 +125,38 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
 
 void Contact::applyDeposit(uint16_t k, uint16_t ceiling)
 {
-    impl(m_path).deposit(m_deposit.data(), m_burnish.data(), m_penetration.data(), m_cells, k, ceiling);
+    impl(m_path).deposit(m_deposit.data(), m_burnish.data(), m_damage.data(), m_penetration.data(), m_cells, k,
+                         ceiling);
 }
 
 void Contact::applyErase(uint16_t k)
 {
     impl(m_path).erase(m_deposit.data(), m_burnish.data(), m_penetration.data(), m_cells, k);
+}
+
+uint32_t Contact::meanPenetration() const
+{
+    uint32_t cells = 0;
+    const uint32_t sum = impl(m_path).contactDeposit(m_penetration.data(), m_penetration.data(), m_cells, &cells);
+    return cells ? sum / cells : 0;
+}
+
+void Contact::applyDeform(uint16_t rate)
+{
+    // El papel cede según la presión de contacto (la penetración media: la fuerza repartida en
+    // el área que toca), no según el pico de una celda: el vértice del cono es fino y cualquier
+    // mina lo pasaría. Las minas escalan la fuerza con su área, así que apoyan todas igual; la
+    // punta seca concentra la misma mano en mucho menos papel.
+    const uint32_t mean = meanPenetration();
+    if (mean <= kYield)
+        return;
+    const uint16_t k = uint16_t(std::min<uint32_t>((uint32_t(rate) * (mean - kYield)) / kYield, 65535));
+    impl(m_path).grow(m_deform.data(), m_penetration.data(), m_cells, 0, k, kMaxDeform);
+}
+
+void Contact::applyDamage(uint16_t kd)
+{
+    impl(m_path).grow(m_damage.data(), m_penetration.data(), m_cells, 0, kd, 65535);
 }
 
 void Contact::applyBurnish(uint16_t kb)

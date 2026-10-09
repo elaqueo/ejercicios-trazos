@@ -30,7 +30,7 @@ inline __m256i contribution(__m256i p, __m256i kv)
 }
 
 void surface(uint16_t* out, const uint16_t* relief, const uint16_t* crest, const uint16_t* deposit,
-             const uint16_t* burnish, int n, uint16_t base, int shift)
+             const uint16_t* burnish, const uint16_t* deform, const uint16_t* damage, int n, uint16_t base, int shift)
 {
     const __m256i b = _mm256_set1_epi16(static_cast<short>(base));
     const __m256i half = _mm256_set1_epi16(static_cast<short>(kHalfGrain >> shift));
@@ -38,11 +38,15 @@ void surface(uint16_t* out, const uint16_t* relief, const uint16_t* crest, const
     for (int i = 0; i < n; i += 16) {
         const __m256i top = _mm256_srl_epi16(load(crest + i), sh);
         const __m256i level = _mm256_subs_epu16(top, half);
-        __m256i r = _mm256_srl_epi16(load(relief + i), sh);
+        const __m256i r0 = _mm256_srl_epi16(load(relief + i), sh);
+        const __m256i dmg = load(damage + i);
+        const __m256i up = _mm256_mulhi_epu16(_mm256_subs_epu16(r0, level), dmg);
+        const __m256i down = _mm256_mulhi_epu16(_mm256_subs_epu16(level, r0), dmg);
+        __m256i r = _mm256_subs_epu16(_mm256_adds_epu16(r0, up), down);
         r = _mm256_sub_epi16(r, _mm256_mulhi_epu16(_mm256_subs_epu16(r, level), load(burnish + i)));
         const __m256i fill = _mm256_mulhi_epu16(_mm256_subs_epu16(top, r), load(deposit + i));
         const __m256i s = _mm256_adds_epu16(_mm256_adds_epu16(r, b), fill);
-        _mm256_storeu_si256(reinterpret_cast<__m256i*>(out + i), s);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(out + i), _mm256_subs_epu16(s, _mm256_srl_epi16(load(deform + i), sh)));
     }
 }
 
@@ -69,7 +73,8 @@ void penetration(uint16_t* out, const uint16_t* surf, const uint16_t* tip, int n
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(out + i), penetrationOf(load(surf + i), load(tip + i), dv));
 }
 
-void deposit(uint16_t* dep, const uint16_t* burn, const uint16_t* pen, int n, uint16_t k, uint16_t ceiling)
+void deposit(uint16_t* dep, const uint16_t* burn, const uint16_t* damage, const uint16_t* pen, int n, uint16_t k,
+             uint16_t ceiling)
 {
     const __m256i kv = _mm256_set1_epi16(static_cast<short>(k));
     const __m256i top = _mm256_set1_epi16(static_cast<short>(ceiling));
@@ -77,6 +82,7 @@ void deposit(uint16_t* dep, const uint16_t* burn, const uint16_t* pen, int n, ui
         __m256i* dp = reinterpret_cast<__m256i*>(dep + i);
         const __m256i dcur = _mm256_loadu_si256(dp);
         __m256i a = contribution(load(pen + i), kv);
+        a = _mm256_adds_epu16(a, _mm256_mulhi_epu16(a, _mm256_srli_epi16(load(damage + i), 1)));
         a = _mm256_sub_epi16(a, _mm256_mulhi_epu16(a, load(burn + i)));
         const __m256i delta = _mm256_mulhi_epu16(a, _mm256_subs_epu16(top, dcur)); // (a·sat0(techo−dep)) >> 16
         _mm256_storeu_si256(dp, _mm256_adds_epu16(dcur, delta));
@@ -112,6 +118,18 @@ void burnish(uint16_t* dep, uint16_t* burn, const uint16_t* pen, int n, uint16_t
     }
 }
 
+void grow(uint16_t* field, const uint16_t* pen, int n, uint16_t threshold, uint16_t rate, uint16_t cap)
+{
+    const __m256i tv = _mm256_set1_epi16(static_cast<short>(threshold));
+    const __m256i rv = _mm256_set1_epi16(static_cast<short>(rate));
+    const __m256i cv = _mm256_set1_epi16(static_cast<short>(cap));
+    for (int i = 0; i < n; i += 16) {
+        __m256i* fp = reinterpret_cast<__m256i*>(field + i);
+        const __m256i add = contribution(_mm256_subs_epu16(load(pen + i), tv), rv);
+        _mm256_storeu_si256(fp, _mm256_min_epu16(_mm256_adds_epu16(_mm256_loadu_si256(fp), add), cv));
+    }
+}
+
 uint32_t contactDeposit(const uint16_t* dep, const uint16_t* pen, int n, uint32_t* count)
 {
     const __m256i zero = _mm256_setzero_si256();
@@ -133,6 +151,6 @@ uint32_t contactDeposit(const uint16_t* dep, const uint16_t* pen, int n, uint32_
 
 } // namespace
 
-const Impl kAvx2{surface, force, penetration, deposit, erase, burnish, contactDeposit};
+const Impl kAvx2{surface, force, penetration, deposit, erase, burnish, grow, contactDeposit};
 
 } // namespace drymedia::kernel

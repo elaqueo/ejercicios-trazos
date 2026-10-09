@@ -4,6 +4,8 @@
 
 #include <QTest>
 
+#include <algorithm>
+
 using namespace drymedia;
 
 namespace {
@@ -43,6 +45,22 @@ class TestHistory : public QObject {
     Q_OBJECT
 
 private slots:
+    // HU-61: deshacer restaura también la deformación (el surco de la punta seca).
+    void deshacerRestauraLaDeformacion()
+    {
+        Rig rig;
+        rig.stroke(300);
+        const uint64_t antes = rig.paper.hash();
+        rig.pencil.setMedium(Medium::stylus());
+        rig.stroke(300, 200, 1200, 1.0f);
+        const uint16_t* tile = rig.paper.findDepositTile(400 / kTileSize, 300 / kTileSize);
+        const uint16_t* deform = tile + kDeformPlane * kTileCells;
+        QVERIFY(std::any_of(deform, deform + kTileCells, [](uint16_t v) { return v > 0; }));
+        rig.history.undo(rig.paper);
+        QCOMPARE(rig.paper.hash(), antes);
+        QVERIFY(std::all_of(deform, deform + kTileCells, [](uint16_t v) { return v == 0; }));
+    }
+
     // HU-60: deshacer restaura también el bruñido (el tile guarda los dos planos).
     void deshacerRestauraElBrunido()
     {

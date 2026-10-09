@@ -76,6 +76,7 @@ void Simulation::run()
     uint64_t lead = m_lead, eraserParams = m_eraser;
     drymedia::Pencil pencil(m_paper, Lead::unpack(lead).medium());
     drymedia::Pencil eraser(m_paper, Eraser::unpack(eraserParams).medium()); // goma (HU-58)
+    drymedia::Pencil stylus(m_paper, drymedia::Medium::stylus());           // punta seca (HU-61)
     // Deshacer y rehacer (HU-53): el lápiz y la goma avisan antes de la primera escritura
     // de cada tile en un trazo, y el historial guarda cómo estaba.
     drymedia::History history(kUndoLimit);
@@ -83,6 +84,7 @@ void Simulation::run()
     if (m_undoEnabled) {
         pencil.setTileObserver(observer);
         eraser.setTileObserver(observer);
+        stylus.setTileObserver(observer);
     }
     drymedia::Pencil* active = nullptr; // herramienta del trazo en curso
     const auto beginStroke = [&](drymedia::Pencil& tool, const drymedia::PencilSample& p) {
@@ -169,7 +171,7 @@ void Simulation::run()
                              int(s.inContact), int(s.eraser), l.softness, l.diameter, l.ceiling);
             }
             m_erasing = s.eraser;
-            drymedia::Pencil& tool = s.eraser ? eraser : pencil;
+            drymedia::Pencil& tool = s.eraser ? eraser : m_stylus ? stylus : pencil;
             if (s.inContact) {
                 newest = s.timeUs;
                 if (active != &tool) {

@@ -66,6 +66,10 @@ public:
     void setEraser(const Eraser& eraser) { m_eraser = eraser.pack(); }
     Eraser eraser() const { return Eraser::unpack(m_eraser); }
     bool erasing() const { return m_erasing; }
+    // Punta seca (HU-61, tecla E): en vez de la mina, un estilete que no deposita y hunde el
+    // papel (líneas blancas). La goma sigue en el otro extremo.
+    void setStylus(bool stylus) { m_stylus = stylus; }
+    bool stylus() const { return m_stylus; }
     // Costado (HU-73, tecla I): si está apagado, la punta es siempre la vertical.
     void setTilt(bool tilt) { m_tilt = tilt; }
     bool tilt() const { return m_tilt; }
@@ -121,6 +125,7 @@ private:
     std::atomic<uint64_t> m_eraser;
     std::atomic<bool> m_erasing{false};
     std::atomic<bool> m_tilt{true};
+    std::atomic<bool> m_stylus{false};
 };
 
 } // namespace lienzo

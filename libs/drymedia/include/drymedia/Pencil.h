@@ -73,7 +73,8 @@ private:
     };
     static FixedSample toFixed(const PencilSample& s);
     const Tip& tipFor(float azimuth, float altitude);
-    DirtyRect depositAt(int64_t x, int64_t y, float pressure, const Tip& tip, uint16_t k, uint16_t kb);
+    DirtyRect depositAt(int64_t x, int64_t y, float pressure, const Tip& tip, uint16_t k, uint16_t kb,
+                        uint16_t kd);
 
     Paper& m_paper;
     Medium m_medium;

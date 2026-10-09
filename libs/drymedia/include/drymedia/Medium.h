@@ -35,6 +35,11 @@ struct Medium {
     // presión 1. Va con presión³: un trazo normal casi no bruñe; apretando, sí (la penetración
     // casi no crece con la presión: crece el área). Las minas duras bruñen más.
     uint16_t burnishRate = 0;
+    // Deformación (HU-61): cuánto se hunde el papel por exceso de penetración sobre el umbral
+    // de Contact (cualquier punta que apriete de más). Daño de fibra: solo la goma, con
+    // presión³, por celda deslizada.
+    uint16_t deformRate = 3000;
+    uint16_t damageRate = 0;
     double minTabletAltitudeDeg = 30.0;
 
     // HB calibrada con la tableta el 10 de octubre de 2026 (HU-51): mina de 0,87 mm y
@@ -59,6 +64,20 @@ struct Medium {
         m.softness = strength;
         m.maxStepCells = 4;
         m.reliefShift = 2; // ve el diente a un cuarto de su profundidad: con presión llega al fondo
+        m.deformRate = 0;  // blanda: no hunde el papel
+        m.damageRate = 3000;
+        return m;
+    }
+
+    // Punta seca (HU-61): un estilete fino que no deposita, para marcar surcos que quedan
+    // blancos al sombrear encima. La fuerza no se escala con su diámetro: la misma mano sobre
+    // una punta más fina aprieta más el papel.
+    static Medium stylus()
+    {
+        Medium m = hb();
+        m.name = "punta seca";
+        m.leadDiameterMm = 0.5;
+        m.softness = 0;
         return m;
     }
 

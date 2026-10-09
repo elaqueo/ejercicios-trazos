@@ -23,13 +23,17 @@ inline uint32_t contribution(uint32_t p, uint32_t k)
 }
 
 void surface(uint16_t* out, const uint16_t* relief, const uint16_t* crest, const uint16_t* deposit,
-             const uint16_t* burnish, int n, uint16_t base, int shift)
+             const uint16_t* burnish, const uint16_t* deform, const uint16_t* damage, int n, uint16_t base, int shift)
 {
     for (int i = 0; i < n; ++i) {
         const uint32_t top = crest[i] >> shift, level = subSat(top, kHalfGrain >> shift);
-        uint32_t r = relief[i] >> shift;
+        const uint32_t r0 = relief[i] >> shift;
+        const uint32_t up = (uint32_t(subSat(r0, level)) * damage[i]) >> 16;
+        const uint32_t down = (uint32_t(subSat(level, r0)) * damage[i]) >> 16;
+        uint32_t r = subSat(addSat(r0, up), down);
         r -= (uint32_t(subSat(r, level)) * burnish[i]) >> 16;
-        out[i] = addSat(addSat(r, base), (uint32_t(subSat(top, r)) * deposit[i]) >> 16);
+        const uint16_t s = addSat(addSat(r, base), (uint32_t(subSat(top, r)) * deposit[i]) >> 16);
+        out[i] = subSat(s, deform[i] >> shift);
     }
 }
 
@@ -47,10 +51,12 @@ void penetration(uint16_t* out, const uint16_t* surf, const uint16_t* tip, int n
         out[i] = subSat(surf[i], addSat(tip[i], d));
 }
 
-void deposit(uint16_t* dep, const uint16_t* burn, const uint16_t* pen, int n, uint16_t k, uint16_t ceiling)
+void deposit(uint16_t* dep, const uint16_t* burn, const uint16_t* damage, const uint16_t* pen, int n, uint16_t k,
+             uint16_t ceiling)
 {
     for (int i = 0; i < n; ++i) {
         uint32_t a = contribution(pen[i], k);
+        a = addSat(a, (a * (damage[i] >> 1u)) >> 16);
         a -= (a * burn[i]) >> 16;
         const uint32_t delta = (a * subSat(ceiling, dep[i])) >> 16;
         dep[i] = addSat(dep[i], delta);
@@ -77,6 +83,12 @@ void burnish(uint16_t* dep, uint16_t* burn, const uint16_t* pen, int n, uint16_t
     }
 }
 
+void grow(uint16_t* field, const uint16_t* pen, int n, uint16_t threshold, uint16_t rate, uint16_t cap)
+{
+    for (int i = 0; i < n; ++i)
+        field[i] = std::min<uint16_t>(addSat(field[i], contribution(subSat(pen[i], threshold), rate)), cap);
+}
+
 uint32_t contactDeposit(const uint16_t* dep, const uint16_t* pen, int n, uint32_t* count)
 {
     uint32_t sum = 0, cells = 0;
@@ -91,6 +103,6 @@ uint32_t contactDeposit(const uint16_t* dep, const uint16_t* pen, int n, uint32_
 
 } // namespace
 
-const Impl kScalar{surface, force, penetration, deposit, erase, burnish, contactDeposit};
+const Impl kScalar{surface, force, penetration, deposit, erase, burnish, grow, contactDeposit};
 
 } // namespace drymedia::kernel
