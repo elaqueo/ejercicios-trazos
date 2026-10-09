@@ -282,3 +282,9 @@ Tomadas con el Product Owner tras revisar el encaje de este plan con el monorepo
 6. **libmypaint convive:** el lienzo de `appkit` pasa a ser una interfaz (área útil, colores, guías, rotación) con dos implementaciones.
 7. **Deshacer: sí.** `store` lleva snapshots por trazo desde la Fase 1.
 8. **Art Pen opcional:** la rotación es un campo ausente en la muestra, nunca requerido.
+
+## Decisiones del 10 de octubre de 2026
+
+1. **Formato de hoja por defecto** (decisión abierta 2): A4 apaisado recortado a la altura útil de la tableta, 297 × 203 mm.
+2. **Deshacer:** hasta 100 trazos hacia atrás con Ctrl+Z y rehacer con Ctrl+Y; un trazo nuevo descarta lo rehacible.
+3. **Fase 1 en el tablero** (milestone "Cartuchera · Fase 1"): HU-47 `libs/tabletinput`, HU-48 papel en tiles, HU-49 punta HB y contacto, HU-50 barrido y depósito, HU-51 trazo en vivo, HU-52 hoja = tableta, HU-53 deshacer y rehacer. Quedan para fases siguientes: iluminación, goma, bruñido, desgaste, otras durezas y la curva de presión propia.
