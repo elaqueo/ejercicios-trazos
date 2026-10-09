@@ -38,6 +38,8 @@ QScreen* savedScreen(const appkit::Config& config);
 struct LienzoOptions {
     QString name = QStringLiteral("lienzo"); // para los archivos de diagnóstico (<name>-muestras.csv)
     bool undo = true;                        // Z / Ctrl+Y (Ejercicios no deshace)
+    bool gradeKeys = true;                   // 1 a 0 eligen la dureza (en Ejercicios los
+                                             // números son de la vista, como antes)
 };
 
 // El lienzo de baja latencia (HU-63, nacido en Cartuchera): una hoja de grafito A4 a escala
@@ -45,7 +47,8 @@ struct LienzoOptions {
 // swapchain, con la simulación y el render en hilos propios; minas 2H … 6B y goma de
 // medios.json.
 //
-// Teclas comunes: Ctrl+N hoja nueva · Z deshace / Ctrl+Y rehace (si undo) · 1 a 0 dureza · F3
+// Teclas comunes: Ctrl+N hoja nueva · Z deshace / Ctrl+Y rehace (si undo) · 1 a 0 dureza
+// (si gradeKeys) · F3
 // latencia y herramienta · calibración de la mina activa ([ ] blandura, , . diámetro,
 // - = techo) o de la goma con el lápiz dado vuelta ([ ] fuerza, , . diámetro) · Ctrl+S
 // guarda en medios.json · F12 guarda la imagen de pantalla. Opciones de línea de comandos:
@@ -60,6 +63,8 @@ public:
 
     // Las teclas que el lienzo no usa van a la app.
     void setAppKeys(std::function<void(UINT, bool)> keys);
+    // Botón lateral del lápiz (en el hilo de la interfaz).
+    void setOnStylusButton(std::function<void()> callback);
     // Devuelve true si la tecla es del lienzo.
     bool handleKey(UINT vk, bool ctrl);
 

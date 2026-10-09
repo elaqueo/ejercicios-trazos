@@ -1,12 +1,9 @@
 #pragma once
 
+#include "ExerciseCanvas.h"
 #include "exercises/Exercise.h"
 
 #include <QObject>
-
-namespace paintcore {
-class CanvasWidget;
-}
 
 namespace ejercicios {
 
@@ -17,7 +14,7 @@ class ExerciseSession : public QObject {
 
 public:
     // canvas y exercise deben vivir más que la sesión.
-    ExerciseSession(paintcore::CanvasWidget* canvas, const Exercise* exercise, QObject* parent = nullptr);
+    ExerciseSession(ExerciseCanvas* canvas, const Exercise* exercise, QObject* parent = nullptr);
 
     quint32 seed() const { return m_seed; }
     const Generated& current() const { return m_current; }
@@ -29,7 +26,7 @@ public:
     void regenerate();
 
 private:
-    paintcore::CanvasWidget* m_canvas;
+    ExerciseCanvas* m_canvas;
     const Exercise* m_exercise;
     quint32 m_seed;
     Generated m_current;

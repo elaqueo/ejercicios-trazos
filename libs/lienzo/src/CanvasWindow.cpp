@@ -61,6 +61,9 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         for (tabletinput::PenSample& s : m_samples) { // pantalla → cliente
             s.x -= m_origin.x;
             s.y -= m_origin.y;
+            if (s.barrel && !m_barrel && m_onStylusButton)
+                m_onStylusButton();
+            m_barrel = s.barrel;
         }
         m_queue.push(m_samples);
         return 0; // sin mouse sintetizado

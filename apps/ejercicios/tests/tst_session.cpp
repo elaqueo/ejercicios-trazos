@@ -1,27 +1,28 @@
 #include <ExerciseSession.h>
 #include <exercises/Recta.h>
 
-#include <paintcore/CanvasWidget.h>
-
-#include <QImage>
 #include <QTest>
 
 using namespace ejercicios;
 
 namespace {
 
-// Píxeles con tinta (las guías se ocultan antes de mirar: el azul también es oscuro).
-int inkPixels(paintcore::CanvasWidget& canvas)
-{
-    canvas.setGuidesVisible(false);
-    const QImage image = canvas.grab().toImage();
-    canvas.setGuidesVisible(true);
-    int count = 0;
-    for (int y = 0; y < image.height(); ++y)
-        for (int x = 0; x < image.width(); ++x)
-            count += qGray(image.pixel(x, y)) < 200 ? 1 : 0;
-    return count;
-}
+// Lienzo de mentira: cuenta las veces que se borró y guarda las últimas guías.
+class FakeCanvas : public ExerciseCanvas {
+public:
+    void clear() override { ++clears; }
+    QSize sheetSize() const override { return size; }
+    void setGuides(const QPicture& g) override
+    {
+        guides = g;
+        ++guideChanges;
+    }
+
+    QSize size{400, 300};
+    int clears = 0;
+    int guideChanges = 0;
+    QPicture guides;
+};
 
 } // namespace
 
@@ -29,34 +30,30 @@ class TestSession : public QObject {
     Q_OBJECT
 
 private slots:
-    // → limpia el lienzo y genera otro ejercicio con otra semilla.
+    // → borra la hoja y genera otro ejercicio con otra semilla (y otras guías).
     void siguienteLimpiaYCambiaSemilla()
     {
-        paintcore::CanvasWidget canvas;
-        canvas.resize(400, 300);
+        FakeCanvas canvas;
         const Recta recta;
         ExerciseSession session(&canvas, &recta);
         session.regenerate();
+        QCOMPARE(canvas.guideChanges, 1);
+        QVERIFY(!canvas.guides.isNull());
         const quint32 antes = session.seed();
         const auto idealAntes = session.current().ideal;
 
-        QTest::mousePress(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(20, 150));
-        for (int x = 50; x <= 380; x += 30)
-            QTest::mouseMove(&canvas, QPoint(x, 150), 5);
-        QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::NoModifier, QPoint(380, 150), 5);
-        QVERIFY(inkPixels(canvas) > 100);
-
         session.next();
+        QCOMPARE(canvas.clears, 1);
+        QCOMPARE(canvas.guideChanges, 2);
         QVERIFY(session.seed() != antes);
         QVERIFY(session.current().ideal != idealAntes);
-        QCOMPARE(inkPixels(canvas), 0);
     }
 
-    // Regenerar (cambio de área) conserva la semilla y, con la misma área, el ejercicio.
+    // Regenerar (cambio de área) conserva la semilla y, con la misma área, el ejercicio; no
+    // borra la hoja.
     void regenerarConservaElEjercicio()
     {
-        paintcore::CanvasWidget canvas;
-        canvas.resize(400, 300);
+        FakeCanvas canvas;
         const Recta recta;
         ExerciseSession session(&canvas, &recta);
         session.regenerate();
@@ -66,9 +63,10 @@ private slots:
         session.regenerate();
         QCOMPARE(session.seed(), seed);
         QCOMPARE(session.current().ideal, ideal);
+        QCOMPARE(canvas.clears, 0);
 
-        // Con otra área, mismo ejercicio adaptado: la recta queda en la zona nueva.
-        canvas.setCanvasRect(QRect(0, 0, 200, 200));
+        // Con otra hoja, mismo ejercicio adaptado: la recta queda en la zona nueva.
+        canvas.size = QSize(200, 200);
         session.regenerate();
         QCOMPARE(session.seed(), seed);
         const SafeZone zone = SafeZone::withRandomOrientation(QRect(0, 0, 200, 200), seed);

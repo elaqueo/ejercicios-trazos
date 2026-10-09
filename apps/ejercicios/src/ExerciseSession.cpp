@@ -1,7 +1,5 @@
 #include "ExerciseSession.h"
 
-#include <paintcore/CanvasWidget.h>
-
 #include <QRandomGenerator>
 
 namespace ejercicios {
@@ -19,7 +17,7 @@ quint32 newSeed(quint32 previous)
 
 } // namespace
 
-ExerciseSession::ExerciseSession(paintcore::CanvasWidget* canvas, const Exercise* exercise, QObject* parent)
+ExerciseSession::ExerciseSession(ExerciseCanvas* canvas, const Exercise* exercise, QObject* parent)
     : QObject(parent)
     , m_canvas(canvas)
     , m_exercise(exercise)
@@ -36,8 +34,8 @@ void ExerciseSession::next()
 
 void ExerciseSession::regenerate()
 {
-    // Coordenadas del lienzo: el origen es la esquina del área útil.
-    const QRect area(QPoint(0, 0), m_canvas->canvasRect().size());
+    // Coordenadas de la hoja: el origen es su esquina.
+    const QRect area(QPoint(0, 0), m_canvas->sheetSize());
     const SafeZone zone = SafeZone::withRandomOrientation(area, m_seed);
     m_current = m_exercise->generate(m_exercise->defaults(), m_seed, zone);
     m_canvas->setGuides(m_current.guides);

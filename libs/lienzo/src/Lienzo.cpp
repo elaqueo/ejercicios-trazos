@@ -195,7 +195,8 @@ struct Lienzo::Impl {
             const Lead lead = sim->lead();
             const bool unsaved = media.leadUnsaved;
             swprintf(text, 512,
-                     L"mina %hs%ls (1-0)   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls",
+                     options.gradeKeys ? L"mina %hs%ls (1-0)   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls"
+                                       : L"mina %hs%ls   ·   blandura %d ([ ])   ·   %.2f mm (, .)   ·   techo %d %% (- =)%ls%ls",
                      media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
                      int(std::lround(lead.ceiling * 100.0 / 65535)), unsaved ? L"   ·   Ctrl+S guarda" : L"", warning);
         }
@@ -271,6 +272,11 @@ void Lienzo::setAppKeys(std::function<void(UINT, bool)> keys)
     d->appKeys = std::move(keys);
 }
 
+void Lienzo::setOnStylusButton(std::function<void()> callback)
+{
+    d->canvas->setOnStylusButton(std::move(callback));
+}
+
 bool Lienzo::handleKey(UINT vk, bool ctrl)
 {
     MediaFile& media = d->media;
@@ -296,7 +302,7 @@ bool Lienzo::handleKey(UINT vk, bool ctrl)
                 qInfo() << "Guardada la" << media.activeName() << "en" << media.path;
         }
         media.updateUnsaved();
-    } else if (!ctrl && vk >= '0' && vk <= '9') { // 1 a 0: 2H … 6B
+    } else if (!ctrl && vk >= '0' && vk <= '9' && d->options.gradeKeys) { // 1 a 0: 2H … 6B
         media.active = vk == '0' ? kGradeCount - 1 : int(vk - '1');
         d->applyMedia();
     } else if (vk == VK_OEM_4 || vk == VK_OEM_6) { // [ y ] blandura o fuerza de la goma, pasos de ~25 %

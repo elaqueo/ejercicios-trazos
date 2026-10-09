@@ -23,6 +23,8 @@ public:
     CanvasWindow& operator=(const CanvasWindow&) = delete;
 
     HWND hwnd() const { return m_hwnd; }
+    // Al apretar el botón lateral del lápiz (flanco de subida; en el hilo de la interfaz).
+    void setOnStylusButton(std::function<void()> callback) { m_onStylusButton = std::move(callback); }
     int width() const { return m_width; }
     int height() const { return m_height; }
 
@@ -35,6 +37,8 @@ private:
     POINT m_origin{}; // esquina del cliente en coordenadas de pantalla
     SampleQueue& m_queue;
     std::function<void(UINT, bool)> m_onKey;
+    std::function<void()> m_onStylusButton;
+    bool m_barrel = false;
     tabletinput::PenReader m_reader;
     std::vector<tabletinput::PenSample> m_samples;
 };
