@@ -5,6 +5,8 @@
 
 #include <atomic>
 #include <cstdio>
+#include <mutex>
+#include <vector>
 #include <thread>
 
 namespace drymedia {
@@ -60,6 +62,11 @@ public:
     // Pinta toda la imagen (hoja y afuera). Llamar antes de start().
     void renderAll();
 
+    // Capa de guías (HU-64): BGRA premultiplicado del tamaño de la imagen, o vacía para
+    // sacarla. Se puede llamar en cualquier momento: el hilo de simulación la toma y repinta
+    // todo una vez.
+    void setGuides(std::vector<uint32_t> guides);
+
     // Mediciones de tiempo para diagnóstico (opcional; llamar antes de start()).
     void setTimings(SessionTimings* timings) { m_timings = timings; }
     // Grabación de las muestras tal como llegan, en CSV (diagnóstico; llamar antes de start()).
@@ -67,6 +74,11 @@ public:
 
 private:
     void run();
+    const uint32_t* guides() const
+    {
+        return m_guides.size() == size_t(m_mapping.clientWidth) * size_t(m_mapping.clientHeight) ? m_guides.data()
+                                                                                                : nullptr;
+    }
     void wake(); // despierta al hilo aunque no haya muestras
 
     drymedia::Paper& m_paper;
@@ -81,6 +93,10 @@ private:
     SessionTimings* m_timings = nullptr;
     std::FILE* m_recording = nullptr;
     bool m_undoEnabled = true;
+    std::vector<uint32_t> m_guides; // la que usa el hilo de simulación
+    std::mutex m_guidesMutex;
+    std::vector<uint32_t> m_pendingGuides; // la que llega de afuera
+    std::atomic<bool> m_guidesChanged{false};
     std::atomic<uint64_t> m_lead;
     std::atomic<uint64_t> m_eraser;
     std::atomic<bool> m_erasing{false};

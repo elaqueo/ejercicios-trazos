@@ -153,6 +153,43 @@ private slots:
             lead.onFrame(false);
         QCOMPARE(lead.leadMs(), after);
     }
+    // HU-64: la capa de guías va bajo el grafito. Sin guía, la hoja; con guía y sin
+    // grafito, la guía sobre la hoja; con grafito saturado, el grafito la tapa.
+    void guiasBajoElGrafito()
+    {
+        QCOMPARE(paperWithGuide(0), kPaperColor);
+        const uint32_t red = 0xFFFF0000u; // rojo opaco, premultiplicado
+        QCOMPARE(paperWithGuide(red), red);
+        const uint32_t half = 0x80800000u; // rojo al 50 %, premultiplicado
+        const uint32_t mixed = paperWithGuide(half);
+        QVERIFY((mixed >> 16 & 0xFF) > (kPaperColor >> 16 & 0xFF) - 1);
+        QVERIFY((mixed & 0xFF) < (kPaperColor & 0xFF));
+        QCOMPARE(toneOf(65535, red), kGraphiteColor);
+        QCOMPARE(toneOf(0, red), red);
+
+        drymedia::Paper paper({.seed = 3, .widthMm = 20, .heightMm = 20});
+        const SheetMapping m = SheetMapping::fit(100, 100, paper.width(), paper.height());
+        std::vector<uint32_t> image(100 * 100), guides(100 * 100, 0);
+        guides[50 * 100 + 50] = red;
+        renderTone(paper, m, 0, 0, 100, 100, image.data(), guides.data());
+        QCOMPARE(image[50 * 100 + 50], red);
+        QCOMPARE(image[50 * 100 + 40], kPaperColor);
+        // Grafito saturado en las celdas de ese píxel: lo tapa.
+        int cx0, cx1, cy0, cy1;
+        m.cellsOfColumn(50, cx0, cx1);
+        m.cellsOfRow(50, cy0, cy1);
+        for (int cy = cy0; cy < cy1; ++cy)
+            for (int cx = cx0; cx < cx1; ++cx)
+                paper.depositTile(cx / drymedia::kTileSize, cy / drymedia::kTileSize)
+                    [size_t(cy % drymedia::kTileSize) * drymedia::kTileSize + size_t(cx % drymedia::kTileSize)] = 65535;
+        renderTone(paper, m, 0, 0, 100, 100, image.data(), guides.data());
+        QCOMPARE(image[50 * 100 + 50], kGraphiteColor);
+        // Hoja nueva: vuelve la guía.
+        paper.clear();
+        renderTone(paper, m, 0, 0, 100, 100, image.data(), guides.data());
+        QCOMPARE(image[50 * 100 + 50], red);
+    }
+
     // HU-57: la HB de fábrica es exactamente la calibrada en HU-51 (mismo trazo, mismo
     // hash), y las durezas van de la más clara a la más oscura.
     void durezasDeFabrica()

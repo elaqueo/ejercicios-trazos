@@ -12,6 +12,7 @@
 #include <memory>
 
 class QKeyEvent;
+class QPicture;
 class QScreen;
 
 namespace appkit {
@@ -62,7 +63,11 @@ public:
     // Devuelve true si la tecla es del lienzo.
     bool handleKey(UINT vk, bool ctrl);
 
-    void clear(); // hoja nueva (y, si hay deshacer, sin historial)
+    void clear(); // hoja nueva (y, si hay deshacer, sin historial); las guías quedan
+
+    // Guías de los ejercicios (HU-64), en coordenadas de la hoja (sheetRect(): el origen es
+    // su esquina). Van bajo el grafito. Un QPicture vacío las saca.
+    void setGuides(const QPicture& guides);
 
     // Arranca los hilos (y --grabar / --bench). stop() los detiene y escribe en el log el
     // resumen de latencia y tiempos.

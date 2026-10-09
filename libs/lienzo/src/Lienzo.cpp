@@ -22,6 +22,8 @@
 #include <QFileSystemWatcher>
 #include <QImage>
 #include <QKeyEvent>
+#include <QPainter>
+#include <QPicture>
 #include <QSaveFile>
 #include <QScreen>
 
@@ -374,6 +376,24 @@ void Lienzo::stop()
     qInfo().noquote() << QString::fromStdString(
         t.renderLockBusy.describe("render con la imagen ocupada (1 = no la tomó)", "frames"));
     qInfo().noquote() << QString::fromStdString(t.renderUploadPixels.describe("render píxeles subidos", "px"));
+}
+
+void Lienzo::setGuides(const QPicture& guides)
+{
+    std::vector<uint32_t> layer;
+    if (!guides.isNull()) {
+        QImage image(d->image.width, d->image.height, QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setClipRect(sheetRect());
+        painter.translate(d->mapping.sheetX, d->mapping.sheetY);
+        painter.drawPicture(0, 0, guides);
+        painter.end();
+        const auto* bits = reinterpret_cast<const uint32_t*>(image.constBits());
+        layer.assign(bits, bits + size_t(image.width()) * size_t(image.height()));
+    }
+    d->sim->setGuides(std::move(layer));
 }
 
 QRect Lienzo::sheetRect() const

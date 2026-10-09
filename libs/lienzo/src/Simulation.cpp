@@ -48,10 +48,25 @@ void Simulation::wake()
     m_queue.wake();
 }
 
+void Simulation::setGuides(std::vector<uint32_t> guides)
+{
+    {
+        std::lock_guard lock(m_guidesMutex);
+        m_pendingGuides = std::move(guides);
+    }
+    m_guidesChanged = true;
+    wake();
+}
+
 void Simulation::renderAll()
 {
+    if (m_guidesChanged.exchange(false)) {
+        std::lock_guard lock(m_guidesMutex);
+        m_guides = std::move(m_pendingGuides);
+        m_pendingGuides.clear();
+    }
     std::lock_guard lock(m_image.mutex);
-    renderTone(m_paper, m_mapping, 0, 0, m_image.width, m_image.height, m_image.pixels.data());
+    renderTone(m_paper, m_mapping, 0, 0, m_image.width, m_image.height, m_image.pixels.data(), guides());
     m_image.markDirty(0, 0, m_image.width, m_image.height);
 }
 
@@ -97,7 +112,7 @@ void Simulation::run()
                 continue;
             std::lock_guard lock(m_image.mutex);
             const Stopwatch held;
-            renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data());
+            renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides());
             m_image.markDirty(px0, py0, px1, py1);
             if (m_timings)
                 m_timings->simLockHeld.add(held.ms());
@@ -110,6 +125,8 @@ void Simulation::run()
         if (m_quit)
             break;
 
+        if (m_guidesChanged)
+            renderAll(); // guías nuevas: repintar todo una vez
         if (m_clearRequested.exchange(false)) {
             endStroke();
             m_paper.clear();
@@ -181,7 +198,7 @@ void Simulation::run()
             std::lock_guard lock(m_image.mutex);
             const Stopwatch held;
             if (any) {
-                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data());
+                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides());
                 m_image.markDirty(px0, py0, px1, py1);
             }
             if (newest) {

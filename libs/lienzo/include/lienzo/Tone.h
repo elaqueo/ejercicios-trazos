@@ -20,13 +20,19 @@ constexpr uint32_t kPaperColor = bgra(0xF5, 0xF0, 0xE6);    // theme::kHoja
 constexpr uint32_t kOutsideColor = bgra(0x30, 0x33, 0x38);  // theme::kFuera
 constexpr uint32_t kGraphiteColor = bgra(0x3A, 0x3A, 0x3E); // grafito saturado
 
-// Valor tonal (Fase 1, sin iluminación): la hoja mezclada con el grafito según el
-// depósito promedio de las celdas que cubre cada píxel (0 = hoja, 65535 = grafito).
-uint32_t toneOf(uint32_t averageDeposit);
+// Valor tonal (Fase 1, sin iluminación): la base (la hoja, o la hoja con la guía encima)
+// mezclada con el grafito según el depósito promedio de las celdas que cubre cada píxel
+// (0 = base, 65535 = grafito).
+uint32_t toneOf(uint32_t averageDeposit, uint32_t base = kPaperColor);
+
+// La hoja con la guía encima: `guide` en BGRA premultiplicado (como
+// QImage::Format_ARGB32_Premultiplied en memoria); alfa 0 = solo hoja.
+uint32_t paperWithGuide(uint32_t guide);
 
 // Recalcula los píxeles [px0, px1) × [py0, py1) del cliente en image (stride =
-// clientWidth). Fuera de la hoja pinta kOutsideColor.
+// clientWidth). Fuera de la hoja pinta kOutsideColor. `guides` (opcional, mismo tamaño y
+// stride que image) es la capa de guías de los ejercicios (HU-64): va bajo el grafito.
 void renderTone(const drymedia::Paper& paper, const SheetMapping& mapping, int px0, int py0, int px1, int py1,
-                uint32_t* image);
+                uint32_t* image, const uint32_t* guides = nullptr);
 
 } // namespace lienzo
