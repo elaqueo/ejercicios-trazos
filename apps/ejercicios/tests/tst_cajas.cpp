@@ -92,7 +92,7 @@ private slots:
         QSet<qsizetype> tamanos;
         for (quint32 seed = 0; seed < 40; ++seed)
             tamanos.insert(vanishingOf(ej.generate(params, seed, SafeZone::fromRect(kArea))).size());
-        QCOMPARE(tamanos, (QSet<qsizetype>{1, 2}));
+        QCOMPARE(tamanos, (QSet<qsizetype>{1, 2, 3}));
     }
 
     // Con separación mayor que la hoja, los dos PF quedan afuera.
@@ -125,6 +125,74 @@ private slots:
         // Con los PF adentro, no hay rectas de ejemplo.
         params[QStringLiteral("separation")] = 0.6;
         QVERIFY(examplesOf(ej.generate(params, 3, SafeZone::fromRect(kArea))).isEmpty());
+    }
+
+    // HU-29: el tercer PF va sobre la vertical del medio entre los otros dos, del lado de la
+    // caja y a la distancia pedida; sus rectas de ejemplo pasan por él.
+    void tercerPuntoDeFuga()
+    {
+        const Cajas ej;
+        QVariantMap params = ej.defaults();
+        params[QStringLiteral("pf1")] = false;
+        params[QStringLiteral("pf2")] = false;
+        params[QStringLiteral("pf3")] = true;
+        params[QStringLiteral("separation")] = 0.8; // los del horizonte, adentro
+        params[QStringLiteral("thirdDistance")] = 2.5;
+        for (quint32 seed = 0; seed < 60; ++seed) {
+            const Generated g = ej.generate(params, seed, SafeZone::fromRect(kArea));
+            const QList<QPointF> pfs = vanishingOf(g);
+            QCOMPARE(pfs.size(), 3);
+            const qreal horizonte = pfs[0].y();
+            const QPointF esquina = pointOf(g.ideal[1]);
+            const QPointF tercero = pfs[2];
+            QCOMPARE(tercero.x(), (pfs[0].x() + pfs[1].x()) / 2);
+            QVERIFY(std::abs(std::abs(tercero.y() - horizonte) - 2.5 * 1080) < 1e-6);
+            QVERIFY((tercero.y() > horizonte) == (esquina.y() > horizonte)); // del lado de la caja
+            const QList<QLineF> ejemplos = examplesOf(g);
+            QCOMPARE(ejemplos.size(), 2);
+            for (const QLineF& l : ejemplos) {
+                const QPointF d = l.p2() - l.p1(), e = tercero - l.p1();
+                QVERIFY(std::abs(d.x() * e.y() - d.y() * e.x()) / std::hypot(d.x(), d.y()) < 1e-3);
+            }
+        }
+    }
+
+    // HU-29: la arista arranca en la esquina y se aleja del horizonte, con el largo pedido;
+    // vertical con 1 o 2 PF, hacia el tercer PF con 3. Sin la opción, no hay arista.
+    void aristaInicial()
+    {
+        const Cajas ej;
+        QVariantMap params = ej.defaults();
+        params[QStringLiteral("pf3")] = true;
+        params[QStringLiteral("edge")] = true;
+        params[QStringLiteral("edgeLength")] = 0.2;
+        QSet<int> modos;
+        for (quint32 seed = 0; seed < 120; ++seed) {
+            const Generated g = ej.generate(params, seed, SafeZone::fromRect(kArea));
+            const QList<QPointF> pfs = vanishingOf(g);
+            modos.insert(int(pfs.size()));
+            const QPainterPath& ultimo = g.ideal.last();
+            QCOMPARE(ultimo.elementCount(), 2);
+            const QLineF arista(QPointF(ultimo.elementAt(0)), QPointF(ultimo.elementAt(1)));
+            const QPointF esquina = pointOf(g.ideal[1]);
+            QCOMPARE(arista.p1(), esquina);
+            const qreal horizonte = pfs[0].y();
+            QVERIFY(std::abs(arista.p2().y() - horizonte) > std::abs(arista.p1().y() - horizonte));
+            QVERIFY(arista.length() <= 0.2 * 1080 + 1e-6 && arista.length() > 10);
+            QVERIFY(QRectF(kArea).contains(arista.p2()));
+            if (pfs.size() == 3) {
+                const QPointF d = arista.p2() - arista.p1(), e = pfs[2] - arista.p1();
+                QVERIFY(std::abs(d.x() * e.y() - d.y() * e.x()) / std::hypot(d.x(), d.y()) < 1e-3);
+            } else {
+                QVERIFY(std::abs(arista.dx()) < 1e-9);
+            }
+        }
+        QCOMPARE(modos, (QSet<int>{1, 2, 3}));
+        params[QStringLiteral("edge")] = false;
+        params[QStringLiteral("pf3")] = false;
+        params[QStringLiteral("separation")] = 0.6;
+        for (quint32 seed = 0; seed < 20; ++seed)
+            QVERIFY(examplesOf(ej.generate(params, seed, SafeZone::fromRect(kArea))).isEmpty());
     }
 
     void mismaSemillaMismaCaja()
