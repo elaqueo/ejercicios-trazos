@@ -5,7 +5,7 @@
 class QPainter;
 
 // Primitivas de guía con los estilos del diseño (docs/diseno.md, mesa "Guías"), para
-// armar el dibujo que se pasa a paintcore::CanvasWidget::setGuides(). Son genéricas:
+// armar el dibujo que se pasa a lienzo::Lienzo::setGuides(). Son genéricas:
 // cada app compone sus ejercicios con ellas. Coordenadas del lienzo.
 namespace appkit::guides {
 

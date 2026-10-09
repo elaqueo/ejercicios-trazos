@@ -1,5 +1,7 @@
 # Ejercicios de tableta — Alcance v1
 
+> **Nota (HU-68):** desde la decisión del 10 de octubre de 2026 las dos apps corren sobre `libs/lienzo` y el motor propio `libs/drymedia` (ver `docs/medios-secos/arquitectura.md`). libmypaint, los pinceles `.myb` y `libs/paintcore` salieron del proyecto; lo que sigue sobre ellos queda como registro del alcance original.
+
 Oct 8, 2026 · @Daniel
 
 ## Objetivo

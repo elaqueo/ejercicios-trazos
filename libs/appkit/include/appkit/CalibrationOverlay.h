@@ -9,8 +9,8 @@ namespace appkit {
 // Overlay que cubre la ventana para calibrar el área útil: pide tocar con el lápiz
 // la esquina superior izquierda y después la inferior derecha de la superficie
 // activa de la tableta. Como el lápiz solo llega a la zona mapeada, esos dos toques
-// dan el rectángulo exacto. Esc cancela. Lo usan AppWindow (hijo de la ventana) y el
-// lienzo de baja latencia (dentro de una ventana propia que cubre el monitor, HU-66). Colores de appkit::theme; el layout del
+// dan el rectángulo exacto. Esc cancela. Lo usa el lienzo de baja latencia, dentro
+// de una ventana propia que cubre el monitor (HU-66). Colores de appkit::theme; el layout del
 // diseño de HU-37 (indicador de pasos, dibujo de la tableta) queda para más adelante.
 class CalibrationOverlay : public QWidget {
     Q_OBJECT

@@ -1,7 +1,5 @@
-# appkit: framework común de app (ventana, área útil, overlays, config, atajos).
-# Depende de paintcore; nunca al revés.
+# appkit: framework común de app (área útil, overlays, config, atajos, guías, tema).
 qt_add_library(appkit STATIC
-    include/appkit/AppWindow.h
     include/appkit/CalibrationOverlay.h
     include/appkit/Config.h
     include/appkit/Guides.h
@@ -11,7 +9,6 @@ qt_add_library(appkit STATIC
     include/appkit/Shortcuts.h
     include/appkit/Theme.h
     include/appkit/UsableArea.h
-    src/AppWindow.cpp
     src/CalibrationOverlay.cpp
     src/Config.cpp
     src/Guides.cpp
@@ -22,7 +19,7 @@ qt_add_library(appkit STATIC
     src/UsableArea.cpp
 )
 target_include_directories(appkit PUBLIC include)
-target_link_libraries(appkit PUBLIC paintcore Qt6::Widgets)
+target_link_libraries(appkit PUBLIC Qt6::Widgets)
 et_target_defaults(appkit)
 
 add_subdirectory(tests)

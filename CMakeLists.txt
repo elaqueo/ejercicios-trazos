@@ -11,8 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # --- CRT y Qt Release en todas las configuraciones ---------------------------
 # Debug compila NUESTRO código sin optimizar y con símbolos, pero con CRT /MD y
-# consumiendo la variante Release de los targets importados (Qt y, desde HU-02,
-# las dependencias de vcpkg, que se compilan solo en Release). Así hay un único
+# consumiendo la variante Release de los targets importados (Qt). Así hay un único
 # CRT y un único Qt en el proceso, igual que en anim-sandbox.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG "Release;")
@@ -33,12 +32,7 @@ enable_testing()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(EtTargetDefaults)
 
-# libmypaint (vcpkg). Se busca acá y no en libs/paintcore porque los targets
-# importados tienen alcance de directorio: las apps enlazan paintcore estática y
-# necesitan ver LibMyPaint::LibMyPaint. Solo paintcore la enlaza (PRIVATE).
-find_package(LibMyPaint REQUIRED)
-
-add_subdirectory(libs/paintcore)
+# Sin dependencias externas fuera de Qt (HU-68: salieron libmypaint y vcpkg).
 add_subdirectory(libs/appkit)
 add_subdirectory(libs/tabletinput)
 add_subdirectory(libs/drymedia)

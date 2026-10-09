@@ -1,3 +1,0 @@
-# Los parches de vcpkg se aplican sobre fuentes con LF: no deben pasar a CRLF al clonar.
-*.patch text eol=lf
-*.diff  text eol=lf

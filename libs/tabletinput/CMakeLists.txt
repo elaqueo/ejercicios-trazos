@@ -1,5 +1,5 @@
 # tabletinput: entrada del lápiz por WM_POINTER (Windows Ink), Win32 puro, sin Qt.
-# La usan Cartuchera y, más adelante, paintcore (HU-46).
+# La usa libs/lienzo (Cartuchera y Ejercicios).
 add_library(tabletinput STATIC
     include/tabletinput/PenReader.h
     src/PenReader.cpp
