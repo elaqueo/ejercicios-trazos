@@ -67,6 +67,9 @@ public:
 
 signals:
     void viewRotationChanged(double degrees);
+    // Se apretó un botón lateral del lápiz (Qt::RightButton o Qt::MiddleButton, según
+    // el driver). No pinta: la app decide qué hace.
+    void stylusButtonClicked(Qt::MouseButton button);
 
 protected:
     void paintEvent(QPaintEvent* event) override;

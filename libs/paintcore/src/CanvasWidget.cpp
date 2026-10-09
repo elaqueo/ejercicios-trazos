@@ -420,6 +420,15 @@ void CanvasWidget::tabletEvent(QTabletEvent* event)
     // Aceptarlo evita que Qt sintetice además un evento de mouse.
     event->accept();
 
+    // Botones laterales: no pintan, se avisan a la app.
+    if (event->button() != Qt::NoButton && event->button() != Qt::LeftButton) {
+        if (event->type() == QEvent::TabletPress) {
+            qCInfo(lcCanvas) << "Botón lateral del lápiz:" << event->button();
+            emit stylusButtonClicked(event->button());
+        }
+        return;
+    }
+
     Phase phase;
     switch (event->type()) {
     case QEvent::TabletPress: phase = Phase::Press; break;

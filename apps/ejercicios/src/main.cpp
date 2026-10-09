@@ -6,6 +6,7 @@
 #include <appkit/Log.h>
 #include <appkit/Paths.h>
 #include <paintcore/BrushLibrary.h>
+#include <paintcore/CanvasWidget.h>
 
 #include <QApplication>
 #include <QShortcut>
@@ -33,6 +34,9 @@ int main(int argc, char* argv[])
     QObject::connect(&window, &appkit::AppWindow::usableAreaChanged, &session, &ejercicios::ExerciseSession::regenerate);
     auto* nextShortcut = new QShortcut(Qt::Key_Right, &window);
     QObject::connect(nextShortcut, &QShortcut::activated, &session, &ejercicios::ExerciseSession::next);
+    // El botón lateral del lápiz hace lo mismo que →, sin soltar el lápiz.
+    QObject::connect(window.canvas(), &paintcore::CanvasWidget::stylusButtonClicked, &session,
+                     &ejercicios::ExerciseSession::next);
 
     // --ventana: abre en una ventana común, para desarrollar y depurar sin tapar todo.
     if (QApplication::arguments().contains(QStringLiteral("--ventana"))) {

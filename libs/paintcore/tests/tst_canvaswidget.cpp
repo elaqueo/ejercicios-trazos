@@ -465,6 +465,35 @@ private slots:
         QVERIFY2(grosor >= 12 && grosor <= 17, qPrintable(QStringLiteral("grosor %1 px").arg(grosor)));
     }
 
+    // El botón lateral del lápiz no pinta: emite stylusButtonClicked.
+    void botonLateralNoPintaYAvisa()
+    {
+        paintcore::CanvasWidget canvas;
+        canvas.resize(200, 100);
+        canvas.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&canvas));
+        QPointingDevice stylus(QStringLiteral("lápiz de prueba"), 1, QInputDevice::DeviceType::Stylus,
+                               QPointingDevice::PointerType::Pen,
+                               QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
+        QList<Qt::MouseButton> clicks;
+        connect(&canvas, &paintcore::CanvasWidget::stylusButtonClicked, this,
+                [&](Qt::MouseButton b) { clicks.append(b); });
+
+        auto send = [&](QEvent::Type type, QPointF pos, Qt::MouseButton button, Qt::MouseButtons buttons, quint64 ts) {
+            QTabletEvent event(type, &stylus, pos, canvas.mapToGlobal(pos), 0.8, 0, 0, 0, 0, 0, Qt::NoModifier,
+                               button, buttons);
+            event.setTimestamp(ts);
+            QCoreApplication::sendEvent(&canvas, &event);
+        };
+        send(QEvent::TabletPress, {20, 50}, Qt::RightButton, Qt::RightButton, 1000);
+        for (int i = 1; i <= 10; ++i)
+            send(QEvent::TabletMove, {20.0 + i * 15, 50}, Qt::NoButton, Qt::RightButton, 1000 + i * 8);
+        send(QEvent::TabletRelease, {170, 50}, Qt::RightButton, Qt::NoButton, 1100);
+
+        QCOMPARE(clicks, QList<Qt::MouseButton>{Qt::RightButton});
+        QCOMPARE(inkThickness(canvas.grab().toImage(), 100), 0);
+    }
+
 };
 
 QTEST_MAIN(TestCanvasWidget)
