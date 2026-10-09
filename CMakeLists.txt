@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(EjerciciosTrazos VERSION 1.0.0 LANGUAGES CXX)
+project(EjerciciosTrazos VERSION 1.1.0 LANGUAGES CXX)
 
 if(NOT MSVC)
     message(FATAL_ERROR "Este proyecto requiere MSVC: los binarios de Qt para Windows usan la ABI de MSVC.")
