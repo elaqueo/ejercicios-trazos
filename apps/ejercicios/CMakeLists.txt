@@ -23,6 +23,8 @@ qt_add_library(ejercicios_core STATIC
     src/exercises/Radiales.cpp
     src/exercises/Recta.h
     src/exercises/Recta.cpp
+    src/exercises/Renglon.h
+    src/exercises/Renglon.cpp
 )
 target_include_directories(ejercicios_core PUBLIC src)
 target_link_libraries(ejercicios_core PUBLIC appkit)
