@@ -8,7 +8,9 @@
 #include "Renderer.h"
 #include "SampleQueue.h"
 #include "SheetMapping.h"
+#include "Bench.h"
 #include "Simulation.h"
+#include "Timing.h"
 
 #include <appkit/Config.h>
 #include <appkit/Log.h>
@@ -24,6 +26,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <thread>
 
 namespace {
 
@@ -144,12 +147,33 @@ int main(int argc, char* argv[])
             << mapping.sheetHeight << "px desde" << mapping.sheetX << mapping.sheetY << "(" << mapping.pixelsPerCellX
             << "x" << mapping.pixelsPerCellY << "px por celda)";
 
+    cartuchera::SessionTimings timings;
+    sim.setTimings(&timings);
+    render.setTimings(&timings);
+
     sim.start();
     render.start();
+    // --bench [undo]: trazos sintéticos durante 30 s, para medir sin la tableta.
+    const QStringList args = QApplication::arguments();
+    std::thread bench;
+    if (args.contains(QStringLiteral("--bench"))) {
+        const bool withUndo = args.contains(QStringLiteral("undo"));
+        qInfo() << "Benchmark sintético" << (withUndo ? "con deshacer" : "sin deshacer");
+        bench = std::thread([&queue, &sim, mapping, withUndo] { cartuchera::runBench(queue, sim, mapping, withUndo); });
+    }
     const int result = QApplication::exec();
+    if (bench.joinable())
+        bench.join();
     sim.stop();
     render.stop();
     qInfo().noquote() << QString::fromStdString(render.summary()) << "· blandura final" << sim.softness() << "· mina"
                       << sim.leadDiameter() / 100.0 << "mm";
+    for (const auto& [name, stat] : {std::pair{"sim lote", &timings.simBatch}, {"sim lápiz", &timings.simPencil},
+                                     {"sim candado tomado", &timings.simLockHeld}, {"sim deshacer", &timings.simUndo},
+                                     {"render toma → Present", &timings.renderLatchToPresent}})
+        qInfo().noquote() << QString::fromStdString(stat->describe(name));
+    qInfo().noquote() << QString::fromStdString(
+        timings.renderLockBusy.describe("render con la imagen ocupada (1 = no la tomó)", "frames"));
+    qInfo().noquote() << QString::fromStdString(timings.renderUploadPixels.describe("render píxeles subidos", "px"));
     return result;
 }

@@ -2,6 +2,7 @@
 
 #include "DisplayImage.h"
 #include "SampleQueue.h"
+#include "Timing.h"
 #include "Tone.h"
 
 #include <drymedia/History.h>
@@ -75,17 +76,23 @@ void Simulation::run()
         pencil.endStroke();
         history.endStroke(m_paper);
     };
-    // Vuelve a pintar el tono de los tiles que cambió el deshacer o el rehacer.
+    // Vuelve a pintar el tono de los tiles que cambió el deshacer o el rehacer. El
+    // candado de la imagen se toma y se suelta en cada tile (~0,1 ms): tomarlo una vez para
+    // todo el trazo lo retenía hasta 8 ms, el render no llegaba a tomar la imagen antes del
+    // vsync y perdía frames (y el adelanto adaptativo quedaba alto el resto de la sesión).
     const auto repaintTiles = [&](const std::vector<int>& tiles) {
-        std::lock_guard lock(m_image.mutex);
         for (const int t : tiles) {
             const int tx = t % m_paper.tilesX(), ty = t / m_paper.tilesX();
             int px0, py0, px1, py1;
-            if (m_mapping.pixelsOfCells(tx * drymedia::kTileSize, ty * drymedia::kTileSize, (tx + 1) * drymedia::kTileSize,
-                                        (ty + 1) * drymedia::kTileSize, px0, py0, px1, py1)) {
-                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data());
-                m_image.markDirty(px0, py0, px1, py1);
-            }
+            if (!m_mapping.pixelsOfCells(tx * drymedia::kTileSize, ty * drymedia::kTileSize,
+                                         (tx + 1) * drymedia::kTileSize, (ty + 1) * drymedia::kTileSize, px0, py0, px1, py1))
+                continue;
+            std::lock_guard lock(m_image.mutex);
+            const Stopwatch held;
+            renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data());
+            m_image.markDirty(px0, py0, px1, py1);
+            if (m_timings)
+                m_timings->simLockHeld.add(held.ms());
         }
     };
     std::vector<tabletinput::PenSample> samples;
@@ -109,6 +116,7 @@ void Simulation::run()
         }
 
         m_queue.takeAll(samples);
+        const Stopwatch batch;
         drymedia::DirtyRect dirty;
         int64_t newest = 0;
         for (const tabletinput::PenSample& s : samples) {
@@ -130,28 +138,44 @@ void Simulation::run()
                 endStroke();
             }
         }
+        const double pencilMs = batch.ms();
 
         // Deshacer y rehacer después de las muestras del lote: si llegan en medio de un
         // trazo, primero se cierra el trazo (y deshacer lo borra entero).
-        for (int n = m_undoRequests.exchange(0); n > 0; --n) {
-            endStroke();
-            repaintTiles(history.undo(m_paper));
-        }
-        for (int n = m_redoRequests.exchange(0); n > 0; --n) {
-            endStroke();
-            repaintTiles(history.redo(m_paper));
+        const int undos = m_undoRequests.exchange(0), redos = m_redoRequests.exchange(0);
+        if (undos || redos) {
+            const Stopwatch undoTime;
+            for (int n = undos; n > 0; --n) {
+                endStroke();
+                repaintTiles(history.undo(m_paper));
+            }
+            for (int n = redos; n > 0; --n) {
+                endStroke();
+                repaintTiles(history.redo(m_paper));
+            }
+            if (m_timings)
+                m_timings->simUndo.add(undoTime.ms());
         }
 
         int px0 = 0, py0 = 0, px1 = 0, py1 = 0;
         const bool any = !dirty.empty() && m_mapping.pixelsOfCells(dirty.x0, dirty.y0, dirty.x1, dirty.y1, px0, py0, px1, py1);
-        std::lock_guard lock(m_image.mutex);
-        if (any) {
-            renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data());
-            m_image.markDirty(px0, py0, px1, py1);
+        {
+            std::lock_guard lock(m_image.mutex);
+            const Stopwatch held;
+            if (any) {
+                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data());
+                m_image.markDirty(px0, py0, px1, py1);
+            }
+            if (newest) {
+                m_image.newestSampleUs = newest;
+                ++m_image.sampleVersion;
+            }
+            if (m_timings && any)
+                m_timings->simLockHeld.add(held.ms());
         }
-        if (newest) {
-            m_image.newestSampleUs = newest;
-            ++m_image.sampleVersion;
+        if (m_timings && !samples.empty()) {
+            m_timings->simPencil.add(pencilMs);
+            m_timings->simBatch.add(batch.ms());
         }
     }
 }

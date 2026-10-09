@@ -29,6 +29,8 @@ public:
     void setOverlay(bool visible) { m_overlay = visible; }
     // Texto extra para el recuadro (por ejemplo, la blandura); se pide cada 250 ms.
     void setExtraInfo(std::function<std::wstring()> extra) { m_extra = std::move(extra); }
+    // Mediciones de tiempo para diagnóstico (opcional; llamar antes de start()).
+    void setTimings(struct SessionTimings* timings) { m_timings = timings; }
 
     // Resumen de la sesión para el log: latencias, adelanto final, vsyncs perdidos.
     std::string summary() const;
@@ -43,6 +45,7 @@ private:
     std::atomic<bool> m_quit{false};
     std::atomic<bool> m_overlay{false};
     std::function<std::wstring()> m_extra;
+    struct SessionTimings* m_timings = nullptr;
     std::string m_summary;
 };
 

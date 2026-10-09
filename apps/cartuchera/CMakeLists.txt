@@ -1,6 +1,8 @@
 # Cartuchera: app de medios secos (docs/medios-secos/arquitectura.md). La lógica va en
 # una biblioteca estática para que los tests la enlacen; el exe es solo main.cpp.
 qt_add_library(cartuchera_core STATIC
+    src/Bench.h
+    src/Bench.cpp
     src/CanvasWindow.h
     src/CanvasWindow.cpp
     src/DisplayImage.h
@@ -13,6 +15,7 @@ qt_add_library(cartuchera_core STATIC
     src/Simulation.h
     src/Simulation.cpp
     src/Tone.h
+    src/Timing.h
     src/Tone.cpp
 )
 target_include_directories(cartuchera_core PUBLIC src)

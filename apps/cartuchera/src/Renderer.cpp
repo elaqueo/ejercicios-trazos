@@ -2,6 +2,7 @@
 
 #include "DisplayImage.h"
 #include "LeadController.h"
+#include "Timing.h"
 
 #include <tabletinput/PenReader.h>
 
@@ -26,6 +27,9 @@ namespace cartuchera {
 namespace {
 
 constexpr int kStatsW = 760, kStatsH = 110;
+// Píxeles que se suben a la GPU como máximo por frame (~1 MB). Un trazo normal sube unos
+// cientos; deshacer un trazo largo puede cambiar casi toda la hoja.
+constexpr LONG kUploadBudget = 256 * 1024;
 
 int64_t qpcNow()
 {
@@ -277,19 +281,31 @@ void Renderer::run()
                 d.sleepUntil(next - lead);
         }
 
-        // 2. Tomar lo que cambió en la imagen (late latch) y subirlo a la GPU.
+        // 2. Tomar lo que cambió en la imagen (late latch) y subirlo a la GPU. El render nunca
+        //    espera a la simulación: si la imagen está ocupada, presenta lo que ya tenía y la
+        //    toma en el frame siguiente (16 ms más tarde, en vez de perder un vsync). Y sube a
+        //    lo sumo kUploadBudget píxeles por frame: el resto queda para los siguientes.
         FrameRecord frame;
+        const Stopwatch latch;
         {
-            std::lock_guard lock(m_image.mutex);
-            if (m_image.hasDirty) {
-                const RECT& r = m_image.dirty;
-                const D3D11_BOX box{UINT(r.left), UINT(r.top), 0, UINT(r.right), UINT(r.bottom), 1};
+            std::unique_lock lock(m_image.mutex, std::try_to_lock);
+            if (m_timings)
+                m_timings->renderLockBusy.add(lock.owns_lock() ? 0.0 : 1.0);
+            if (lock.owns_lock() && m_image.hasDirty) {
+                RECT& r = m_image.dirty;
+                const LONG width = r.right - r.left;
+                const LONG rows = std::max<LONG>(1, std::min<LONG>(r.bottom - r.top, kUploadBudget / std::max<LONG>(1, width)));
+                if (m_timings)
+                    m_timings->renderUploadPixels.add(double(width) * double(rows));
+                const D3D11_BOX box{UINT(r.left), UINT(r.top), 0, UINT(r.right), UINT(r.top + rows), 1};
                 d.context->UpdateSubresource(d.display.Get(), 0, &box,
                                              m_image.pixels.data() + size_t(r.top) * size_t(m_image.width) + size_t(r.left),
                                              UINT(m_image.width) * 4, 0);
-                m_image.hasDirty = false;
+                r.top += rows;
+                m_image.hasDirty = r.top < r.bottom;
             }
-            if (m_image.sampleVersion != lastVersion) {
+            // La muestra más nueva cuenta como mostrada cuando ya no queda nada por subir.
+            if (lock.owns_lock() && !m_image.hasDirty && m_image.sampleVersion != lastVersion) {
                 lastVersion = m_image.sampleVersion;
                 frame.newestSampleUs = m_image.newestSampleUs;
             }
@@ -310,6 +326,8 @@ void Renderer::run()
         } else if (overlayShown) {
             overlayShown = false; // al ocultarlo, el próximo CopyResource ya lo tapa
         }
+        if (m_timings)
+            m_timings->renderLatchToPresent.add(latch.ms());
         d.swapChain->Present(1, 0);
         d.swapChain->GetLastPresentCount(&frame.presentCount);
         d.pending.push_back(frame);

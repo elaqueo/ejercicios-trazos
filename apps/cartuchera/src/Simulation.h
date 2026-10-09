@@ -13,6 +13,7 @@ namespace cartuchera {
 
 class SampleQueue;
 struct DisplayImage;
+struct SessionTimings;
 
 // Hilo de simulación: el único que escribe el papel. Toma las muestras de la cola apenas
 // llegan, las pasa por el lápiz (drymedia::Pencil) y recalcula el tono de las zonas que
@@ -52,6 +53,9 @@ public:
     // Pinta toda la imagen (hoja y afuera). Llamar antes de start().
     void renderAll();
 
+    // Mediciones de tiempo para diagnóstico (opcional; llamar antes de start()).
+    void setTimings(SessionTimings* timings) { m_timings = timings; }
+
 private:
     void run();
     void wake(); // despierta al hilo aunque no haya muestras
@@ -65,6 +69,7 @@ private:
     std::atomic<bool> m_clearRequested{false};
     std::atomic<int> m_undoRequests{0};
     std::atomic<int> m_redoRequests{0};
+    SessionTimings* m_timings = nullptr;
     std::atomic<int> m_softness;
     std::atomic<int> m_diameter;
 };
