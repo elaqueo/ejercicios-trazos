@@ -54,16 +54,43 @@ void ExerciseSession::loadParams(const QVariantMap& all)
     m_currentParams = params(m_exercise);
 }
 
+const Exercise* ExerciseSession::pickMixed(const QList<const Exercise*>& pool, const QStringList& recent,
+                                           QRandomGenerator& rng)
+{
+    if (pool.isEmpty())
+        return nullptr;
+    QList<const Exercise*> candidates = pool;
+    if (recent.size() >= 2 && recent[recent.size() - 1] == recent[recent.size() - 2] && pool.size() > 1)
+        candidates.removeIf([&](const Exercise* e) { return e->id() == recent.last(); });
+    return candidates[int(rng.bounded(quint32(candidates.size())))];
+}
+
+void ExerciseSession::startMixed()
+{
+    m_mixed = true;
+    next();
+}
+
 void ExerciseSession::next()
 {
+    if (m_mixed) {
+        if (const Exercise* picked = pickMixed(m_pool, m_recent, *QRandomGenerator::global()))
+            m_exercise = picked;
+    }
+    m_recent.append(m_exercise->id());
+    while (m_recent.size() > 2)
+        m_recent.removeFirst();
     m_seed = newSeed(m_seed);
     m_currentParams = params(m_exercise);
     m_canvas->clear();
     regenerate();
+    if (onExerciseChanged)
+        onExerciseChanged();
 }
 
 void ExerciseSession::setExercise(const Exercise* exercise)
 {
+    m_mixed = false;
     m_exercise = exercise;
     next();
 }

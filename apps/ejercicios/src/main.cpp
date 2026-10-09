@@ -79,7 +79,13 @@ int main(int argc, char* argv[])
         ejercicios::findExercise(exercises, config.value(QStringLiteral("exercise")).toString());
     ejercicios::ExerciseSession session(&sheet, first ? first : exercises.first());
     session.loadParams(config.value(QStringLiteral("params")).toMap());
-    session.regenerate();
+    // Modo mixto (HU-20): los ejercicios que participan y si estaba prendido.
+    const auto enabledMixed = [&config] { return config.value(QStringLiteral("mixedExercises")).toStringList(); };
+    session.setMixedPool(ejercicios::mixedPool(exercises, enabledMixed()));
+    if (config.value(QStringLiteral("mixed"), false).toBool())
+        session.startMixed();
+    else
+        session.regenerate();
 
     // Menú de ejercicios (HU-11): F4 lo abre y lo cierra; elegir genera ese ejercicio.
     appkit::MenuOverlay menu(&shell, QStringLiteral("Ejercicios"), Qt::Key_F4);
@@ -99,6 +105,38 @@ int main(int argc, char* argv[])
     exerciseHint->setObjectName(QStringLiteral("secundario"));
     exerciseHint->setWordWrap(true);
     auto* exerciseForm = new appkit::ParamForm(exercisePage);
+    // Sección del modo mixto: una casilla por ejercicio (solo con el modo prendido).
+    auto* mixedSection = new QWidget(exercisePage);
+    auto* mixedLayout = new QVBoxLayout(mixedSection);
+    mixedLayout->setContentsMargins(0, 0, 0, 16);
+    mixedLayout->setSpacing(8);
+    auto* mixedTitle = new QLabel(QStringLiteral("Modo mixto"), mixedSection);
+    mixedTitle->setFont(titleFont);
+    auto* mixedHint = new QLabel(QStringLiteral("Participan los marcados (sin ninguno, todos)."), mixedSection);
+    mixedHint->setObjectName(QStringLiteral("secundario"));
+    mixedHint->setWordWrap(true);
+    auto* mixedForm = new appkit::ParamForm(mixedSection);
+    QList<appkit::Param> mixedParams;
+    QVariantMap mixedValues;
+    const QStringList savedMixed = enabledMixed();
+    for (const ejercicios::Exercise* exercise : exercises) {
+        mixedParams.append({.key = exercise->id(), .label = exercise->title(), .type = appkit::Param::Type::Toggle,
+                            .defaultValue = true});
+        mixedValues.insert(exercise->id(), savedMixed.isEmpty() || savedMixed.contains(exercise->id()));
+    }
+    mixedForm->setParams(mixedParams, mixedValues);
+    mixedForm->onChanged = [&session, &config, &exercises](const QVariantMap& values) {
+        QStringList ids;
+        for (auto it = values.cbegin(); it != values.cend(); ++it)
+            if (it.value().toBool())
+                ids.append(it.key());
+        config.setValue(QStringLiteral("mixedExercises"), ids);
+        session.setMixedPool(ejercicios::mixedPool(exercises, ids));
+    };
+    mixedLayout->addWidget(mixedTitle);
+    mixedLayout->addWidget(mixedHint);
+    mixedLayout->addWidget(mixedForm);
+    exerciseLayout->addWidget(mixedSection);
     exerciseLayout->addWidget(exerciseTitle);
     exerciseLayout->addWidget(exerciseHint);
     exerciseLayout->addWidget(exerciseForm);
@@ -106,12 +144,17 @@ int main(int argc, char* argv[])
         session.setParams(values);
         config.setValue(QStringLiteral("params"), session.allParams());
     };
-    const auto showExerciseParams = [&session, exerciseTitle, exerciseForm] {
+    const auto showExerciseParams = [&session, exerciseTitle, exerciseForm, mixedSection] {
         const ejercicios::Exercise* exercise = session.exercise();
+        mixedSection->setVisible(session.mixed());
         exerciseTitle->setText(exercise->title());
         exerciseForm->setParams(exercise->params(), session.params(exercise));
     };
     showExerciseParams();
+    session.onExerciseChanged = [&session, showExerciseParams] { // en modo mixto, cada → cambia de ejercicio
+        qInfo() << "Ejercicio:" << session.exercise()->id() << (session.mixed() ? "(modo mixto)" : "");
+        showExerciseParams();
+    };
     panel.addTab(exercisePage, QStringLiteral("Ejercicio"));
     canvas.addPanelTabs(panel);
     panel.onClose = [&canvas] { canvas.focusCanvas(); };
@@ -126,11 +169,15 @@ int main(int argc, char* argv[])
     });
 
     menu.onPick = [&](const QString& id) {
-        if (const ejercicios::Exercise* exercise = ejercicios::findExercise(exercises, id)) {
+        qInfo() << "Menú:" << id;
+        if (id == ejercicios::kMixedModeId) {
+            session.startMixed();
+            config.setValue(QStringLiteral("mixed"), true);
+        } else if (const ejercicios::Exercise* exercise = ejercicios::findExercise(exercises, id)) {
             session.setExercise(exercise);
+            config.setValue(QStringLiteral("mixed"), false);
             config.setValue(QStringLiteral("exercise"), id);
         }
-        showExerciseParams();
         canvas.focusCanvas();
     };
     menu.onClose = [&canvas] { canvas.focusCanvas(); };
@@ -140,7 +187,7 @@ int main(int argc, char* argv[])
             canvas.focusCanvas();
             return;
         }
-        menu.setCurrent(session.exercise()->id());
+        menu.setCurrent(session.mixed() ? ejercicios::kMixedModeId : session.exercise()->id());
         panel.hide();
         canvas.showOverlay(&menu);
     });

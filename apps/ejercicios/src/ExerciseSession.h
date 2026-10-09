@@ -5,6 +5,10 @@
 
 #include <QHash>
 #include <QObject>
+#include <QRandomGenerator>
+#include <QStringList>
+
+#include <functional>
 
 namespace ejercicios {
 
@@ -37,8 +41,23 @@ public:
     // Repetir (HU-17): limpia el lienzo y vuelve a generar con la misma semilla, para
     // reintentar el mismo caso.
     void repeat();
-    // Cambia de ejercicio (menú, HU-11): hoja limpia y semilla nueva, como next().
+    // Cambia de ejercicio (menú, HU-11): hoja limpia y semilla nueva, como next(). Apaga el
+    // modo mixto.
     void setExercise(const Exercise* exercise);
+
+    // Modo mixto (HU-20): cada next() sortea un ejercicio de `pool` (con sus propios
+    // parámetros), sin que el mismo salga más de dos veces seguidas. startMixed() lo prende
+    // y pasa al primero.
+    void setMixedPool(const QList<const Exercise*>& pool) { m_pool = pool; }
+    void startMixed();
+    bool mixed() const { return m_mixed; }
+    // El sorteo: uno de `pool`, salvo el que salió las dos últimas veces (`recent`, del más
+    // viejo al más nuevo) si hay otro. Con un solo ejercicio, se repite.
+    static const Exercise* pickMixed(const QList<const Exercise*>& pool, const QStringList& recent,
+                                     QRandomGenerator& rng);
+
+    // Cambió el ejercicio en pantalla (el panel muestra sus parámetros).
+    std::function<void()> onExerciseChanged;
     // Vuelve a generar con la misma semilla para el área útil actual (cuando cambia
     // el área). No toca la tinta.
     void regenerate();
@@ -50,6 +69,9 @@ private:
     QHash<QString, QVariantMap> m_configured; // por id de ejercicio
     QVariantMap m_currentParams;
     Generated m_current;
+    bool m_mixed = false;
+    QList<const Exercise*> m_pool;
+    QStringList m_recent; // ids de los últimos dos ejercicios, del más viejo al más nuevo
 };
 
 } // namespace ejercicios

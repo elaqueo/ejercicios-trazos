@@ -37,10 +37,16 @@ private slots:
         QCOMPARE(menu.current(), QStringLiteral("paralelas"));
         QVERIFY(!menu.isVisible()); // elegir cierra
 
-        // Desde la primera habilitada, subir da la vuelta sin pasar por el modo mixto.
+        // El cursor se frena en los extremos: desde la primera habilitada, subir no hace nada
+        // (el modo mixto está deshabilitado) y bajar de más se queda en la última.
         menu.setCurrent(QStringLiteral("recta"));
         menu.show();
         QTest::keyClick(&menu, Qt::Key_Up);
+        QTest::keyClick(&menu, Qt::Key_Return);
+        QCOMPARE(elegido, QStringLiteral("recta"));
+        menu.show();
+        for (int i = 0; i < 5; ++i)
+            QTest::keyClick(&menu, Qt::Key_Down);
         QTest::keyClick(&menu, Qt::Key_Return);
         QCOMPARE(elegido, QStringLiteral("paralelas"));
     }

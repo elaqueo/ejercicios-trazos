@@ -74,10 +74,11 @@ int MenuOverlay::rowAt(QPoint point) const
 
 void MenuOverlay::moveCursor(int step)
 {
+    // Sin dar la vuelta: en el primero o el último habilitado, el cursor se queda (pasarse y
+    // volver sin notarlo al ítem de partida confundía, HU-20).
     const int count = int(m_rows.size());
-    int row = m_cursor >= 0 ? m_cursor : (step > 0 ? -1 : 0);
-    for (int n = 0; n < count; ++n) {
-        row = (row + step + count) % count;
+    int row = m_cursor >= 0 ? m_cursor : (step > 0 ? -1 : count);
+    for (row += step; row >= 0 && row < count; row += step) {
         const MenuItem* item = itemOf(row);
         if (item && item->enabled) {
             m_cursor = row;

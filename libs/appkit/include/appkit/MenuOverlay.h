@@ -24,7 +24,8 @@ struct MenuGroup {
 // Menú superpuesto (HU-11, mesa "Menú" del diseño): grupos de ítems, el actual en ámbar.
 // Es una ventana propia sin borde, como el selector de lápices: un widget hijo quedaría
 // tapado por la ventana nativa del lienzo (decisión 5 del 9 de octubre). Se elige con clic o
-// el lápiz, o con flechas y Enter (los ítems deshabilitados se saltean); Esc o la tecla que
+// el lápiz, o con flechas y Enter (los ítems deshabilitados se saltean y el cursor se frena en
+// los extremos, sin dar la vuelta); Esc o la tecla que
 // lo abre (closeKey) lo cierran.
 class MenuOverlay : public QWidget {
 public:
