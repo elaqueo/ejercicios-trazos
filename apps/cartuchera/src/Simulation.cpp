@@ -81,8 +81,8 @@ void Simulation::run()
         drymedia::DirtyRect dirty;
         int64_t newest = 0;
         for (const tabletinput::PenSample& s : samples) {
-            // Pantalla (escritorio virtual) → cliente: la ventana cubre el monitor desde su
-            // esquina, que tabletinput ya resta (ver CanvasWindow).
+            // Las muestras ya llegan en coordenadas del cliente (CanvasWindow resta su esquina);
+            // el mapeo las pasa a celdas de la hoja (a escala de la tableta, HU-52).
             const drymedia::PencilSample p{m_mapping.cellX(s.x), m_mapping.cellY(s.y), s.pressure, s.azimuth,
                                           s.altitude};
             if (s.eraser) {

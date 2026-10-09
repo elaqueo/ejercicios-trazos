@@ -26,6 +26,7 @@ public:
     void stop();
 
     void toggleOverlay() { m_overlay = !m_overlay; }
+    void setOverlay(bool visible) { m_overlay = visible; }
     // Texto extra para el recuadro (por ejemplo, la blandura); se pide cada 250 ms.
     void setExtraInfo(std::function<std::wstring()> extra) { m_extra = std::move(extra); }
 

@@ -10,7 +10,10 @@
 #include "SheetMapping.h"
 #include "Simulation.h"
 
+#include <appkit/Config.h>
 #include <appkit/Log.h>
+#include <appkit/ScreenChoice.h>
+#include <appkit/UsableArea.h>
 #include <drymedia/Paper.h>
 
 #include <QApplication>
@@ -38,6 +41,25 @@ protected:
     }
 };
 
+// Superficie activa de la Wacom Intuos4 Large (PTK-840), según el plan.
+constexpr double kTabletWidthMm = 325.1;
+constexpr double kTabletHeightMm = 203.2;
+
+// El monitor guardado ("monitor", sección común) si está conectado; si no, el principal.
+QScreen* savedScreen(const appkit::Config& config)
+{
+    const QList<QScreen*> screens = QGuiApplication::screens();
+    if (const auto saved =
+            appkit::ScreenId::fromVariant(config.value(QStringLiteral("monitor"), {}, appkit::Config::Scope::Common))) {
+        QList<appkit::ScreenId> ids;
+        for (const QScreen* s : screens)
+            ids.append(appkit::ScreenId::of(s));
+        if (const auto index = appkit::findScreen(ids, *saved))
+            return screens[*index];
+    }
+    return QGuiApplication::primaryScreen();
+}
+
 } // namespace
 
 int main(int argc, char* argv[])
@@ -46,10 +68,17 @@ int main(int argc, char* argv[])
     QApplication::setApplicationName(QStringLiteral("Cartuchera"));
     appkit::installFileLog(QStringLiteral("cartuchera"));
 
+    // Monitor y área útil: los de la familia de apps (sección común de config.json), los
+    // mismos que se eligen y calibran en Ejercicios (F10 y F9).
+    appkit::Config config(QStringLiteral("cartuchera"));
+    QScreen* screen = savedScreen(config);
+    const std::optional<QRect> area = appkit::loadUsableArea(config, appkit::ScreenId::of(screen));
+
     Shell shell;
     shell.setWindowFlag(Qt::FramelessWindowHint);
     shell.setWindowTitle(QApplication::applicationName());
-    shell.setGeometry(QGuiApplication::primaryScreen()->geometry());
+    shell.setScreen(screen); // antes de crear la ventana nativa, o Windows elige el monitor
+    shell.setGeometry(screen->geometry());
     shell.show();
 
     drymedia::Paper paper; // A4 apaisado recortado, 297 × 203 mm
@@ -76,8 +105,14 @@ int main(int argc, char* argv[])
     shell.onKey = onKey;
 
     cartuchera::CanvasWindow canvas(reinterpret_cast<HWND>(shell.winId()), queue, onKey);
+    // Hoja = tableta (HU-52): el área útil corresponde a toda la superficie activa, y la
+    // hoja va centrada encima, a escala real. Sin área calibrada, ajustada a la ventana.
     const cartuchera::SheetMapping mapping =
-        cartuchera::SheetMapping::fit(canvas.width(), canvas.height(), paper.width(), paper.height());
+        area ? cartuchera::SheetMapping::onTablet(canvas.width(), canvas.height(), area->x(), area->y(), area->width(),
+                                                  area->height(), kTabletWidthMm, kTabletHeightMm,
+                                                  paper.spec().widthMm, paper.spec().heightMm, paper.width(),
+                                                  paper.height())
+             : cartuchera::SheetMapping::fit(canvas.width(), canvas.height(), paper.width(), paper.height());
 
     cartuchera::DisplayImage image;
     image.width = canvas.width();
@@ -87,15 +122,23 @@ int main(int argc, char* argv[])
     cartuchera::Simulation sim(paper, queue, image, mapping);
     sim.renderAll();
     cartuchera::Renderer render(canvas.hwnd(), image);
-    render.setExtraInfo([&sim] {
-        wchar_t text[160];
-        swprintf(text, 160, L"blandura HB %d ([ ])   ·   mina %.2f mm (, .)", sim.softness(), sim.leadDiameter() / 100.0);
+    const bool calibrated = area.has_value();
+    render.setExtraInfo([&sim, calibrated] {
+        wchar_t text[256];
+        swprintf(text, 256, L"blandura HB %d ([ ])   ·   mina %.2f mm (, .)%ls", sim.softness(),
+                 sim.leadDiameter() / 100.0,
+                 calibrated ? L"" : L"\nSin área calibrada en este monitor: calibrala con F9 en Ejercicios.");
         return std::wstring(text);
     });
+    if (!calibrated)
+        render.setOverlay(true); // el aviso tiene que verse sin apretar nada
     simulation = &sim;
     renderer = &render;
+    qInfo() << "Monitor" << appkit::ScreenId::of(screen).describe() << (calibrated ? "· área útil" : "· SIN área útil")
+            << (area ? *area : QRect());
     qInfo() << "Hoja" << paper.width() << "x" << paper.height() << "celdas en" << mapping.sheetWidth << "x"
-            << mapping.sheetHeight << "px (" << mapping.pixelsPerCell << "px por celda)";
+            << mapping.sheetHeight << "px desde" << mapping.sheetX << mapping.sheetY << "(" << mapping.pixelsPerCellX
+            << "x" << mapping.pixelsPerCellY << "px por celda)";
 
     sim.start();
     render.start();

@@ -22,20 +22,51 @@ private slots:
         QCOMPARE(m.sheetHeight, 1080);
         QVERIFY(m.sheetWidth <= 2560);
         QVERIFY(qAbs(double(m.sheetWidth) / m.sheetHeight - 7016.0 / 4795.0) < 0.01);
-        QCOMPARE(m.sheetX, (2560 - m.sheetWidth) / 2);
+        QVERIFY(qAbs(m.sheetX - (2560 - m.sheetWidth) / 2) <= 1); // centrada (redondeo de un píxel)
         // Esquinas de la hoja → celdas 0 y el total.
         QVERIFY(qAbs(m.cellX(m.sheetX)) < 1e-9);
         QVERIFY(qAbs(m.cellY(m.sheetY + m.sheetHeight) - 4795) < 1e-6);
+    }
+
+    // HU-52: área calibrada del ultrawide (0, 0, 1734 × 1081) = superficie activa de la
+    // Intuos4 L (325,1 × 203,2 mm); la A4 recortada (297 × 203 mm) centrada encima.
+    void hojaSobreLaTableta()
+    {
+        const SheetMapping m = SheetMapping::onTablet(2560, 1080, 0, 0, 1734, 1081, 325.1, 203.2, 297, 203, 7016, 4795);
+        const double pxPerMmX = 1734 / 325.1, pxPerMmY = 1081 / 203.2;
+        // Esquina de la hoja: 14,05 mm desde el borde izquierdo de la tableta, 0,1 mm desde arriba.
+        QVERIFY(qAbs(m.originX - 14.05 * pxPerMmX) < 1e-6);
+        QVERIFY(qAbs(m.originY - 0.1 * pxPerMmY) < 1e-6);
+        // El centro de la tableta es el centro de la hoja.
+        QVERIFY(qAbs(m.cellX(1734 / 2.0) - 7016 / 2.0) < 1.0);
+        QVERIFY(qAbs(m.cellY(1081 / 2.0) - 4795 / 2.0) < 1.0);
+        // Toda la hoja queda dentro del área (al alcance del lápiz).
+        QVERIFY(m.sheetX >= 0 && m.sheetX + m.sheetWidth <= 1734);
+        QVERIFY(m.sheetY >= 0 && m.sheetY + m.sheetHeight <= 1081);
+    }
+
+    // 100 mm en la tableta son 100 mm en la hoja, en los dos ejes (escala propia por eje).
+    void escalaRealEnLosDosEjes()
+    {
+        const SheetMapping m = SheetMapping::onTablet(2560, 1080, 0, 0, 1734, 1081, 325.1, 203.2, 297, 203, 7016, 4795);
+        const double cellsPerMm = 600.0 / 25.4;
+        const double dx = m.cellX(100 + 100 * 1734 / 325.1) - m.cellX(100);
+        const double dy = m.cellY(100 + 100 * 1081 / 203.2) - m.cellY(100);
+        QVERIFY(qAbs(dx / cellsPerMm - 100) < 1e-6);
+        QVERIFY(qAbs(dy / cellsPerMm - 100) < 1e-6);
+        // Área desplazada (tableta mapeada a otra parte de la pantalla): se corre todo igual.
+        const SheetMapping corrida = SheetMapping::onTablet(2560, 1080, 400, 0, 1734, 1081, 325.1, 203.2, 297, 203, 7016, 4795);
+        QVERIFY(qAbs(corrida.cellX(500) - m.cellX(100)) < 1e-9);
     }
 
     void celdasDePixelYVuelta()
     {
         const SheetMapping m = SheetMapping::fit(1580, 1080, 7016, 4795);
         int first, last;
-        m.cellsOfPixel(0, m.cellsWidth, first, last);
+        m.cellsOfColumn(m.sheetX, first, last);
         QCOMPARE(first, 0);
         QVERIFY(last >= 4 && last <= 5); // ~4,4 celdas por píxel
-        m.cellsOfPixel(m.sheetWidth - 1, m.cellsWidth, first, last);
+        m.cellsOfColumn(m.sheetX + m.sheetWidth - 1, first, last);
         QCOMPARE(last, m.cellsWidth);
 
         int px0, py0, px1, py1;
@@ -68,8 +99,8 @@ private slots:
 
         // Saturar todas las celdas del píxel (sheetX + 10, sheetY + 10).
         int cx0, cx1, cy0, cy1;
-        m.cellsOfPixel(10, m.cellsWidth, cx0, cx1);
-        m.cellsOfPixel(10, m.cellsHeight, cy0, cy1);
+        m.cellsOfColumn(m.sheetX + 10, cx0, cx1);
+        m.cellsOfRow(m.sheetY + 10, cy0, cy1);
         for (int y = cy0; y < cy1; ++y)
             for (int x = cx0; x < cx1; ++x)
                 paper.depositTile(x / drymedia::kTileSize, y / drymedia::kTileSize)[(y % drymedia::kTileSize) * drymedia::kTileSize + x % drymedia::kTileSize] = 65535;

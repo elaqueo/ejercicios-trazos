@@ -32,17 +32,15 @@ void renderTone(const drymedia::Paper& paper, const SheetMapping& m, int px0, in
 {
     for (int py = py0; py < py1; ++py) {
         uint32_t* row = image + size_t(py) * size_t(m.clientWidth);
-        const bool rowInside = py >= m.sheetY && py < m.sheetY + m.sheetHeight;
         int cy0 = 0, cy1 = 0;
-        if (rowInside)
-            m.cellsOfPixel(py - m.sheetY, m.cellsHeight, cy0, cy1);
+        m.cellsOfRow(py, cy0, cy1);
         for (int px = px0; px < px1; ++px) {
-            if (!rowInside || px < m.sheetX || px >= m.sheetX + m.sheetWidth) {
+            if (!m.contains(px, py)) {
                 row[px] = kOutsideColor;
                 continue;
             }
             int cx0, cx1;
-            m.cellsOfPixel(px - m.sheetX, m.cellsWidth, cx0, cx1);
+            m.cellsOfColumn(px, cx0, cx1);
             uint64_t sum = 0;
             for (int cy = cy0; cy < cy1; ++cy) {
                 int cx = cx0;
