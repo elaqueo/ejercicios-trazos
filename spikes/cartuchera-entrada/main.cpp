@@ -9,6 +9,8 @@
 // Uso: cartuchera-entrada.exe [índice de monitor]   (0 = principal)
 // Teclas: C limpia, Esc sale (y cierra el CSV).
 
+#include <tabletinput/PenReader.h>
+
 #include <windows.h>
 
 #include <shlobj.h>
@@ -84,7 +86,9 @@ void openCsv()
     GetComputerNameW(computer, &size);
     fwprintf(g_csv, L"# equipo=%ls qpc_hz=%lld\n", computer, g_qpcFrequency.QuadPart);
     fwprintf(g_csv, L"recv_qpc,msg,msg_samples,hist_index,pointer_id,frame_id,flags,in_contact,time_ms,perf_count,"
-                    L"px,py,him_x,him_y,raw_x,raw_y,pressure,tilt_x,tilt_y,rotation,pen_flags,pen_mask\n");
+                    L"px,py,him_x,him_y,raw_x,raw_y,pressure,tilt_x,tilt_y,rotation,pen_flags,pen_mask,"
+                    L"lib_n,lib_x,lib_y,lib_time_us,lib_pressure,lib_azimuth,lib_altitude,lib_contact,lib_eraser,"
+                    L"lib_barrel\n");
 }
 
 // Rectángulos de la tableta (himétricos, 0,01 mm) y de la pantalla a la que mapea:
@@ -131,7 +135,9 @@ void drawSample(POINT client, UINT32 pressure, bool inContact)
     g_hasLast = true;
 }
 
-void handlePen(UINT32 pointerId, UINT64 receivedQpc)
+// lib: lo que entregó tabletinput::PenReader para el mismo mensaje (HU-47), en orden
+// cronológico; se registra al lado de los datos crudos para validar la biblioteca.
+void handlePen(UINT32 pointerId, UINT64 receivedQpc, const std::vector<tabletinput::PenSample>& lib)
 {
     POINTER_INFO info{};
     if (!GetPointerInfo(pointerId, &info) || info.pointerType != PT_PEN)
@@ -169,13 +175,20 @@ void handlePen(UINT32 pointerId, UINT64 receivedQpc)
             g_lastPerfCount = 0;
         }
 
+        // Muestra de la biblioteca que corresponde a esta (el historial viene invertido).
+        const size_t k = size_t(count - 1 - i);
+        const bool hasLib = lib.size() == count;
+        const tabletinput::PenSample s = hasLib ? lib[k] : tabletinput::PenSample{};
         if (g_csv)
-            fwprintf(g_csv, L"%llu,%llu,%u,%u,%u,%u,0x%x,%d,%lu,%llu,%ld,%ld,%ld,%ld,%ld,%ld,%u,%d,%d,%u,0x%x,0x%x\n",
+            fwprintf(g_csv,
+                     L"%llu,%llu,%u,%u,%u,%u,0x%x,%d,%lu,%llu,%ld,%ld,%ld,%ld,%ld,%ld,%u,%d,%d,%u,0x%x,0x%x,"
+                     L"%zu,%.4f,%.4f,%lld,%.4f,%.2f,%.2f,%d,%d,%d\n",
                      receivedQpc, g_messageCount, count, i, p.pointerId, p.frameId, p.pointerFlags, inContact ? 1 : 0,
                      p.dwTime, p.PerformanceCount, client.x, client.y, p.ptHimetricLocation.x, p.ptHimetricLocation.y,
                      p.ptHimetricLocationRaw.x,
                      p.ptHimetricLocationRaw.y, pen.pressure, pen.tiltX, pen.tiltY, pen.rotation, pen.penFlags,
-                     pen.penMask);
+                     pen.penMask, lib.size(), s.x, s.y, static_cast<long long>(s.timeUs), double(s.pressure),
+                     double(s.azimuth), double(s.altitude), s.inContact ? 1 : 0, s.eraser ? 1 : 0, s.barrel ? 1 : 0);
 
         drawSample(client, pen.pressure, inContact);
     }
@@ -229,9 +242,11 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_POINTERUP: {
         const UINT64 received = qpcNow();
         const UINT32 id = GET_POINTERID_WPARAM(wParam);
-        POINTER_INPUT_TYPE type{};
-        if (GetPointerType(id, &type) && type == PT_PEN) {
-            handlePen(id, received);
+        static tabletinput::PenReader reader;
+        static std::vector<tabletinput::PenSample> lib;
+        lib.clear();
+        if (reader.handleMessage(hwnd, msg, wParam, lParam, lib)) {
+            handlePen(id, received, lib);
             if (msg == WM_POINTERUP) {
                 g_hasLast = false;
                 g_strokeSamples = 0;

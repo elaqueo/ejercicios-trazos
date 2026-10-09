@@ -40,6 +40,7 @@ find_package(LibMyPaint REQUIRED)
 
 add_subdirectory(libs/paintcore)
 add_subdirectory(libs/appkit)
+add_subdirectory(libs/tabletinput)
 add_subdirectory(apps/ejercicios)
 # Spikes de Cartuchera (Fase 0): código descartable que se compila igual, para que no
 # se rompa sin que nadie lo note.
