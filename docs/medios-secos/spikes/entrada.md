@@ -6,23 +6,25 @@ Medido el 8 y 9 de octubre de 2026. Código en [`spikes/cartuchera-entrada`](../
 
 | | Desktop (i5 Skylake) | Laptop (i7 11.ª gen) |
 | --- | --- | --- |
-| Muestras/s dentro de un trazo (WM_POINTER) | 132,9 | pendiente |
-| Muestras/s (QTabletEvent, paintcore) | 133,9 | pendiente |
-| Intervalo entre muestras | 88 % ≈ 8 ms, 12 % ≈ 4 ms; máximo 16 ms | pendiente |
-| Muestras por mensaje `WM_POINTER` | 1 (99,8 %); 2 (0,2 %) | pendiente |
-| Timestamp `PerformanceCount` | 0,1 µs de resolución, nunca repetido | pendiente |
-| Timestamp `QTabletEvent::timestamp()` | saltos de 16 ms; 52 % repetidos | pendiente |
-| Muestra → ventana (`PerformanceCount` → recepción) | mediana 0,39 ms, p95 0,50 ms | pendiente |
-| Presión | 0..965 de 1024 | pendiente |
-| Inclinación | X 4..56°, Y −29..54° | pendiente |
-| Goma y botón lateral | llegan (`penFlags`) | pendiente |
-| Rotación | no llega (sin Art Pen) | pendiente |
+| Muestras/s dentro de un trazo (WM_POINTER) | 132,9 | 132,9 |
+| Muestras/s (QTabletEvent, paintcore) | 133,9 | no medido (misma fuente) |
+| Intervalo entre muestras | 88 % ≈ 8 ms, 12 % ≈ 4 ms; máximo 16 ms | 88 % ≈ 8 ms, 11 % ≈ 4 ms; máximo 11 ms |
+| Muestras por mensaje `WM_POINTER` | 1 (99,8 %); 2 (0,2 %) | 1 (100 %) |
+| Timestamp `PerformanceCount` | 0,1 µs de resolución, nunca repetido | igual |
+| Timestamp `QTabletEvent::timestamp()` | saltos de 16 ms; 52 % repetidos | no medido |
+| Muestra → ventana (`PerformanceCount` → recepción) | mediana 0,39 ms, p95 0,50 ms | mediana 0,39 ms, p95 0,84 ms |
+| Paso de `ptHimetricLocation` | 1 unidad ≈ 7,3 por píxel | 1 unidad ≈ 16,9 por píxel |
+| Presión | 0..965 de 1024 | 0..713 de 1024 |
+| Inclinación | X 4..56°, Y −29..54° | X −2..53°, Y −15..56° |
+| Goma y botón lateral | llegan (`penFlags`) | llegan |
+| Rotación | no llega (sin Art Pen) | no llega |
+| Mapeo que informa el driver | 4480 × 1080 (dos monitores) | 1920 × 1080 |
 
-Driver de Wacom: versión a confirmar en cada máquina (el plan fija la 6.3.41).
+Driver de Wacom: la misma versión en las dos máquinas.
 
 ## Hallazgos
 
-1. **No llegan 200 muestras/s sino ~133.** El patrón (casi todo a 8 ms, algunos pares a 4 ms) sugiere que el driver entrega a 125 Hz con alguna muestra intercalada. Qt ve exactamente las mismas muestras: la pérdida no es de Qt ni de `WM_POINTER`. A 133 Hz hay unas 2,2 muestras por frame de 60 Hz; la regla de integrar todas sigue valiendo y el barrido continuo entre muestras (no dabs) se vuelve más importante.
+1. **No llegan 200 muestras/s sino ~133, idéntico en las dos máquinas.** Con el mismo driver, la tableta y no el equipo fija el ritmo. El patrón (casi todo a 8 ms, algunos pares a 4 ms) sugiere que el driver entrega a 125 Hz con alguna muestra intercalada. Qt ve exactamente las mismas muestras: la pérdida no es de Qt ni de `WM_POINTER`. A 133 Hz hay unas 2,2 muestras por frame de 60 Hz; la regla de integrar todas sigue valiendo y el barrido continuo entre muestras (no dabs) se vuelve más importante.
 2. **Casi nunca hay historial**: una muestra por mensaje. `GetPointerPenInfoHistory` igual hay que usarlo (cuando el hilo se atrasa, junta), pero no es la fuente principal de muestras.
 3. **El timestamp de Qt no sirve para Cartuchera**: resolución de 16 ms y la mitad repetidos. `PerformanceCount` es exacto y es el que permite medir latencia y derivar velocidad sin filtro raro. El reloj de trazo de `paintcore` existe por esto (HU-46 lo elimina).
 4. **La latencia de lectura es despreciable**: la muestra llega a la ventana medio milisegundo después de su `PerformanceCount`.
@@ -40,8 +42,7 @@ Driver de Wacom: versión a confirmar en cada máquina (el plan fija la 6.3.41).
 4. Responder `WM_POINTER*` del lápiz sin pasar a `DefWindowProc`, para que Windows no sintetice mouse.
 5. Diseñar para ~133 Hz reales, no 200.
 
-## Pendiente para cerrar HU-43
+## Abierto
 
-1. Correr lo mismo en la laptop (paquete portable: `cartuchera-entrada.exe` + `analizar.ps1`).
-2. Anotar la versión del driver de Wacom en las dos máquinas.
-3. Si en alguna da 200 Hz, ver qué cambia (driver, USB, modo de la tableta).
+1. Por qué 133 y no los 200 de la ficha de la Intuos4: probable límite del driver final (6.3.x) con Windows Ink. No bloquea: se diseña para la cifra medida. Si algún día se prueba Wintab (`-platform windows:nowmpointer`, plan B del documento), medir con este mismo spike.
+2. La presión máxima alcanzada difiere entre sesiones (965 contra 713): es la mano, no la máquina; refuerza la curva de presión propia que pide el plan.
