@@ -109,6 +109,21 @@ private slots:
         QCOMPARE(paper.tileCount(), size_t(600));
     }
 
+    // Hoja nueva: sin depósito, mismo relieve, y los tiles se reusan en cero.
+    void clearVuelveALaHojaNueva()
+    {
+        Paper paper({.seed = 1, .widthMm = 50, .heightMm = 50});
+        uint16_t* tile = paper.depositTile(1, 1);
+        tile[5] = 999;
+        paper.clear();
+        QCOMPARE(paper.tileCount(), size_t(0));
+        QVERIFY(!paper.findDepositTile(1, 1));
+        QCOMPARE(paper.hash(), paper.reliefHash());
+        uint16_t* again = paper.depositTile(4, 4);
+        QCOMPARE(again, tile); // reusado del pool
+        QCOMPARE(again[5], uint16_t(0));
+    }
+
     void elHashSigueAlDeposito()
     {
         Paper a({.seed = 1, .widthMm = 50, .heightMm = 50});

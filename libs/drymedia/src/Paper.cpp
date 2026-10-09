@@ -63,6 +63,7 @@ struct Paper::Impl {
     std::vector<std::unique_ptr<uint16_t[]>> blocks;
     uint16_t* nextFree = nullptr;
     int freeInBlock = 0;
+    std::vector<uint16_t*> recycled; // tiles devueltos por clear(), ya en cero
     size_t tileCount = 0;
 
     void generateRelief()
@@ -98,6 +99,11 @@ struct Paper::Impl {
 
     uint16_t* takeTile()
     {
+        if (!recycled.empty()) {
+            uint16_t* tile = recycled.back();
+            recycled.pop_back();
+            return tile;
+        }
         if (freeInBlock == 0)
             reserveBlock(); // una vez cada kPoolBlock tiles
         uint16_t* tile = nextFree;
@@ -174,6 +180,18 @@ const uint16_t* Paper::findDepositTile(int tx, int ty) const
     if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
         return nullptr;
     return d->tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
+}
+
+void Paper::clear()
+{
+    for (uint16_t*& slot : d->tiles) {
+        if (!slot)
+            continue;
+        std::fill(slot, slot + kTileCells, uint16_t(0));
+        d->recycled.push_back(slot);
+        slot = nullptr;
+    }
+    d->tileCount = 0;
 }
 
 size_t Paper::tileCount() const

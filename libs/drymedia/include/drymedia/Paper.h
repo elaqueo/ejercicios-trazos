@@ -54,6 +54,10 @@ public:
     const uint16_t* findDepositTile(int tx, int ty) const;
     size_t tileCount() const;
 
+    // Hoja nueva con el mismo relieve: borra todo el depósito y devuelve los tiles al
+    // pool (no libera memoria ni regenera el relieve).
+    void clear();
+
     // Hash del relieve (se calcula una vez) y del estado completo (relieve + depósito
     // de los tiles tocados, en orden de tile).
     uint64_t reliefHash() const;

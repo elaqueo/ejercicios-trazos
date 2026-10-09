@@ -47,9 +47,12 @@ class TestContact : public QObject {
 private slots:
     void huellaVerticalRedonda()
     {
-        const Tip tip = Tip::make(Medium::hb(), 0, 90);
+        const Tip tip = Tip::make(Medium::hb().withLeadDiameter(0.5), 0, 90);
         // Mina de 0,5 mm a 600 dpi: radio ≈ 5,9 celdas → ≈ 109 celdas.
         QVERIFY2(tip.cellsInside() > 90 && tip.cellsInside() < 130, qPrintable(QString::number(tip.cellsInside())));
+        // La HB calibrada (0,87 mm): radio ≈ 10,3 celdas → ≈ 330 celdas.
+        const int hb = Tip::make(Medium::hb(), 0, 90).cellsInside();
+        QVERIFY2(hb > 300 && hb < 360, qPrintable(QString::number(hb)));
         QVERIFY(qAbs(footprintAspect(tip) - 1.0) < 0.1);
         QCOMPARE(tip.heights()[Tip::kTipCenter * Tip::kTipSize + Tip::kTipCenter] < 600, true); // centro, lo más bajo
     }
@@ -75,28 +78,43 @@ private slots:
     }
 
     // El criterio de la historia: con poca presión toca menos celdas y más altas (las
-    // crestas); con más presión, más celdas y llega a los valles.
-    void pocaPresionSoloCrestas()
+    // crestas); con más presión, más celdas y llega a los valles. Devuelve en cuántas de
+    // las posiciones probadas las celdas de poca presión quedaron más altas.
+    static int crestsAtLowPressure(const Medium& medium, int casos)
     {
         const Paper paper({.seed = 3, .widthMm = 50, .heightMm = 50});
-        const Tip tip = Tip::make(Medium::hb(), 0, 90);
+        const Tip tip = Tip::make(medium, 0, 90);
         Contact contact;
-        int masCeldas = 0, crestas = 0;
-        const int casos = 40;
+        int crestas = 0;
         for (int i = 0; i < casos; ++i) {
             const int x = 100 + i * 25, y = 300 + (i % 7) * 40;
-            contact.find(paper, tip, Medium::hb(), x, y, 0.15f);
+            contact.find(paper, tip, medium, x, y, 0.15f);
             const int pocas = contact.cellsInContact();
             const double reliefPoca = meanContactRelief(contact, paper, x, y);
-            contact.find(paper, tip, Medium::hb(), x, y, 0.9f);
+            contact.find(paper, tip, medium, x, y, 0.9f);
             const int muchas = contact.cellsInContact();
             const double reliefMucha = meanContactRelief(contact, paper, x, y);
-            masCeldas += muchas > pocas ? 1 : 0;
+            if (pocas == 0 || muchas <= pocas)
+                return -1; // con poca presión tiene que tocar, y con más, tocar más
             crestas += reliefPoca > reliefMucha ? 1 : 0;
-            QVERIFY(pocas > 0);
         }
-        QCOMPARE(masCeldas, casos);
-        QVERIFY2(crestas >= casos * 9 / 10, qPrintable(QString::number(crestas)));
+        return crestas;
+    }
+
+    // El modelo de contacto, con la punta fina de referencia (0,5 mm): casi siempre.
+    void pocaPresionSoloCrestas()
+    {
+        const int crestas = crestsAtLowPressure(Medium::hb().withLeadDiameter(0.5), 40);
+        QVERIFY2(crestas >= 36, qPrintable(QString::number(crestas)));
+    }
+
+    // La HB calibrada (0,87 mm) cubre más de una ondulación del papel (~8 celdas), así que
+    // el cono pesa más que el relieve y la preferencia por las crestas es más débil (35 de
+    // 40 al calibrar), como en una mina real más gruesa. Se pide una mayoría clara.
+    void pocaPresionSoloCrestasConLaHb()
+    {
+        const int crestas = crestsAtLowPressure(Medium::hb(), 40);
+        QVERIFY2(crestas >= 30, qPrintable(QString::number(crestas)));
     }
 
     // La fuerza lograda alcanza el objetivo, y la misma entrada da la misma salida.

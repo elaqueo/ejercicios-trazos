@@ -51,6 +51,11 @@ public:
     // los tocó por primera vez. Lo usa el deshacer (HU-53).
     const std::vector<int>& strokeTiles() const { return m_strokeTiles; }
 
+    // Cambia el medio (por ejemplo, para calibrar la blandura en vivo). Vale desde el
+    // próximo segmento; vacía el caché de puntas.
+    void setMedium(const Medium& medium);
+    const Medium& medium() const { return m_medium; }
+
     Contact::Path path() const { return m_contact.path(); }
     uint64_t substeps() const { return m_substeps; }
 

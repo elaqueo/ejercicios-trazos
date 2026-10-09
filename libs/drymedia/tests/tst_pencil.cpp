@@ -161,15 +161,16 @@ private slots:
         Paper scalar(smallSheet());
         Pencil ps(scalar, Medium::hb(), Contact::Path::Scalar);
         draw(ps, curveAt, 60);
-        // Medido el 10 de octubre de 2026 (igual en Debug y Release). Si cambia el modelo a
-        // propósito, se actualiza acá; si cambia sin querer, este test lo marca.
-        QCOMPARE(scalar.hash(), uint64_t(0xfec6a7257dc7dc15ULL));
         if (Contact::avx2Available()) {
             Paper avx2(smallSheet());
             Pencil pv(avx2, Medium::hb(), Contact::Path::Avx2);
             draw(pv, curveAt, 60);
             QCOMPARE(avx2.hash(), scalar.hash());
         }
+        // Medido el 10 de octubre de 2026 (igual en Debug y Release). Si cambia el modelo a
+        // propósito, se actualiza acá; si cambia sin querer, este test lo marca.
+        qInfo() << "hash" << Qt::hex << scalar.hash();
+        QCOMPARE(scalar.hash(), uint64_t(0x49030d56c130aadcULL));
     }
 
     void velocidad()

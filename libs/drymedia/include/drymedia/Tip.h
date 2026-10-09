@@ -17,7 +17,7 @@ namespace drymedia {
 // Fase 2.
 class Tip {
 public:
-    static constexpr int kTipSize = 32;
+    static constexpr int kTipSize = 48; // hasta ~2 mm de diámetro con el lápiz vertical
     static constexpr int kTipCenter = kTipSize / 2;
     static constexpr int kTipCells = kTipSize * kTipSize;
     static constexpr uint16_t kNoContact = 65535;

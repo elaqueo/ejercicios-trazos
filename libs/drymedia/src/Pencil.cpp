@@ -44,6 +44,13 @@ Pencil::Pencil(Paper& paper, const Medium& medium, Contact::Path path)
 
 Pencil::~Pencil() = default;
 
+void Pencil::setMedium(const Medium& medium)
+{
+    m_medium = medium;
+    for (auto& tip : m_tips)
+        tip.reset();
+}
+
 Pencil::FixedSample Pencil::toFixed(const PencilSample& s)
 {
     FixedSample f;
