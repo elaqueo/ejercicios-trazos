@@ -3,7 +3,8 @@
 // deshacer: un intento por ejercicio (alcance de v1). Los números quedan para la vista,
 // como en el Ejercicios anterior (5 volvía a 0°; 4 y 6, HU-40).
 //   → o el botón lateral del lápiz: siguiente ejercicio · R repite el mismo (HU-17) · F4 menú
-//   de ejercicios (HU-11) · F2 panel de configuración (HU-12) · Alt+F4 sale · Ctrl+N borra la hoja
+//   de ejercicios (HU-11) · F2 panel de configuración (HU-12) · G muestra u oculta las guías
+//   (HU-35) · Alt+F4 sale · Ctrl+N borra la hoja
 //   · el resto de las teclas, las del lienzo (lienzo/Lienzo.h): F5 lápices, F9 área útil, F10
 //   monitor, F3, [ ] tamaño, , . blandura, - = techo, Ctrl+S, F12. Todas en el registro
 //   único de atajos (HU-14).
@@ -17,6 +18,7 @@
 #include "exercises/Direccion.h"
 #include "exercises/Elipse.h"
 #include "exercises/ElipsePerspectiva.h"
+#include "exercises/Ghosting.h"
 #include "exercises/Hatching.h"
 #include "exercises/Parrafo.h"
 #include "exercises/Radiales.h"
@@ -88,10 +90,11 @@ int main(int argc, char* argv[])
     const ejercicios::Parrafo parrafo;
     const ejercicios::Cajas cajas;
     const ejercicios::CajasRotadas cajasRotadas;
+    const ejercicios::Ghosting ghosting;
     const QList<const ejercicios::Exercise*> exercises{&recta,   &hatching,     &radiales, &direccion,
                                                        &curva,   &elipse,       &concentricas, &elipsePerspectiva,
                                                        &cajas,   &cajasRotadas, &renglon,      &renglonCurvo,
-                                                       &parrafo};
+                                                       &parrafo, &ghosting};
     // Lo guardado (HU-13): el último ejercicio elegido y los parámetros de cada uno.
     config.remove(QStringLiteral("brush")); // del selector de pinceles de libmypaint (HU-68)
     const ejercicios::Exercise* first =
@@ -212,6 +215,8 @@ int main(int argc, char* argv[])
     });
     canvas.shortcuts().add(QStringLiteral("Ejercicio siguiente"), {{VK_RIGHT}}, [&session] { session.next(); });
     canvas.shortcuts().add(QStringLiteral("Repetir el ejercicio"), {{'R'}}, [&session] { session.repeat(); }); // HU-17
+    canvas.shortcuts().add(QStringLiteral("Mostrar u ocultar las guías"), {{'G'}}, // HU-35: comparar
+                           [&session] { session.toggleGuides(); });
     // Calibrar con F9 mueve la hoja: el mismo ejercicio, adaptado a la hoja nueva.
     canvas.setOnSheetChanged([&session] { session.regenerate(); });
     // El botón lateral del lápiz hace lo mismo que →, sin soltar el lápiz.

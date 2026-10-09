@@ -30,6 +30,18 @@ public:
     QPicture guides;
 };
 
+// Un ejercicio cuyas guías se ven 60 ms (ghosting).
+class Fugaz : public Recta {
+public:
+    QString id() const override { return QStringLiteral("fugaz"); }
+    Generated generate(const QVariantMap& params, quint32 seed, const SafeZone& zone) const override
+    {
+        Generated g = Recta::generate(params, seed, zone);
+        g.visibleMs = 60;
+        return g;
+    }
+};
+
 } // namespace
 
 class TestSession : public QObject {
@@ -258,6 +270,40 @@ private slots:
         QCOMPARE(mixedPool(all, {QStringLiteral("curva")}), (QList<const Exercise*>{&curva}));
         QCOMPARE(mixedPool(all, {}), all);
         QCOMPARE(mixedPool(all, {QStringLiteral("noExiste")}), all);
+    }
+
+    // HU-35: las guías se ven y se ocultan pasado el tiempo; G las muestra y las oculta; R
+    // las vuelve a mostrar y a ocultar. Los ejercicios sin tiempo no se ocultan solos.
+    void ghosting()
+    {
+        FakeCanvas canvas;
+        const Fugaz fugaz;
+        ExerciseSession session(&canvas, &fugaz);
+        session.regenerate();
+        QVERIFY(session.guidesVisible());
+        QVERIFY(!canvas.guides.isNull());
+        QTRY_VERIFY_WITH_TIMEOUT(!session.guidesVisible(), 2000);
+        QVERIFY(canvas.guides.isNull());
+
+        session.toggleGuides(); // G: comparar
+        QVERIFY(session.guidesVisible());
+        QVERIFY(!canvas.guides.isNull());
+        QTest::qWait(150);
+        QVERIFY(session.guidesVisible()); // mostradas con G, no se ocultan solas
+        session.toggleGuides();
+        QVERIFY(!session.guidesVisible());
+        QVERIFY(canvas.guides.isNull());
+
+        session.repeat(); // R: la misma forma otra vez, de memoria
+        QVERIFY(session.guidesVisible());
+        QTRY_VERIFY_WITH_TIMEOUT(!session.guidesVisible(), 2000);
+
+        const Recta recta;
+        session.setExercise(&recta);
+        QTest::qWait(150);
+        QVERIFY(session.guidesVisible());
+        session.toggleGuides(); // G sirve en cualquier ejercicio
+        QVERIFY(!session.guidesVisible());
     }
 
     // Regenerar (cambio de área) conserva la semilla y, con la misma área, el ejercicio; no

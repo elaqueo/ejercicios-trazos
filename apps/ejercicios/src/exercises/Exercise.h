@@ -56,8 +56,10 @@ struct Generated {
     // Geometría ideal, en coordenadas del lienzo: una ruta por trazo esperado. La v1
     // no la evalúa, pero se conserva para comparar el trazo en versiones futuras.
     QList<QPainterPath> ideal;
-    // Guías a mostrar, compuestas con appkit::guides (CanvasWidget::setGuides).
+    // Guías a mostrar, compuestas con appkit::guides (lienzo::Lienzo::setGuides).
     QPicture guides;
+    // Cuánto se ven las guías antes de ocultarse solas (ghosting, HU-35); 0 = siempre.
+    int visibleMs = 0;
 };
 
 class Exercise {

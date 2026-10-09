@@ -15,6 +15,8 @@ qt_add_library(ejercicios_core STATIC
     src/exercises/ElipsePerspectiva.cpp
     src/exercises/Exercise.h
     src/exercises/Exercise.cpp
+    src/exercises/Ghosting.h
+    src/exercises/Ghosting.cpp
     src/exercises/Hatching.h
     src/exercises/Hatching.cpp
     src/exercises/Cajas.h

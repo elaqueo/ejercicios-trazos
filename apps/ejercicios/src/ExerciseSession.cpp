@@ -24,6 +24,26 @@ ExerciseSession::ExerciseSession(ExerciseCanvas* canvas, const Exercise* exercis
     , m_seed(newSeed(0))
     , m_currentParams(params(exercise))
 {
+    m_hideTimer.setSingleShot(true);
+    connect(&m_hideTimer, &QTimer::timeout, this, &ExerciseSession::hideGuides);
+}
+
+void ExerciseSession::hideGuides()
+{
+    m_hideTimer.stop();
+    m_canvas->setGuides(QPicture());
+    m_guidesVisible = false;
+}
+
+void ExerciseSession::toggleGuides()
+{
+    if (m_guidesVisible) {
+        hideGuides();
+        return;
+    }
+    m_hideTimer.stop();
+    m_canvas->setGuides(m_current.guides);
+    m_guidesVisible = true;
 }
 
 QVariantMap ExerciseSession::params(const Exercise* exercise) const
@@ -109,6 +129,11 @@ void ExerciseSession::regenerate()
     zone.pixelsPerMm = m_canvas->pixelsPerMm();
     m_current = m_exercise->generate(m_currentParams, m_seed, zone);
     m_canvas->setGuides(m_current.guides);
+    m_guidesVisible = true;
+    if (m_current.visibleMs > 0)
+        m_hideTimer.start(m_current.visibleMs);
+    else
+        m_hideTimer.stop();
 }
 
 } // namespace ejercicios

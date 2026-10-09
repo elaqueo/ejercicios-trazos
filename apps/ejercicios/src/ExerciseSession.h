@@ -6,6 +6,7 @@
 #include <QHash>
 #include <QObject>
 #include <QRandomGenerator>
+#include <QTimer>
 #include <QStringList>
 
 #include <functional>
@@ -59,8 +60,14 @@ public:
     // Cambió el ejercicio en pantalla (el panel muestra sus parámetros).
     std::function<void()> onExerciseChanged;
     // Vuelve a generar con la misma semilla para el área útil actual (cuando cambia
-    // el área). No toca la tinta.
+    // el área). No toca la tinta. Muestra las guías; si el ejercicio lo pide
+    // (Generated::visibleMs), se ocultan solas pasado ese tiempo (ghosting, HU-35).
     void regenerate();
+
+    // G (HU-35): muestra u oculta las guías del ejercicio actual (para comparar el trazo con
+    // la forma). Mostradas así, quedan hasta la próxima G.
+    void toggleGuides();
+    bool guidesVisible() const { return m_guidesVisible; }
 
 private:
     ExerciseCanvas* m_canvas;
@@ -72,6 +79,9 @@ private:
     bool m_mixed = false;
     QList<const Exercise*> m_pool;
     QStringList m_recent; // ids de los últimos dos ejercicios, del más viejo al más nuevo
+    QTimer m_hideTimer;   // ghosting: oculta las guías
+    bool m_guidesVisible = false;
+    void hideGuides();
 };
 
 } // namespace ejercicios
