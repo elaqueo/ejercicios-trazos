@@ -3,12 +3,14 @@ add_library(drymedia STATIC
     include/drymedia/Contact.h
     include/drymedia/Medium.h
     include/drymedia/Paper.h
+    include/drymedia/Pencil.h
     include/drymedia/Tip.h
     src/Contact.cpp
     src/kernel.h
     src/kernel_avx2.cpp
     src/kernel_scalar.cpp
     src/Paper.cpp
+    src/Pencil.cpp
     src/Tip.cpp
 )
 target_include_directories(drymedia PUBLIC include)

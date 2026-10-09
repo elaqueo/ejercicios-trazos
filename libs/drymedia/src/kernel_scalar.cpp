@@ -37,8 +37,17 @@ void penetration(uint16_t* out, const uint16_t* surf, const uint16_t* tip, int n
         out[i] = subSat(surf[i], addSat(tip[i], d));
 }
 
+void deposit(uint16_t* dep, const uint16_t* pen, int n, uint16_t k)
+{
+    for (int i = 0; i < n; ++i) {
+        const uint32_t a = (uint32_t(pen[i]) * k) >> 16;
+        const uint32_t delta = (a * (65535u - dep[i])) >> 16;
+        dep[i] = addSat(dep[i], delta);
+    }
+}
+
 } // namespace
 
-const Impl kScalar{surface, force, penetration};
+const Impl kScalar{surface, force, penetration, deposit};
 
 } // namespace drymedia::kernel

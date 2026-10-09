@@ -35,6 +35,12 @@ public:
 
     const uint16_t* penetration() const { return m_penetration.data(); }
     const uint16_t* surface() const { return m_surface.data(); }
+
+    // Depósito de la huella copiado del papel en find(). applyDeposit() le suma el aporte
+    // de la penetración actual con el factor k (∝ distancia × blandura), saturando; el
+    // llamador lo vuelve a escribir en los tiles (Pencil).
+    const uint16_t* deposit() const { return m_deposit.data(); }
+    void applyDeposit(uint16_t k);
     uint32_t force() const { return m_force; }
     int cellsInContact() const;
 

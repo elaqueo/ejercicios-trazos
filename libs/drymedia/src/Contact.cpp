@@ -102,6 +102,11 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
     return depth;
 }
 
+void Contact::applyDeposit(uint16_t k)
+{
+    impl(m_path).deposit(m_deposit.data(), m_penetration.data(), Tip::kTipCells, k);
+}
+
 int Contact::cellsInContact() const
 {
     return int(std::count_if(m_penetration.begin(), m_penetration.end(), [](uint16_t v) { return v > 0; }));

@@ -50,8 +50,21 @@ void penetration(uint16_t* out, const uint16_t* surf, const uint16_t* tip, int n
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(out + i), penetrationOf(load(surf + i), load(tip + i), dv));
 }
 
+void deposit(uint16_t* dep, const uint16_t* pen, int n, uint16_t k)
+{
+    const __m256i kv = _mm256_set1_epi16(static_cast<short>(k));
+    const __m256i full = _mm256_set1_epi16(-1); // 65535
+    for (int i = 0; i < n; i += 16) {
+        __m256i* dp = reinterpret_cast<__m256i*>(dep + i);
+        const __m256i dcur = _mm256_loadu_si256(dp);
+        const __m256i a = _mm256_mulhi_epu16(load(pen + i), kv);                   // (p·k) >> 16
+        const __m256i delta = _mm256_mulhi_epu16(a, _mm256_sub_epi16(full, dcur)); // (a·(65535−dep)) >> 16
+        _mm256_storeu_si256(dp, _mm256_adds_epu16(dcur, delta));
+    }
+}
+
 } // namespace
 
-const Impl kAvx2{surface, force, penetration};
+const Impl kAvx2{surface, force, penetration, deposit};
 
 } // namespace drymedia::kernel
