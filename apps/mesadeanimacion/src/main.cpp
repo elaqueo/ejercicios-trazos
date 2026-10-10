@@ -2,8 +2,8 @@
 // (docs/mesa-de-animacion/idea.md y requerimientos.md). Corre sobre el lienzo de libs/lienzo,
 // como Cartuchera; las teclas comunes están en lienzo/Lienzo.h.
 // HU-84: el armazón. HU-87: Insert, Ctrl+D, Ctrl+N y Supr manejan las hojas, con deshacer.
-// El resto de la Fase 1 (flip, mesa de luz, papel de animación, grafito único, toma
-// guardada) entra en las historias que siguen.
+// HU-90: ← → flipean. El resto de la Fase 1 (mesa de luz, papel de animación, grafito único,
+// toma guardada) entra en las historias que siguen.
 
 #include <appkit/Config.h>
 #include <appkit/ConfirmOverlay.h>
@@ -43,6 +43,10 @@ int main(int argc, char* argv[])
     canvas.shortcuts().setColumns({{Lienzo::kGroupLead}, {Lienzo::kGroupSheet, Lienzo::kGroupView},
                                    {groupSheets, Lienzo::kGroupScreen}});
     canvas.shortcuts().setGroup(groupSheets);
+    // Flip (HU-90): mantener la flecha recorre la pila; al soltarla, la hoja que se ve queda activa.
+    canvas.shortcuts().add(QStringLiteral("Hoja anterior"), {{VK_LEFT}}, [&canvas] { canvas.flip(-1); });
+    canvas.shortcuts().add(QStringLiteral("Hoja siguiente"), {{VK_RIGHT}}, [&canvas] { canvas.flip(1); });
+    canvas.shortcuts().joinWithPrevious(QStringLiteral("Flip"));
     const auto logSheet = [&canvas](const char* what) {
         qInfo().noquote() << QStringLiteral("Hojas: %1 · hoja %2 de %3")
                                  .arg(QString::fromUtf8(what))

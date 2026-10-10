@@ -2,6 +2,7 @@
 #include <lienzo/Cursor.h>
 #include <lienzo/LeadPicker.h>
 #include <lienzo/Media.h>
+#include <lienzo/Renderer.h>
 #include <lienzo/DisplayImage.h>
 #include <lienzo/SampleQueue.h>
 #include <lienzo/SheetStack.h>
@@ -819,6 +820,86 @@ private slots:
         QCOMPARE(sim.activeSheet(), 0);
         sim.stop();
         QCOMPARE(paper.hash(), paper.reliefHash());
+    }
+
+    // HU-90: un pedido de la pila se atiende entre las muestras que llegaron antes y las que
+    // llegaron después, aunque vengan en el mismo lote: soltar la flecha y apoyar el lápiz
+    // enseguida dibuja en la hoja nueva.
+    void simulacionOrdenaPedidosYMuestras()
+    {
+        drymedia::Paper paper({.seed = 3, .widthMm = 80, .heightMm = 60});
+        SheetStack stack(Simulation::kUndoLimit);
+        SampleQueue queue;
+        DisplayImage image;
+        image.width = 400;
+        image.height = 300;
+        image.pixels.resize(size_t(image.width) * size_t(image.height));
+        const SheetMapping mapping = SheetMapping::fit(image.width, image.height, paper.width(), paper.height());
+        Simulation sim(paper, stack, queue, image, mapping);
+        sim.renderAll();
+        QCOMPARE(image.sheet, uint64_t(1));
+        const auto stroke = [&](int y) {
+            std::vector<tabletinput::PenSample> samples;
+            for (int i = 0; i <= 20; ++i) {
+                tabletinput::PenSample s;
+                s.x = mapping.sheetX + 50 + 10 * i;
+                s.y = mapping.sheetY + y;
+                s.pressure = 0.6f;
+                s.altitude = 80;
+                s.inContact = true;
+                s.timeUs = 1000 * (i + 1);
+                samples.push_back(s);
+            }
+            samples.push_back(samples.back());
+            samples.back().inContact = false;
+            return samples;
+        };
+
+        // Todo antes de arrancar: llega en un solo lote.
+        sim.requestAddSheet(1);
+        queue.push(stroke(60)); // en la hoja 1, la activa
+        sim.requestActivateSheet(1);
+        queue.push(stroke(160)); // en la 2
+        sim.start();
+        QTRY_COMPARE(sim.sheetState().applied, uint64_t(2));
+        sim.stop();
+
+        QCOMPARE(sim.activeSheet(), 1);
+        QVERIFY(stack.hash(paper, 0) != paper.reliefHash());
+        QVERIFY(stack.hash(paper, 1) != paper.reliefHash());
+        QCOMPARE(image.sheet, stack.order().activeId());
+        // La 1 salió con su trazo ya en la imagen.
+        QCOMPARE(image.retired.size(), size_t(1));
+        const auto& left = image.retired[0].pixels;
+        QVERIFY(std::any_of(left.begin(), left.end(), [](uint32_t px) { return px != kPaperColor; }));
+    }
+
+    // HU-90: la región de la hoja sale de la imagen de pantalla cuando ya tiene entera la
+    // hoja pedida; si no (flip, o la imagen a medio subir después de soltar), de la textura
+    // de esa hoja, o en blanco si nunca estuvo activa.
+    void fuenteDeLaHoja()
+    {
+        SheetSource s;
+        s.latched(1, true, true); // al arrancar: la 1, a medio subir
+        QCOMPARE(s.uploaded(), uint64_t(0));
+        QCOMPARE(s.pick(0, false), SheetSource::Image);
+        QCOMPARE(s.pick(1, false), SheetSource::Image); // sin textura: mejor a medio subir
+        QCOMPARE(s.pick(1, true), SheetSource::Texture);
+        s.latched(1, true, false);
+        QCOMPARE(s.uploaded(), uint64_t(1));
+        QCOMPARE(s.pick(1, true), SheetSource::Image);
+        QCOMPARE(s.pick(2, true), SheetSource::Texture); // flip a la 2
+        QCOMPARE(s.pick(3, false), SheetSource::Blank);
+        s.latched(1, true, false); // un trazo en la 1: sigue entera
+        s.latched(1, false, false);
+        QCOMPARE(s.uploaded(), uint64_t(1));
+
+        s.latched(2, true, true); // se soltó en la 2: la imagen empieza a ser la 2
+        QCOMPARE(s.uploaded(), uint64_t(0));
+        QCOMPARE(s.pick(2, true), SheetSource::Texture);
+        QCOMPARE(s.pick(1, true), SheetSource::Texture); // la imagen ya no es la 1
+        s.latched(2, true, false);
+        QCOMPARE(s.pick(2, true), SheetSource::Image);
     }
 
     // HU-82: la simulación atiende la pila en su hilo y el trazo cae en la hoja activa.

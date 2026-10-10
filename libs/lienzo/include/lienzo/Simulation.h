@@ -76,8 +76,9 @@ public:
     }
     static constexpr int kUndoLimit = 100; // decisión del 10 de octubre de 2026
 
-    // Pila de hojas (HU-82): se atienden en el hilo de simulación, en orden y después de las
-    // muestras que ya llegaron (el trazo en curso se cierra). Cambiar la hoja del papel
+    // Pila de hojas (HU-82): se atienden en el hilo de simulación, en orden, justo entre las
+    // muestras que ya habían llegado y las que llegan después (HU-90; el trazo en curso se
+    // cierra). Cambiar la hoja del papel
     // repinta la imagen entera. Insertar, duplicar, limpiar y quitar se deshacen con Z
     // (HU-87, si hay deshacer).
     void requestAddSheet(int at) { pushSheetCommand({SheetCommand::Add, at, 0}); }
@@ -167,6 +168,7 @@ private:
     struct SheetCommand {
         enum Kind { Add, Insert, Duplicate, Clear, Remove, Move, Activate } kind;
         int a = 0, b = 0;
+        uint64_t sample = 0; // cuántas muestras habían entrado a la cola (HU-90)
     };
     void pushSheetCommand(SheetCommand command);
     bool applySheetCommand(const SheetCommand& command); // true si cambió la hoja del papel

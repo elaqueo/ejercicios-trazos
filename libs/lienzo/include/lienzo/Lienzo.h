@@ -30,9 +30,12 @@ namespace lienzo {
 class Shell : public QWidget {
 public:
     std::function<void(UINT, bool)> onKey;
+    std::function<void(UINT)> onKeyUp; // al soltar (HU-90); 0 = perdió el foco
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
 };
 
 // El monitor guardado ("monitor", sección común de config.json) si está conectado; si no,
@@ -123,6 +126,12 @@ public:
     };
     void setUnderlays(const std::vector<Underlay>& underlays);
     void showSheet(int index);
+    // Flip (HU-90): la hoja anterior (step = -1) o la siguiente (+1) se muestra sin activarla
+    // (desde su textura en la GPU: no se repinta nada) y, al soltar la tecla del atajo, pasa a
+    // ser la activa. Mientras tanto el lápiz no dibuja y la mesa de luz no se ve. En los
+    // extremos de la pila se queda. Va en el atajo de la tecla (la app elige cuál).
+    void flip(int step);
+    bool flipping() const;
     // Panel de configuración (HU-12): agrega las pestañas del lienzo ("Lápiz": mina activa y
     // goma; "Pantalla": área útil y monitor) y lo muestra pegado al borde derecho del área
     // útil.

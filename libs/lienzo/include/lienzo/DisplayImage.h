@@ -28,6 +28,7 @@ struct DisplayImage {
     int64_t newestSampleUs = 0; // tiempo (µs de QPC) de la muestra más nueva dibujada
     uint64_t sampleVersion = 0; // sube cada vez que entra una muestra nueva
     std::vector<RetiredSheet> retired; // hojas que salieron, para el render (HU-83)
+    uint64_t sheet = 0; // de qué hoja es la imagen (id de SheetOrder; cambia con la imagen entera, HU-90)
 
     void markDirty(int x0, int y0, int x1, int y1)
     {

@@ -74,10 +74,11 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | F3 · F9 · F10 · F12 | Latencia · calibrar el área útil · monitor siguiente · captura | Igual |
 | Alt+F4 | Salir | Salir |
 
-**Mesa de animación** (en construcción): las teclas del lienzo, como Cartuchera, más las de las hojas (HU-87). Todas se deshacen con Z.
+**Mesa de animación** (en construcción): las teclas del lienzo, como Cartuchera, más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
 
 | Tecla | Qué hace |
 | --- | --- |
+| ← / → | Flip: mantener la flecha muestra la hoja anterior o la siguiente; al soltarla, esa hoja queda activa. Mientras tanto el lápiz no dibuja y la mesa de luz no se ve |
 | Insert | Hoja nueva en blanco después de la activa, que pasa a ser la activa |
 | Ctrl+D | Duplicar la activa: la copia queda después y pasa a ser la activa |
 | Ctrl+N | Limpiar la hoja activa |

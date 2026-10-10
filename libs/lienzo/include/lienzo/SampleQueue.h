@@ -4,6 +4,7 @@
 
 #include <windows.h>
 
+#include <cstdint>
 #include <mutex>
 #include <vector>
 
@@ -28,16 +29,26 @@ public:
         {
             std::lock_guard lock(m_mutex);
             m_samples.insert(m_samples.end(), samples.begin(), samples.end());
+            m_pushed += samples.size();
         }
         SetEvent(m_event);
     }
 
-    // Deja en out todo lo encolado (y vacía la cola).
-    void takeAll(std::vector<tabletinput::PenSample>& out)
+    // Cuántas muestras entraron desde el principio: el número de orden de la próxima (HU-90,
+    // para ubicar los pedidos de la pila entre las muestras).
+    uint64_t pushed() const
+    {
+        std::lock_guard lock(m_mutex);
+        return m_pushed;
+    }
+
+    // Deja en out todo lo encolado (y vacía la cola). Devuelve el número de orden de out[0].
+    uint64_t takeAll(std::vector<tabletinput::PenSample>& out)
     {
         out.clear();
         std::lock_guard lock(m_mutex);
         out.swap(m_samples);
+        return m_pushed - out.size();
     }
 
     // Espera hasta que haya muestras (o pase timeoutMs). También la despierta wake().
@@ -45,8 +56,9 @@ public:
     void wake() { SetEvent(m_event); }
 
 private:
-    std::mutex m_mutex;
+    mutable std::mutex m_mutex;
     std::vector<tabletinput::PenSample> m_samples;
+    uint64_t m_pushed = 0;
     HANDLE m_event;
 };
 

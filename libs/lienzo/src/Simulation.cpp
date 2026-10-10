@@ -116,10 +116,12 @@ void Simulation::renderAll()
     renderTone(m_paper, m_mapping, 0, 0, m_image.width, m_image.height, m_image.pixels.data(), guides(),
                m_texture.shade());
     m_image.markDirty(0, 0, m_image.width, m_image.height);
+    m_image.sheet = m_sheets.order().activeId();
 }
 
 void Simulation::pushSheetCommand(SheetCommand command)
 {
+    command.sample = m_queue.pushed(); // las muestras y los pedidos llegan del mismo hilo
     {
         std::lock_guard lock(m_sheetMutex);
         m_sheetCommands.push_back(command);
@@ -199,6 +201,7 @@ void Simulation::renderAllParallel()
     for (std::thread& th : pool)
         th.join();
     m_image.markDirty(x0, top, x1, bottom);
+    m_image.sheet = m_sheets.order().activeId();
     m_activationMs = time.ms();
 }
 
@@ -303,14 +306,15 @@ void Simulation::run()
             eraser.setMedium(Eraser::unpack(eraserParams).medium());
         }
 
-        // Los pedidos de la pila se toman antes que las muestras y se atienden después: así
-        // toda muestra que llegó antes que un pedido se dibuja antes de atenderlo.
+        // Las muestras y después los pedidos de la pila: cada pedido sabe cuántas muestras
+        // habían llegado cuando se hizo y se atiende justo entre esas y las siguientes, aunque
+        // lleguen en el mismo lote (HU-90: soltar la flecha y apoyar el lápiz enseguida).
+        const uint64_t firstSample = m_queue.takeAll(samples);
         std::vector<SheetCommand> sheetCommands;
         {
             std::lock_guard lock(m_sheetMutex);
             sheetCommands.swap(m_sheetCommands);
         }
-        m_queue.takeAll(samples);
         ViewRotation rotation;
         {
             std::lock_guard rotationLock(m_rotationMutex);
@@ -319,7 +323,44 @@ void Simulation::run()
         const Stopwatch batch;
         drymedia::DirtyRect dirty;
         int64_t newest = 0;
-        for (const tabletinput::PenSample& s : samples) {
+        // Lo dibujado hasta acá, a la imagen.
+        const auto paint = [&] {
+            int px0 = 0, py0 = 0, px1 = 0, py1 = 0;
+            const bool any =
+                !dirty.empty() && m_mapping.pixelsOfCells(dirty.x0, dirty.y0, dirty.x1, dirty.y1, px0, py0, px1, py1);
+            std::lock_guard lock(m_image.mutex);
+            const Stopwatch held;
+            if (any) {
+                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides(), m_texture.shade());
+                m_image.markDirty(px0, py0, px1, py1);
+            }
+            if (newest) {
+                m_image.newestSampleUs = newest;
+                ++m_image.sampleVersion;
+            }
+            if (m_timings && any)
+                m_timings->simLockHeld.add(held.ms());
+            dirty = {};
+            newest = 0;
+        };
+        // Después de cada cosa que cambia la hoja del papel se repinta, antes de la siguiente:
+        // la imagen tiene que ser siempre la de la activa.
+        const auto applyCommand = [&](const SheetCommand& c) {
+            endStroke();
+            if (applySheetCommand(c))
+                sheetChanged();
+            ++m_applied;
+        };
+        size_t nextCommand = 0;
+        for (size_t i = 0; i < samples.size(); ++i) {
+            // Los pedidos hechos antes de esta muestra, con lo anterior ya en la imagen (así la
+            // hoja que sale deja su imagen con todos sus trazos, HU-83).
+            for (; nextCommand < sheetCommands.size() && sheetCommands[nextCommand].sample <= firstSample + i;
+                 ++nextCommand) {
+                paint();
+                applyCommand(sheetCommands[nextCommand]);
+            }
+            const tabletinput::PenSample& s = samples[i];
             // Las muestras ya llegan en coordenadas del cliente (CanvasWindow resta su esquina);
             // el mapeo las pasa a celdas de la hoja (a escala de la tableta, HU-52).
             double ix = s.x, iy = s.y;
@@ -350,34 +391,15 @@ void Simulation::run()
         }
         const double pencilMs = batch.ms();
         m_wearPercent = pencil.wear().percent();
-
-
-        int px0 = 0, py0 = 0, px1 = 0, py1 = 0;
-        const bool any = !dirty.empty() && m_mapping.pixelsOfCells(dirty.x0, dirty.y0, dirty.x1, dirty.y1, px0, py0, px1, py1);
-        {
-            std::lock_guard lock(m_image.mutex);
-            const Stopwatch held;
-            if (any) {
-                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides(), m_texture.shade());
-                m_image.markDirty(px0, py0, px1, py1);
-            }
-            if (newest) {
-                m_image.newestSampleUs = newest;
-                ++m_image.sampleVersion;
-            }
-            if (m_timings && any)
-                m_timings->simLockHeld.add(held.ms());
-        }
+        paint();
         if (m_timings && !samples.empty()) {
             m_timings->simPencil.add(pencilMs);
             m_timings->simBatch.add(batch.ms());
         }
 
-        // Al final del lote, con las muestras ya en la imagen (así la hoja que sale deja su
-        // imagen con todos sus trazos, HU-83): deshacer y rehacer (si llegan en medio de un
-        // trazo, primero se cierra el trazo y deshacer lo borra entero) y los pedidos de la
-        // pila. Después de cada cosa que cambia la hoja del papel se repinta, antes de la
-        // siguiente: la imagen tiene que ser siempre la de la activa.
+        // Al final del lote: deshacer y rehacer (si llegan en medio de un trazo, primero se
+        // cierra el trazo y deshacer lo borra entero) y los pedidos que llegaron después de la
+        // última muestra.
         const int undos = m_undoRequests.exchange(0), redos = m_redoRequests.exchange(0);
         if (undos || redos) {
             const Stopwatch undoTime;
@@ -399,12 +421,8 @@ void Simulation::run()
             if (m_timings)
                 m_timings->simUndo.add(undoTime.ms());
         }
-        for (const SheetCommand& c : sheetCommands) {
-            endStroke();
-            if (applySheetCommand(c))
-                sheetChanged();
-            ++m_applied;
-        }
+        for (; nextCommand < sheetCommands.size(); ++nextCommand)
+            applyCommand(sheetCommands[nextCommand]);
         publishSheetState();
     }
 }

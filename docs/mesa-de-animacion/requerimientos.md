@@ -22,7 +22,7 @@ El flip es el producto; lo demás son restricciones heredadas de Cartuchera.
 
 | ID | Requerimiento | Criterio de verificación |
 | --- | --- | --- |
-| RNF-01 | Flip instantáneo | Al apretar ← o →, la hoja nueva está en pantalla en el frame siguiente: menos de 17 ms a 60 Hz desde la tecla hasta la presentación, medido con las estadísticas de F3; también manteniendo la tecla apretada (autorepetición) y con el anillo |
+| RNF-01 | Flip instantáneo | Al apretar ← o →, la hoja nueva está en pantalla en el frame siguiente: a 60 Hz, de la tecla al Present va de 0 a 16,7 ms según en qué momento del frame cae, más la composición (< 1 ms), así que menos de 18 ms; queda en el log ("Flip presentado en …"). También manteniendo la tecla apretada (autorepetición) y con el anillo |
 | RNF-02 | Pila en memoria | Una toma de 120 hojas (5 segundos en unos a 24 fps) abierta entera: el estado de simulación de todas las hojas en RAM (≈ 1,1 GB con los lápices de color, por el recorte del medio, ver [spikes/flip.md](spikes/flip.md)) y su imagen en la GPU (≈ 7 MB por hoja), sin que el flip se degrade con el tamaño de la pila |
 | RNF-03 | Mesa de luz sin demora perceptible | Al soltar la tecla, las hojas teñidas aparecen en menos de 50 ms; mientras se flipea no se compone nada |
 | RNF-04 | Dibujar como en Cartuchera | La latencia del trazo sobre la hoja activa es la de Cartuchera (mediana ≈ 12 ms en F3); la pila no suma trabajo al hilo de simulación |

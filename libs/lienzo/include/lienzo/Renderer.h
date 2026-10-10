@@ -22,6 +22,39 @@ struct SheetLayer {
     float opacity = 1;
 };
 
+// Qué se ve en la región de la hoja (HU-90). La imagen de pantalla es la de la hoja activa,
+// pero el render la sube de a partes (al cambiar de hoja, unos 10 frames): mientras no esté
+// entera, la hoja pedida se ve desde su textura. Sin GPU, para las pruebas.
+class SheetSource {
+public:
+    enum Kind { Image, Texture, Blank };
+    // Cada vez que el render toma la imagen: de qué hoja es y si le quedaba algo por subir
+    // antes y después de este frame.
+    void latched(uint64_t imageSheet, bool pendingBefore, bool pendingAfter)
+    {
+        if (pendingBefore && imageSheet != m_uploaded)
+            m_uploaded = 0; // empezó a subir otra hoja
+        if (!pendingAfter)
+            m_uploaded = imageSheet;
+        m_image = imageSheet;
+    }
+    // La hoja cuya imagen ya está entera en la GPU (0 = ninguna).
+    uint64_t uploaded() const { return m_uploaded; }
+    // shown: la hoja pedida (0 = la activa: lo que tenga la imagen); hasTexture: si esa hoja
+    // tiene textura.
+    Kind pick(uint64_t shown, bool hasTexture) const
+    {
+        if (!shown || shown == m_uploaded)
+            return Image;
+        if (hasTexture)
+            return Texture;
+        return shown == m_image ? Image : Blank; // a medio subir es mejor que en blanco
+    }
+
+private:
+    uint64_t m_uploaded = 0, m_image = 0;
+};
+
 // Hilo de render (spike HU-44): swapchain D3D11 FLIP_DISCARD con latencia 1 y waitable,
 // render justo a tiempo con adelanto adaptativo (LeadController). Cada frame sube a la GPU
 // solo lo que cambió de la imagen de pantalla. Mide la latencia muestra → vsync con
@@ -52,19 +85,30 @@ public:
 
     // Pila de hojas (HU-83). Cada hoja que deja de ser la activa llega en la imagen de
     // pantalla (DisplayImage::retired) y queda en una textura de la GPU, por id. La hoja que
-    // se muestra es la activa (shown = 0) u otra por id (el flip, HU-90); `below` son las de
-    // abajo, teñidas (la mesa de luz). Sin otra hoja ni capas, el render es el de siempre.
+    // se muestra es la activa (shown = 0) u otra por id (el flip, HU-90; ver SheetSource);
+    // `below` son las de abajo, teñidas (la mesa de luz). Sin otra hoja ni capas, el render es
+    // el de siempre. untilActive: `shown` es la que va a ser la activa (al soltar el flip): se
+    // ve desde su textura hasta que la imagen la tenga entera, y de ahí en más, la activa.
     void setSheetRect(const RECT& sheet)
     {
         std::lock_guard lock(m_layersMutex);
         m_sheetRect = sheet;
     }
-    void setLayers(uint64_t shown, std::vector<SheetLayer> below)
+    void setLayers(uint64_t shown, std::vector<SheetLayer> below, bool untilActive = false)
     {
         std::lock_guard lock(m_layersMutex);
+        if (shown && shown != m_shown && !untilActive && !m_flipQpc) { // un flip: se mide hasta el Present
+            LARGE_INTEGER now;
+            QueryPerformanceCounter(&now);
+            m_flipQpc = now.QuadPart;
+        }
         m_shown = shown;
+        m_untilActive = untilActive;
         m_below = std::move(below);
     }
+    // Cada flip presentado (HU-90): ms desde setLayers hasta el Present. En el hilo de render;
+    // llamar antes de start().
+    void setOnFlip(std::function<void(double ms)> callback) { m_onFlip = std::move(callback); }
     void dropSheet(uint64_t sheet)
     {
         std::lock_guard lock(m_layersMutex);
@@ -91,6 +135,9 @@ private:
     std::mutex m_layersMutex;
     RECT m_sheetRect{};
     uint64_t m_shown = 0;
+    bool m_untilActive = false;
+    int64_t m_flipQpc = 0; // cuándo se pidió el flip que todavía no se presentó
+    std::function<void(double)> m_onFlip;
     std::vector<SheetLayer> m_below;
     std::vector<uint64_t> m_dropped;
 };

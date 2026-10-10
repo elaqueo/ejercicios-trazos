@@ -123,6 +123,19 @@ void Shell::keyPressEvent(QKeyEvent* event)
         onKey(UINT(event->nativeVirtualKey()), event->modifiers().testFlag(Qt::ControlModifier));
 }
 
+void Shell::keyReleaseEvent(QKeyEvent* event)
+{
+    if (onKeyUp && !event->isAutoRepeat())
+        onKeyUp(UINT(event->nativeVirtualKey()));
+}
+
+void Shell::focusOutEvent(QFocusEvent* event)
+{
+    QWidget::focusOutEvent(event);
+    if (onKeyUp)
+        onKeyUp(0);
+}
+
 QScreen* savedScreen(const appkit::Config& config)
 {
     const QList<QScreen*> screens = QGuiApplication::screens();
@@ -177,8 +190,16 @@ struct Lienzo::Impl {
             order = state.order;
         return order;
     }
-    void requestUndo() { post([this] { sim->requestUndo(); }); }
-    void requestRedo() { post([this] { sim->requestRedo(); }); }
+    void requestUndo()
+    {
+        beforeSheetChange();
+        post([this] { sim->requestUndo(); });
+    }
+    void requestRedo()
+    {
+        beforeSheetChange();
+        post([this] { sim->requestRedo(); });
+    }
     SampleQueue queue;
     MediaFile media;
     appkit::Shortcuts shortcuts;
@@ -260,11 +281,86 @@ struct Lienzo::Impl {
             return;
         syncOrder();
         std::vector<SheetLayer> below;
-        for (const Lienzo::Underlay& u : underlays)
-            if (order.valid(u.index) && u.index != order.active)
-                below.push_back({order.ids[size_t(u.index)], u.color, u.opacity});
-        const uint64_t shown = order.valid(shownSheet) && shownSheet != order.active ? order.ids[size_t(shownSheet)] : 0;
-        render->setLayers(shown, std::move(below));
+        if (!flipping()) // mientras se flipea, la mesa de luz no se ve (HU-90)
+            for (const Lienzo::Underlay& u : underlays)
+                if (order.valid(u.index) && u.index != order.active)
+                    below.push_back({order.ids[size_t(u.index)], u.color, u.opacity});
+        uint64_t shown = 0;
+        bool untilActive = false;
+        if (order.valid(shownSheet) && (flipping() || shownSheet != order.active))
+            shown = order.ids[size_t(shownSheet)];
+        else if (releasedTo) {
+            shown = releasedTo;
+            untilActive = true;
+        }
+        render->setLayers(shown, std::move(below), untilActive);
+    }
+
+    // Flip (HU-90): mientras haya una tecla de flip apretada se muestra shownSheet; al soltar
+    // la última, esa hoja se activa y el render la sigue mostrando desde su textura hasta que
+    // la imagen de pantalla la tenga entera (releasedTo).
+    std::vector<UINT> flipKeys; // las teclas de flip que siguen apretadas
+    UINT pressedKey = 0;        // la tecla cuyo atajo se está atendiendo
+    uint64_t releasedTo = 0;
+    bool flipping() const { return !flipKeys.empty(); }
+    void flip(int step)
+    {
+        SheetOrder& o = syncOrder();
+        const bool starting = !flipping();
+        if (starting) {
+            releasedTo = 0;
+            shownSheet = o.active;
+            canvas->setPenBlocked(true);
+        }
+        if (pressedKey && std::find(flipKeys.begin(), flipKeys.end(), pressedKey) == flipKeys.end())
+            flipKeys.push_back(pressedKey);
+        const int next = shownSheet + step;
+        const bool moved = o.valid(next); // en los extremos se queda
+        if (moved) {
+            shownSheet = next;
+            qInfo().noquote() << QStringLiteral("Flip: hoja %1 de %2").arg(next + 1).arg(o.count);
+        }
+        if (starting || moved)
+            applyLayers();
+        if (!flipping()) // sin tecla (una llamada suelta): se suelta enseguida
+            endFlip();
+    }
+    void keyUp(UINT vk)
+    {
+        if (!flipping())
+            return;
+        if (vk == 0)
+            flipKeys.clear();
+        else
+            flipKeys.erase(std::remove(flipKeys.begin(), flipKeys.end(), vk), flipKeys.end());
+        if (!flipping())
+            endFlip();
+    }
+    void endFlip()
+    {
+        flipKeys.clear();
+        canvas->setPenBlocked(false);
+        SheetOrder& o = syncOrder();
+        const int target = shownSheet;
+        shownSheet = -1;
+        if (o.valid(target) && target != o.active) {
+            o.activate(target);
+            releasedTo = o.ids[size_t(target)];
+            post([this, target] { sim->requestActivateSheet(target); });
+            qInfo().noquote() << QStringLiteral("Flip: activa la hoja %1 de %2").arg(target + 1).arg(o.count);
+        }
+        applyLayers();
+    }
+    // Antes de otro cambio de la pila (o deshacer): el flip termina y la hoja soltada deja de
+    // esperarse (si la imagen pasa a ser de otra hoja, el render la esperaría para siempre).
+    void beforeSheetChange()
+    {
+        if (flipping())
+            endFlip();
+        if (releasedTo) {
+            releasedTo = 0;
+            applyLayers();
+        }
     }
 
     ViewRotation rotation() const
@@ -573,9 +669,16 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     d->restoreState();
 
     registerShortcuts();
-    const auto dispatch = [impl = d.get()](UINT vk, bool ctrl) { impl->shortcuts.trigger(vk, ctrl); };
+    const auto dispatch = [impl = d.get()](UINT vk, bool ctrl) {
+        impl->pressedKey = vk; // el flip (HU-90) anota qué tecla soltar
+        impl->shortcuts.trigger(vk, ctrl);
+        impl->pressedKey = 0;
+    };
+    const auto keyUp = [impl = d.get()](UINT vk) { impl->keyUp(vk); };
     shell.onKey = dispatch;
+    shell.onKeyUp = keyUp;
     d->canvas = std::make_unique<CanvasWindow>(reinterpret_cast<HWND>(shell.winId()), d->queue, dispatch);
+    d->canvas->setOnKeyUp(keyUp);
 
     // Área útil: la de la familia de apps (sección común de config.json), la que se calibra
     // con F9.
@@ -589,6 +692,9 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     d->render->setRotation(d->rotation()); // el giro guardado (HU-13)
     d->render->setSheetRect(d->sheetRect());
     d->render->setExtraInfo([impl = d.get()] { return impl->overlayText(); });
+    d->render->setOnFlip([](double ms) { // RNF-01 (HU-90): lo verifica scripts/smoke.ps1
+        qInfo().noquote() << QStringLiteral("Flip presentado en %1 ms").arg(ms, 0, 'f', 1);
+    });
     if (!d->area)
         d->render->setOverlay(true); // el aviso tiene que verse sin apretar nada
 
@@ -719,7 +825,10 @@ void Lienzo::registerShortcuts()
 
     keys.setGroup(kGroupSheet);
     if (d->options.sheets) // con la pila, limpiar la hoja se deshace (HU-87)
-        keys.add(QStringLiteral("Limpiar la hoja"), {{'N', true}}, [impl] { impl->post([impl] { impl->sim->requestClearSheet(); }); });
+        keys.add(QStringLiteral("Limpiar la hoja"), {{'N', true}}, [impl] {
+            impl->beforeSheetChange();
+            impl->post([impl] { impl->sim->requestClearSheet(); });
+        });
     else
         keys.add(QStringLiteral("Hoja nueva"), {{'N', true}}, [this] { clear(); });
     if (d->options.undo) {
@@ -852,12 +961,14 @@ bool Lienzo::activeSheetBlank() const
 
 void Lienzo::addSheet(int at)
 {
+    d->beforeSheetChange();
     d->syncOrder().add(at);
     d->post([&] { d->sim->requestAddSheet(at); });
 }
 
 void Lienzo::insertSheet()
 {
+    d->beforeSheetChange();
     SheetOrder& order = d->syncOrder();
     order.add(order.active + 1);
     order.activate(order.active + 1);
@@ -866,6 +977,7 @@ void Lienzo::insertSheet()
 
 void Lienzo::duplicateSheet()
 {
+    d->beforeSheetChange();
     SheetOrder& order = d->syncOrder();
     order.add(order.active + 1);
     order.activate(order.active + 1);
@@ -874,6 +986,7 @@ void Lienzo::duplicateSheet()
 
 void Lienzo::removeSheet(int index)
 {
+    d->beforeSheetChange();
     SheetOrder& order = d->syncOrder();
     if (!order.valid(index) || !order.remove(index))
         return;
@@ -888,12 +1001,24 @@ void Lienzo::setUnderlays(const std::vector<Underlay>& underlays)
 
 void Lienzo::showSheet(int index)
 {
+    d->beforeSheetChange();
     d->shownSheet = index;
     d->applyLayers();
 }
 
+void Lienzo::flip(int step)
+{
+    d->flip(step);
+}
+
+bool Lienzo::flipping() const
+{
+    return d->flipping();
+}
+
 void Lienzo::moveSheet(int from, int to)
 {
+    d->beforeSheetChange();
     SheetOrder& order = d->syncOrder();
     if (!order.valid(from) || !order.valid(to) || from == to)
         return;
@@ -903,6 +1028,7 @@ void Lienzo::moveSheet(int from, int to)
 
 void Lienzo::activateSheet(int index)
 {
+    d->beforeSheetChange();
     SheetOrder& order = d->syncOrder();
     if (!order.valid(index) || index == order.active)
         return;

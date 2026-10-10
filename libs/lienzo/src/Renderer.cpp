@@ -110,6 +110,7 @@ struct Renderer::Impl {
     ComPtr<ID3D11ShaderResourceView> composedView;
     std::unordered_map<uint64_t, SheetTexture> sheets;
     SheetTexture blank; // una hoja que nunca estuvo activa: papel liso
+    SheetSource sheetSource; // la imagen o la textura de la hoja (HU-90)
     HANDLE waitable = nullptr, timer = nullptr;
     HDC statsDc = nullptr;
     HBITMAP statsBitmap = nullptr;
@@ -454,7 +455,8 @@ void Renderer::run()
             std::unique_lock lock(m_image.mutex, std::try_to_lock);
             if (m_timings)
                 m_timings->renderLockBusy.add(lock.owns_lock() ? 0.0 : 1.0);
-            if (lock.owns_lock() && m_image.hasDirty) {
+            const bool pendingBefore = lock.owns_lock() && m_image.hasDirty;
+            if (pendingBefore) {
                 RECT& r = m_image.dirty;
                 const LONG width = r.right - r.left;
                 const LONG rows = std::max<LONG>(1, std::min<LONG>(r.bottom - r.top, kUploadBudget / std::max<LONG>(1, width)));
@@ -467,6 +469,8 @@ void Renderer::run()
                 r.top += rows;
                 m_image.hasDirty = r.top < r.bottom;
             }
+            if (lock.owns_lock())
+                d.sheetSource.latched(m_image.sheet, pendingBefore, m_image.hasDirty);
             if (lock.owns_lock() && !m_image.retired.empty())
                 retired.swap(m_image.retired); // se suben afuera del candado
             // La muestra más nueva cuenta como mostrada cuando ya no queda nada por subir.
@@ -479,11 +483,16 @@ void Renderer::run()
         // Pila de hojas (HU-83): las hojas que salieron, a sus texturas; las quitadas, afuera.
         RECT sheetRect;
         uint64_t shown;
+        bool untilActive;
+        int64_t flipQpc;
         std::vector<SheetLayer> below;
         {
             std::lock_guard layersLock(m_layersMutex);
             sheetRect = m_sheetRect;
             shown = m_shown;
+            untilActive = m_untilActive;
+            flipQpc = m_flipQpc;
+            m_flipQpc = 0;
             below = m_below;
             for (const uint64_t id : m_dropped)
                 d.sheets.erase(id);
@@ -491,6 +500,15 @@ void Renderer::run()
         }
         for (RetiredSheet& r : retired)
             d.uploadSheet(d.sheets[r.sheet], r.width, r.height, r.pixels.data());
+        // La hoja soltada (HU-90) ya está entera en la imagen: de acá en más se ve la activa.
+        if (untilActive && shown == d.sheetSource.uploaded()) {
+            std::lock_guard layersLock(m_layersMutex);
+            if (m_shown == shown && m_untilActive) {
+                m_shown = 0;
+                m_untilActive = false;
+            }
+            shown = 0;
+        }
 
         // 3. Componer y presentar.
         const int64_t now = qpcNow();
@@ -505,17 +523,19 @@ void Renderer::run()
             std::lock_guard rotationLock(m_rotationMutex);
             rotation = m_rotation;
         }
-        // Mesa de luz o flip (HU-83): la hoja que se muestra con las de abajo, compuesta en la
-        // GPU; si no hay ni una cosa ni la otra, la imagen de pantalla tal cual, como siempre.
+        // Mesa de luz o flip (HU-83, HU-90): la hoja que se muestra (de la imagen o de su
+        // textura) con las de abajo, compuesta en la GPU; si no hay ni otra hoja ni capas, la
+        // imagen de pantalla tal cual, como siempre.
         ID3D11Texture2D* source = d.display.Get();
         ID3D11ShaderResourceView* sourceView = d.displayView.Get();
         const int sheetW = int(sheetRect.right - sheetRect.left), sheetH = int(sheetRect.bottom - sheetRect.top);
-        if (d.compositorReady && sheetW > 0 && sheetH > 0 && (shown || !below.empty())) {
+        if (d.compositorReady && sheetW > 0 && sheetH > 0) {
+            ID3D11ShaderResourceView* texture = shown ? d.sheetView(shown, sheetW, sheetH) : nullptr;
             ID3D11ShaderResourceView* base = nullptr;
-            if (shown) {
-                base = d.sheetView(shown, sheetW, sheetH);
-                if (!base)
-                    base = d.blankView(sheetW, sheetH);
+            switch (d.sheetSource.pick(shown, texture != nullptr)) {
+            case SheetSource::Image: break;
+            case SheetSource::Texture: base = texture; break;
+            case SheetSource::Blank: base = d.blankView(sheetW, sheetH); break;
             }
             std::vector<LightTableLayer> layers;
             for (const SheetLayer& l : below)
@@ -539,6 +559,8 @@ void Renderer::run()
         if (m_timings)
             m_timings->renderLatchToPresent.add(latch.ms());
         d.swapChain->Present(1, 0);
+        if (flipQpc && m_onFlip)
+            m_onFlip(double(qpcNow() - flipQpc) * 1000.0 / double(d.qpcFrequency));
         d.swapChain->GetLastPresentCount(&frame.presentCount);
         d.pending.push_back(frame);
         d.resolve(periodMs);

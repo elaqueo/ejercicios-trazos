@@ -34,6 +34,12 @@ public:
     // Rueda táctil de la tableta (HU-74): grados que giró el dedo (positivos = sentido de las
     // agujas del reloj) y ended al levantarlo. En el hilo de la interfaz.
     void setOnRing(std::function<void(double degrees, bool ended)> callback) { m_onRing = std::move(callback); }
+    // Al soltar una tecla (HU-90: el flip termina al soltar la flecha); vk = 0 si el lienzo
+    // perdió el foco (las teclas apretadas ya no van a avisar).
+    void setOnKeyUp(std::function<void(UINT vk)> callback) { m_onKeyUp = std::move(callback); }
+    // Mientras se flipea (HU-90) el lápiz no dibuja: el trazo caería en la activa, no en la
+    // que se ve. Las muestras siguen yendo a la simulación, sin contacto (cierran el trazo).
+    void setPenBlocked(bool blocked) { m_penBlocked = blocked; }
     // Al apretar el botón lateral del lápiz (flanco de subida; en el hilo de la interfaz).
     void setOnStylusButton(std::function<void()> callback) { m_onStylusButton = std::move(callback); }
     int width() const { return m_width; }
@@ -48,6 +54,8 @@ private:
     POINT m_origin{}; // esquina del cliente en coordenadas de pantalla
     SampleQueue& m_queue;
     std::function<void(UINT, bool)> m_onKey;
+    std::function<void(UINT)> m_onKeyUp;
+    bool m_penBlocked = false;
     std::function<void()> m_onStylusButton;
     std::function<void(int, double, double)> m_onRotateGesture;
     bool m_barrel = false;

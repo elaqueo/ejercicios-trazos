@@ -104,3 +104,11 @@ Estimación con los números medidos (a confirmar en HU-82): una hoja al 26 % pa
 - `lienzo::Compositor` arma la mesa de luz en la GPU: la hoja que se muestra (la activa o, para el flip, la textura de otra) con hasta 6 hojas debajo, de las que se toma solo el grafito, teñido y multiplicado. **6 hojas a 1734 × 1080: 0,72 ms de GPU** (GTX 960). Sin capas ni otra hoja, el render es el de siempre.
 - Latencia del trazo sin cambios, medida contra el commit anterior alternando 3 veces: mediana 11,6–11,8 ms en las dos versiones, 0 o 1 vsync perdido por corrida en las dos.
 - Pendiente conocido: al calibrar con F9 cambia el tamaño de la hoja y las texturas de las hojas no activas dejan de servir; cada hoja vuelve a tener la suya la próxima vez que está activa y sale.
+
+## Hecho en HU-90
+
+- ← → cambian solo la hoja que se *muestra*: el render la compone desde su textura (no se repinta nada). Al soltar la tecla esa hoja pasa a ser la activa; mientras la simulación la repinta y el render sube la imagen de pantalla de a partes (~10 frames), se sigue viendo la textura. `DisplayImage::sheet` dice de qué hoja es la imagen y `SheetSource` (en el render) elige entre la imagen, la textura o una hoja en blanco.
+- Al soltar, `Lienzo` pide la hoja con `untilActive`: el render la muestra desde la textura hasta que la imagen la tiene entera y de ahí vuelve solo a la activa. Cualquier otro cambio de la pila (o deshacer) corta esa espera.
+- Mientras hay una flecha apretada, el lápiz no dibuja (las muestras llegan sin contacto) y la mesa de luz no se compone. Si el lienzo pierde el foco, el flip termina como si se soltara.
+- Orden entre pedidos y muestras: cada pedido de la pila lleva cuántas muestras había en la cola cuando se hizo y la simulación lo atiende justo ahí, aunque llegue en el mismo lote (antes se atendían al final del lote: soltar la flecha y apoyar el lápiz enseguida podía dejar el trazo en la hoja anterior).
+- Medido en la desktop (smoke, 32 flips): de la tecla al Present, de 0,4 a 16,7 ms, repartidos en un frame como se espera. Latencia del trazo sin cambios (`cartuchera --bench`: mediana 11,8 ms, p95 15,7 ms).

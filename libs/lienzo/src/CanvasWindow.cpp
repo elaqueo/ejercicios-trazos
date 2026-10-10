@@ -75,7 +75,7 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
             s.y -= m_origin.y;
             // Clavado en el borde de la tableta: la posición es falsa, el trazo se corta ahí
             // (con la vista girada dibujaba una línea a lo largo del borde).
-            if (s.atEdge)
+            if (s.atEdge || m_penBlocked)
                 s.inContact = false;
             if (s.barrel && !m_barrel && m_onStylusButton)
                 m_onStylusButton();
@@ -116,6 +116,14 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         if (m_onKey)
             m_onKey(UINT(wParam), (GetKeyState(VK_CONTROL) & 0x8000) != 0);
         return 0;
+    case WM_KEYUP:
+        if (m_onKeyUp)
+            m_onKeyUp(UINT(wParam));
+        return 0;
+    case WM_KILLFOCUS:
+        if (m_onKeyUp)
+            m_onKeyUp(0);
+        break;
     case WM_SYSKEYDOWN:
         if (wParam == VK_F4) { // Alt+F4 desde el lienzo: cerrar la ventana de arriba
             PostMessageW(GetAncestor(m_hwnd, GA_ROOT), WM_CLOSE, 0, 0);

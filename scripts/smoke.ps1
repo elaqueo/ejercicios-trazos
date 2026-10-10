@@ -157,6 +157,25 @@ try {
         Write-Host "  FALLA Insert, Ctrl+D, Supr y Z manejan las hojas · $($l -join ' | ')"
         $failures.Add('Hojas')
     }
+
+    # HU-90: 32 flips con ← → por las 3 hojas (cada tecla se aprieta y se suelta: flip y
+    # activar); cada uno presentado en el frame siguiente (RNF-01): de la tecla al Present va
+    # de 0 a un frame (16,7 ms) según cuándo cae, más la composición (< 1 ms): menos de 18 ms.
+    foreach ($n in 1..8) {
+        foreach ($k in '{LEFT}', '{LEFT}', '{RIGHT}', '{RIGHT}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 150 }
+    }
+    Start-Sleep -Milliseconds 400
+    $flips = @(Get-Content $mesaLog -Encoding utf8 | ForEach-Object {
+        if ($_ -match 'Flip presentado en ([\d.]+) ms') { [double]$Matches[1] } })
+    $shown = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Flip: hoja' }).Count
+    $slow = @($flips | Where-Object { $_ -ge 18 })
+    $max = ($flips | Measure-Object -Maximum).Maximum
+    if ($shown -eq 32 -and $flips.Count -ge 30 -and $slow.Count -eq 0) {
+        Write-Host "  ok   32 flips con flechas, $($flips.Count) presentados, el más lento en $max ms"
+    } else {
+        Write-Host "  FALLA flips: $shown pedidos, $($flips.Count) presentados, $($slow.Count) de 18 ms o más (máx. $max ms)"
+        $failures.Add('Flip')
+    }
 }
 finally {
     if ($app -and -not $app.HasExited) {
