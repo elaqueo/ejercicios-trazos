@@ -102,7 +102,7 @@ public:
     void start();
     void stop();
 
-    QRect sheetRect() const; // la hoja en píxeles del cliente
+    QRect sheetRect() const; // la hoja en píxeles físicos del cliente (los de Qt pueden ser más grandes: escala de Windows)
     const SheetMapping& mapping() const;
     bool calibrated() const; // hay área útil calibrada en este monitor
 

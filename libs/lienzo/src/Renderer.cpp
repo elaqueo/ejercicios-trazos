@@ -29,7 +29,7 @@ namespace lienzo {
 
 namespace {
 
-constexpr int kStatsW = 760, kStatsH = 110;
+constexpr int kStatsW = 760, kStatsH = 150;
 // Píxeles que se suben a la GPU como máximo por frame (~1 MB). Un trazo normal sube unos
 // cientos; deshacer un trazo largo puede cambiar casi toda la hoja.
 constexpr LONG kUploadBudget = 256 * 1024;
@@ -311,7 +311,7 @@ struct Renderer::Impl {
         SetBkMode(statsDc, TRANSPARENT);
         SetTextColor(statsDc, RGB(236, 238, 240));
         RECT inner{12, 10, kStatsW - 12, kStatsH - 10};
-        DrawTextW(statsDc, text, len, &inner, DT_LEFT | DT_TOP | DT_NOPREFIX);
+        DrawTextW(statsDc, text, len, &inner, DT_LEFT | DT_TOP | DT_NOPREFIX | DT_WORDBREAK); // la línea de la herramienta es larga
         GdiFlush();
         context->UpdateSubresource(stats.Get(), 0, nullptr, statsBits, kStatsW * 4, 0);
     }

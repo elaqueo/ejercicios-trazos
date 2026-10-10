@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(EjerciciosTrazos VERSION 1.1.0 LANGUAGES CXX)
+project(EjerciciosTrazos VERSION 1.1.2 LANGUAGES CXX)
 
 if(NOT MSVC)
     message(FATAL_ERROR "Este proyecto requiere MSVC: los binarios de Qt para Windows usan la ABI de MSVC.")
@@ -8,6 +8,8 @@ endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# La versión se ve en F3 (para saber qué está instalado en cada máquina).
+add_compile_definitions(ET_VERSION="${PROJECT_VERSION}")
 
 # --- CRT y Qt Release en todas las configuraciones ---------------------------
 # Debug compila NUESTRO código sin optimizar y con símbolos, pero con CRT /MD y

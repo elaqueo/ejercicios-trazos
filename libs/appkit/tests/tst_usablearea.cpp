@@ -24,6 +24,15 @@ private slots:
         QCOMPARE(appkit::rectFromCorners({900, 650}, {100, 50}), appkit::rectFromCorners({100, 50}, {900, 650}));
     }
 
+    // Con la escala de Windows en 125 %, Qt ve 1536 × 864 donde hay 1920 × 1080 píxeles.
+    void escalaDePantalla()
+    {
+        QCOMPARE(appkit::scaledRect(QRect(0, 0, 1536, 864), 1.25), QRect(0, 0, 1920, 1080));
+        QCOMPARE(appkit::scaledRect(QRect(10, 9, 1519, 846), 1.25), QRect(13, 11, 1898, 1058));
+        QCOMPARE(appkit::scaledRect(appkit::scaledRect(QRect(13, 11, 1898, 1058), 1 / 1.25), 1.25), QRect(13, 11, 1898, 1058));
+        QCOMPARE(appkit::scaledRect(QRect(5, 6, 70, 80), 1.0), QRect(5, 6, 70, 80));
+    }
+
     // El panel lateral queda dentro del área útil (pegado a su borde derecho), no
     // contra el borde de la ventana, que puede estar fuera del alcance del lápiz.
     void panelLateralDentroDelArea()

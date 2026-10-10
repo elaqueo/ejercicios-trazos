@@ -31,6 +31,14 @@ QRect rectFromCorners(QPointF a, QPointF b)
     return QRect(QPoint(left, top), QPoint(right, bottom));
 }
 
+QRect scaledRect(const QRect& rect, double factor)
+{
+    const int left = int(std::lround(rect.x() * factor)), top = int(std::lround(rect.y() * factor));
+    const int right = int(std::lround((rect.x() + rect.width()) * factor));
+    const int bottom = int(std::lround((rect.y() + rect.height()) * factor));
+    return QRect(left, top, right - left, bottom - top);
+}
+
 QRect sidePanelRect(const QRect& area, int width, int margin)
 {
     const int w = qMax(0, qMin(width, area.width() - 2 * margin));

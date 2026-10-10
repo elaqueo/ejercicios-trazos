@@ -339,10 +339,10 @@ struct Lienzo::Impl {
     void finishCalibration(const QRect& rect)
     {
         // La ventana de calibración cubre el monitor: el rectángulo ya es relativo a su
-        // esquina, como lo guarda appkit.
+        // esquina, como lo guarda appkit, pero en píxeles de Qt: se pasa a físicos.
         calibrationHost->hide();
-        appkit::saveUsableArea(*config, appkit::ScreenId::of(screen), rect);
-        qInfo() << "Área útil calibrada en" << appkit::ScreenId::of(screen).describe() << rect;
+        appkit::saveUsableArea(*config, appkit::ScreenId::of(screen), appkit::scaledRect(rect, screen->devicePixelRatio()));
+        qInfo() << "Área útil calibrada en" << appkit::ScreenId::of(screen).describe() << "· Qt" << rect << "· físicos" << appkit::scaledRect(rect, screen->devicePixelRatio());
         relayout();
         focusCanvas();
     }
@@ -404,6 +404,10 @@ struct Lienzo::Impl {
     bool erasing() const { return sim && sim->erasing(); }
 
     // El foco vuelve al lienzo nativo (las teclas y el lápiz siguen ahí).
+    // El lienzo, la hoja y el área útil están en píxeles físicos; las ventanas de Qt (panel,
+    // selector, menús) se ubican en los de Qt, que con escala de Windows son más grandes.
+    QRect toQt(const QRect& physical) const { return appkit::scaledRect(physical, 1.0 / screen->devicePixelRatio()); }
+
     void focusCanvas()
     {
         shell->activateWindow();
@@ -419,8 +423,8 @@ struct Lienzo::Impl {
         }
         picker->setLeads(media.current.grades, media.active, mapping.pixelsPerCellX);
         // A la derecha de la hoja, arriba, en coordenadas de pantalla.
-        const QPoint corner = shell->mapToGlobal(
-            QPoint(mapping.sheetX + mapping.sheetWidth - LeadPicker::kWidth - 16, mapping.sheetY + 16));
+        const QRect sheet = toQt({mapping.sheetX, mapping.sheetY, mapping.sheetWidth, mapping.sheetHeight});
+        const QPoint corner = shell->mapToGlobal(QPoint(sheet.right() + 1 - LeadPicker::kWidth - 16, sheet.top() + 16));
         picker->move(corner);
         picker->show();
         picker->raise();
@@ -469,7 +473,10 @@ struct Lienzo::Impl {
         }
         std::wstring out = text;
         swprintf(text, 768, L"   ·   textura %d %% (Ctrl+[ ])%ls", texture, warning);
-        return out + text;
+        wchar_t version[128];
+        swprintf(version, 128, L"Trazos %hs   ·   escala de Windows %d %%   ·   hoja %d × %d px\n", ET_VERSION,
+                 int(std::lround(screen->devicePixelRatio() * 100)), mapping.sheetWidth, mapping.sheetHeight);
+        return version + out + text;
     }
 };
 
@@ -536,6 +543,8 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
         }
     });
 
+    qInfo() << "Trazos" << ET_VERSION << "· escala de Windows" << screen->devicePixelRatio() << "· lienzo"
+            << d->canvas->width() << "x" << d->canvas->height() << "px físicos";
     qInfo() << "Monitor" << appkit::ScreenId::of(screen).describe() << (d->area ? "· área útil" : "· SIN área útil")
             << (d->area ? *d->area : QRect());
     qInfo() << "Hoja" << d->paper.width() << "x" << d->paper.height() << "celdas en" << d->mapping.sheetWidth << "x"
@@ -702,7 +711,7 @@ void Lienzo::setGuides(const QPicture& guides)
 
 void Lienzo::showOverlay(QWidget* overlay)
 {
-    const QRect sheet = sheetRect();
+    const QRect sheet = d->toQt(sheetRect());
     overlay->move(d->shell->mapToGlobal(sheet.center() - QPoint(overlay->width() / 2, overlay->height() / 2)));
     overlay->show();
     overlay->raise();
@@ -774,7 +783,7 @@ void Lienzo::addPanelTabs(appkit::SidePanel& panel)
 void Lienzo::showSidePanel(appkit::SidePanel& panel)
 {
     // Pegado al borde derecho del área útil (lo que alcanza el lápiz), arriba.
-    const QRect a = d->area.value_or(sheetRect());
+    const QRect a = d->toQt(d->area.value_or(sheetRect()));
     const int margin = 16;
     panel.resize(appkit::SidePanel::kWidth, std::min(680, a.height() - 2 * margin));
     panel.move(d->shell->mapToGlobal(QPoint(a.right() + 1 - panel.width() - margin, a.top() + margin)));
