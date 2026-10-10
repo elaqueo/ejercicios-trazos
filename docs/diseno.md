@@ -63,8 +63,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | G | Mostrar u ocultar las guías (comparar) | — |
 | F4 / F2 | Menú / panel | — |
 | F5 | Selector de lápices | Selector de lápices |
-| 1 a 0 | — (los números son de la vista) | Dureza 2H … 6B |
-| 4 / 6 / 5, Shift + arrastrar | Girar la vista / volver a 0° | Shift + arrastrar |
+| 4 / 6 / 5, Shift + arrastrar | Girar la vista / volver a 0° | Igual (desde el 10 de octubre de 2026; las durezas se eligen con F5) |
 | Z / Ctrl+Y | — (sin deshacer) | Deshacer / rehacer |
 | `[ ]` · `, .` · `- =` | Tamaño · blandura (fuerza en la goma) · techo, de la herramienta activa | Igual |
 | Ctrl+S · Ctrl+N | Guardar el lápiz · hoja nueva | Igual |

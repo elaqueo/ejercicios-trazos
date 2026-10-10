@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     shell.setGeometry(screen->geometry());
     shell.show();
 
-    lienzo::Lienzo canvas(shell, screen, config, {.name = QStringLiteral("ejercicios"), .undo = false, .gradeKeys = false});
+    lienzo::Lienzo canvas(shell, screen, config, {.name = QStringLiteral("ejercicios"), .undo = false});
     SheetCanvas sheet(canvas);
     const ejercicios::Recta recta;
     const ejercicios::Curva curva;

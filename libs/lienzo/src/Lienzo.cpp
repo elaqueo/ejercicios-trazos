@@ -466,8 +466,7 @@ struct Lienzo::Impl {
             const Lead lead = sim->lead();
             const bool unsaved = media.leadUnsaved;
             swprintf(text, 768,
-                     options.gradeKeys ? L"mina %hs%ls (F5, 1-0)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   punta %d %% gastada (A afila)   ·   costado %ls (I)%ls"
-                                       : L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   punta %d %% gastada (A afila)   ·   costado %ls (I)%ls",
+                     L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   punta %d %% gastada (A afila)   ·   costado %ls (I)%ls",
                      media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
                      int(std::lround(lead.ceiling * 100.0 / 65535)), sim->wearPercent(), tilt ? L"sí" : L"no",
                      unsaved ? L"   ·   Ctrl+S guarda" : L"");
@@ -611,20 +610,19 @@ void Lienzo::registerShortcuts()
         else
             impl->saveLead();
     });
-    if (d->options.gradeKeys) { // 1 a 0: 2H … 6B
-        for (int g = 0; g < kGradeCount; ++g) {
-            const unsigned key = g == kGradeCount - 1 ? '0' : unsigned('1' + g);
-            keys.add(QStringLiteral("Dureza %1").arg(QString::fromLatin1(kGradeNames[size_t(g)])), {{key}},
-                     [impl, g] { impl->setActive(g); });
-        }
-    } else { // los números son de la vista (HU-40)
+    { // los números son de la vista (HU-40), en las dos apps; la dureza se elige con F5
         keys.add(QStringLiteral("Girar la vista a la izquierda"), {{'4'}, {VK_NUMPAD4}}, [impl] {
             impl->setViewRotation(ViewRotation::snapped(impl->viewDegrees) - ViewRotation::kSnapStep);
+            qInfo() << "Vista rotada" << impl->viewDegrees << "° (tecla)";
         });
         keys.add(QStringLiteral("Girar la vista a la derecha"), {{'6'}, {VK_NUMPAD6}}, [impl] {
             impl->setViewRotation(ViewRotation::snapped(impl->viewDegrees) + ViewRotation::kSnapStep);
+            qInfo() << "Vista rotada" << impl->viewDegrees << "° (tecla)";
         });
-        keys.add(QStringLiteral("Vista a 0°"), {{'5'}, {VK_NUMPAD5}}, [impl] { impl->setViewRotation(0); });
+        keys.add(QStringLiteral("Vista a 0°"), {{'5'}, {VK_NUMPAD5}}, [impl] {
+            impl->setViewRotation(0);
+            qInfo() << "Vista rotada 0 ° (tecla)";
+        });
     }
     // [ y ] tamaño, pasos de ~15 % (pedido del usuario: como el tamaño del pincel).
     const auto size = [impl, &media](bool up) {

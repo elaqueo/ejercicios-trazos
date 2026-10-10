@@ -34,7 +34,8 @@ CanvasWindow::CanvasWindow(HWND parent, SampleQueue& queue, std::function<void(U
                              wc.hInstance, this);
     ClientToScreen(m_hwnd, &m_origin);
     SetFocus(m_hwnd);
-    if (m_ring.open(m_hwnd, [](const std::string& line) { qInfo().noquote() << QString::fromStdString(line); }))
+    if (m_ring.open(m_hwnd, [](const std::string& line) { qInfo().noquote() << QString::fromStdString(line); },
+                    "Girar la vista"))
         m_ringTracker = tabletinput::RingTracker(int(m_ring.maximum() - m_ring.minimum() + 1));
 }
 

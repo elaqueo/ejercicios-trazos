@@ -41,8 +41,6 @@ QScreen* savedScreen(const appkit::Config& config);
 struct LienzoOptions {
     QString name = QStringLiteral("lienzo"); // para los archivos de diagnóstico (<name>-muestras.csv)
     bool undo = true;                        // Z / Ctrl+Y (Ejercicios no deshace)
-    bool gradeKeys = true;                   // 1 a 0 eligen la dureza (en Ejercicios los
-                                             // números son de la vista, como antes)
 };
 
 // El lienzo de baja latencia (HU-63, nacido en Cartuchera): una hoja de grafito del tamaño de
@@ -52,7 +50,9 @@ struct LienzoOptions {
 // medios.json.
 //
 // Teclas comunes: Ctrl+N hoja nueva · Z deshace / Ctrl+Y rehace (si undo) · F5 selector de
-// lápices · 1 a 0 dureza (si gradeKeys; si no, 4 y 6 rotan la vista y 5 la vuelve a 0°) ·
+// lápices (elige la dureza) · 4 y 6 rotan la vista y 5 la vuelve a 0° (las dos apps igual,
+// pedido del usuario el 10 de octubre de 2026; antes en Cartuchera 1 a 0 eran las durezas) ·
+// la rueda de la tableta gira la vista libremente (HU-74) ·
 // Shift + arrastrar con el lápiz rota la vista (snap de 15°) · I activa o desactiva el
 // costado (apagado, la punta es siempre la vertical) · E cambia entre la mina y la punta
 // seca (hunde el papel sin grafito: líneas blancas) · A afila la mina activa (cada dureza

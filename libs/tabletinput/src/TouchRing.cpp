@@ -1,5 +1,6 @@
 #include "tabletinput/TouchRing.h"
 
+#include <algorithm>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -25,7 +26,7 @@ constexpr UINT CXO_MESSAGES = 0x0004;
 constexpr UINT WT_DEFBASE = 0x7FF0;
 constexpr UINT WT_PACKETEXT = WT_DEFBASE + 8;
 constexpr WORD TABLET_PROPERTY_CONTROLCOUNT = 0, TABLET_PROPERTY_FUNCCOUNT = 1, TABLET_PROPERTY_MIN = 3,
-               TABLET_PROPERTY_MAX = 4, TABLET_PROPERTY_OVERRIDE = 5;
+               TABLET_PROPERTY_MAX = 4, TABLET_PROPERTY_OVERRIDE = 5, TABLET_PROPERTY_OVERRIDE_NAME = 6;
 
 struct LOGCONTEXTW {
     WCHAR lcName[40];
@@ -44,7 +45,7 @@ struct EXTPROPERTY {
     BYTE version, tabletIndex, controlIndex, functionIndex;
     WORD propertyID, reserved;
     DWORD dataSize;
-    BYTE data[16];
+    BYTE data[128];
 };
 
 // Paquete de extensiones: la base y después cada extensión pedida, en este orden.
@@ -146,9 +147,10 @@ TouchRing::~TouchRing()
     close();
 }
 
-bool TouchRing::open(HWND hwnd, Log log)
+bool TouchRing::open(HWND hwnd, Log log, std::string name)
 {
     m_log = std::move(log);
+    m_name = std::move(name);
     const auto say = [this](const std::string& s) {
         if (m_log)
             m_log(s);
@@ -259,6 +261,19 @@ void TouchRing::overrideControls(bool enable)
             p.dataSize = sizeof(BOOL);
             const BOOL value = enable ? TRUE : FALSE;
             std::memcpy(p.data, &value, sizeof value);
+            // El nombre que muestra el driver al apretar el botón central (si no, "Application
+            // defined"), en UTF-8. Tiene que ir ANTES de tomar el modo: después el driver lo
+            // rechaza (probado en la Intuos4 en UTF-8, UTF-16 y con varios tamaños).
+            if (enable && !m_name.empty()) {
+                EXTPROPERTY n{};
+                n.controlIndex = BYTE(c);
+                n.functionIndex = BYTE(f);
+                n.propertyID = TABLET_PROPERTY_OVERRIDE_NAME;
+                n.dataSize = DWORD(std::min(m_name.size() + 1, sizeof n.data));
+                std::memcpy(n.data, m_name.c_str(), n.dataSize - 1);
+                if (!m_api->extSet(m_context, WTX_TOUCHRING, &n) && m_log)
+                    m_log(format("Rueda: no se pudo poner el nombre del modo %d", f));
+            }
             if (!m_api->extSet(m_context, WTX_TOUCHRING, &p) && m_log)
                 m_log(format("Rueda: no se pudo %s el modo %d", enable ? "tomar" : "devolver", f));
         }

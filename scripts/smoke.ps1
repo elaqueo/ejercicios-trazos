@@ -37,7 +37,7 @@ try {
     $seen = 0
     function Take() {
         Start-Sleep -Milliseconds 400
-        $lines = @(Get-Content $log -Encoding utf8 | Where-Object { $_ -match 'Menú:|Ejercicio:|Repetir:|Guías:|Panel:|Costado:|Punta seca:|Afilada:|Textura del papel:' })
+        $lines = @(Get-Content $log -Encoding utf8 | Where-Object { $_ -match 'Menú:|Ejercicio:|Repetir:|Guías:|Panel:|Costado:|Punta seca:|Afilada:|Textura del papel:|Vista rotada' })
         $new = $lines | Select-Object -Skip $script:seen
         $script:seen = $lines.Count
         return @($new)
@@ -75,6 +75,12 @@ try {
     Send '^{[}'
     $l = Take
     Check 'Ctrl+] y Ctrl+[ suben y bajan la textura del papel' (($l -match 'Textura del papel:').Count -eq 2) ($l -join ' | ')
+
+    Send '6'
+    Send '4' 2
+    Send '5'
+    $l = Take
+    Check '6, 4 y 5 giran la vista' (($l -join ' ') -match 'Vista rotada \S+ ° \(tecla\).*Vista rotada \S+ ° \(tecla\).*Vista rotada \S+ ° \(tecla\).*Vista rotada 0 ° \(tecla\)') ($l -join ' | ')
 
     # Menú: subir de más se frena en el modo mixto (antes daba la vuelta).
     Send '{F4}' 1 600
