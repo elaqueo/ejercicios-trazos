@@ -41,7 +41,7 @@ QString Presion::title() const
 
 QString Presion::group() const
 {
-    return QStringLiteral("Presión");
+    return QStringLiteral("Memoria y presión"); // un grupo en el menú (mesa del diseño, HU-77)
 }
 
 QList<appkit::Param> Presion::params() const

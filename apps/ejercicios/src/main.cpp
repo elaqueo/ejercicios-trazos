@@ -216,6 +216,7 @@ int main(int argc, char* argv[])
             canvas.focusCanvas();
             return;
         }
+        menu.setGroups(ejercicios::exerciseMenu(exercises, int(ejercicios::mixedPool(exercises, enabledMixed()).size())));
         menu.setCurrent(session.mixed() ? ejercicios::kMixedModeId : session.exercise()->id());
         panel.hide();
         canvas.showOverlay(&menu);

@@ -251,7 +251,7 @@ private slots:
         QString elegido;
         menu.onPick = [&](const QString& id) { elegido = id; };
         menu.show();
-        QTest::mouseClick(&menu, Qt::LeftButton, {}, QPoint(appkit::MenuOverlay::kWidth / 2, 44 + 24));
+        QTest::mouseClick(&menu, Qt::LeftButton, {}, menu.itemRect(kMixedModeId).center());
         QCOMPARE(elegido, kMixedModeId);
         elegido.clear();
         menu.show();

@@ -33,7 +33,7 @@ QString Ghosting::title() const
 
 QString Ghosting::group() const
 {
-    return QStringLiteral("Memoria");
+    return QStringLiteral("Memoria y presión"); // un grupo en el menú (mesa del diseño, HU-77)
 }
 
 QList<appkit::Param> Ghosting::params() const

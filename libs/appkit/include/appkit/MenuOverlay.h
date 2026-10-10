@@ -13,7 +13,8 @@ struct MenuItem {
     QString title;
     bool enabled = true;
     bool featured = false; // destacado (el modo mixto, arriba)
-    QString note;          // texto secundario a la derecha ("llega en HU-20")
+    QString note;          // texto secundario a la derecha ("12 habilitados")
+    QString description;   // segunda línea (solo el destacado)
 };
 
 struct MenuGroup {
@@ -21,12 +22,14 @@ struct MenuGroup {
     QList<MenuItem> items;
 };
 
-// Menú superpuesto (HU-11, mesa "Menú" del diseño): grupos de ítems, el actual en ámbar.
-// Es una ventana propia sin borde, como el selector de lápices: un widget hijo quedaría
-// tapado por la ventana nativa del lienzo (decisión 5 del 9 de octubre). Se elige con clic o
-// el lápiz, o con flechas y Enter (los ítems deshabilitados se saltean y el cursor se frena en
-// los extremos, sin dar la vuelta); Esc o la tecla que
-// lo abre (closeKey) lo cierran.
+// Menú superpuesto (HU-11, mesa "Menú overlay" del canvas de diseño): el destacado (modo
+// mixto) arriba a todo el ancho y los grupos en una grilla de tres columnas (HU-77: en una
+// sola columna, con 15 ejercicios, era largo y confuso), el actual en ámbar. Es una ventana
+// propia sin borde, como el selector de lápices: un widget hijo quedaría tapado por la
+// ventana nativa del lienzo (decisión 5 del 9 de octubre). Se elige con clic o el lápiz, o
+// con las flechas (en las dos direcciones de la grilla) y Enter; los ítems deshabilitados se
+// saltean y el cursor se frena en los bordes, sin dar la vuelta. Esc o la tecla que lo abre
+// (closeKey) lo cierran.
 class MenuOverlay : public QWidget {
 public:
     MenuOverlay(QWidget* owner, QString title, Qt::Key closeKey);
@@ -38,8 +41,12 @@ public:
     std::function<void(const QString&)> onPick; // eligió un ítem habilitado
     std::function<void()> onClose;              // se cerró sin elegir
 
-    static constexpr int kWidth = 420;
-    static constexpr int kRowHeight = 48; // ≥ objetivo táctil
+    static constexpr int kWidth = 880;
+    static constexpr int kColumns = 3;
+    static constexpr int kRowHeight = 44; // = objetivo táctil
+
+    // Dónde quedó un ítem (para las pruebas y el lápiz); vacío si no existe.
+    QRect itemRect(const QString& id) const;
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -58,7 +65,8 @@ private:
     void layoutRows();
     const MenuItem* itemOf(int row) const;
     int rowAt(QPoint point) const;
-    void moveCursor(int step);
+    void moveCursor(int step);         // al anterior o siguiente en orden (extremos: se queda)
+    void moveCursor(int dx, int dy);   // en la grilla, hacia el más cercano en esa dirección
     void pick(int row);
 
     QString m_title;

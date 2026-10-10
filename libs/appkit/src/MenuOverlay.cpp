@@ -7,13 +7,29 @@
 #include <QPainter>
 #include <QPainterPath>
 
+#include <algorithm>
+#include <cmath>
+
 namespace appkit {
 
 namespace {
 
-constexpr int kPadding = 12;
-constexpr int kTitleHeight = 44;
-constexpr int kGroupHeight = 32;
+// Medidas de la mesa "Menú overlay" del canvas de diseño (px).
+constexpr int kPadding = 32;
+constexpr int kGap = 24;          // entre el título, el destacado y la grilla, y entre filas de grupos
+constexpr int kColumnGap = 28;
+constexpr int kTitleHeight = 34;
+constexpr int kFeaturedHeight = 64;
+constexpr int kGroupHeight = 22;  // encabezado de grupo
+constexpr int kItemGap = 6;
+
+QFont pixelFont(const QFont& base, int px, int weight = QFont::Normal)
+{
+    QFont f = base;
+    f.setPixelSize(px);
+    f.setWeight(QFont::Weight(weight));
+    return f;
+}
 
 } // namespace
 
@@ -24,6 +40,9 @@ MenuOverlay::MenuOverlay(QWidget* owner, QString title, Qt::Key closeKey)
 {
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
+    QFont f = font();
+    f.setFamilies({QString::fromLatin1(theme::kFuente), f.family()});
+    setFont(f);
     layoutRows();
 }
 
@@ -40,21 +59,54 @@ void MenuOverlay::setCurrent(const QString& id)
     update();
 }
 
+QRect MenuOverlay::itemRect(const QString& id) const
+{
+    for (int row = 0; row < m_rows.size(); ++row)
+        if (const MenuItem* item = itemOf(row); item && item->id == id)
+            return m_rows[row].rect;
+    return {};
+}
+
 void MenuOverlay::layoutRows()
 {
+    // Arriba, a todo el ancho, los grupos sin título (el destacado); después los demás en
+    // una grilla de kColumns columnas, fila por fila; cada fila tan alta como su grupo más
+    // largo.
     m_rows.clear();
-    int y = kTitleHeight;
+    const int inner = kWidth - 2 * kPadding;
+    int y = kPadding + kTitleHeight + kGap;
+    QList<int> titled;
     for (int g = 0; g < m_groups.size(); ++g) {
         if (!m_groups[g].title.isEmpty()) {
-            m_rows.append({g, -1, QRect(kPadding, y, kWidth - 2 * kPadding, kGroupHeight)});
-            y += kGroupHeight;
+            titled.append(g);
+            continue;
         }
         for (int i = 0; i < m_groups[g].items.size(); ++i) {
-            m_rows.append({g, i, QRect(kPadding, y, kWidth - 2 * kPadding, kRowHeight)});
-            y += kRowHeight;
+            const MenuItem& item = m_groups[g].items[i];
+            const int h = item.featured ? kFeaturedHeight : kRowHeight;
+            m_rows.append({g, i, QRect(kPadding, y, inner, h)});
+            y += h + kItemGap;
         }
+        y += kGap - kItemGap;
     }
-    resize(kWidth, y + kPadding);
+    const int columnWidth = (inner - (kColumns - 1) * kColumnGap) / kColumns;
+    for (int first = 0; first < titled.size(); first += kColumns) {
+        int rowBottom = y;
+        for (int c = 0; c < kColumns && first + c < titled.size(); ++c) {
+            const int g = titled[first + c];
+            const int x = kPadding + c * (columnWidth + kColumnGap);
+            int gy = y;
+            m_rows.append({g, -1, QRect(x, gy, columnWidth, kGroupHeight)});
+            gy += kGroupHeight;
+            for (int i = 0; i < m_groups[g].items.size(); ++i) {
+                m_rows.append({g, i, QRect(x, gy, columnWidth, kRowHeight)});
+                gy += kRowHeight + kItemGap;
+            }
+            rowBottom = std::max(rowBottom, gy - kItemGap);
+        }
+        y = rowBottom + kGap;
+    }
+    resize(kWidth, y - kGap + kPadding);
 }
 
 const MenuItem* MenuOverlay::itemOf(int row) const
@@ -88,6 +140,46 @@ void MenuOverlay::moveCursor(int step)
     }
 }
 
+void MenuOverlay::moveCursor(int dx, int dy)
+{
+    // El ítem habilitado más cercano hacia ese lado: lo que está en la misma columna (o
+    // fila) primero; sin nada hacia ese lado, el cursor se queda.
+    if (m_cursor < 0) {
+        moveCursor(dx + dy > 0 ? 1 : -1);
+        return;
+    }
+    const QRect from = m_rows[m_cursor].rect;
+    int best = -1;
+    double bestScore = 0;
+    for (int row = 0; row < m_rows.size(); ++row) {
+        const MenuItem* item = itemOf(row);
+        if (row == m_cursor || !item || !item->enabled)
+            continue;
+        const QRect to = m_rows[row].rect;
+        double along, across;
+        if (dy != 0) {
+            along = dy > 0 ? to.top() - from.bottom() : from.top() - to.bottom();
+            const bool overlap = to.left() < from.right() && from.left() < to.right();
+            across = overlap ? std::abs(to.left() - from.left()) * 0.001 : std::abs(to.center().x() - from.center().x());
+        } else {
+            along = dx > 0 ? to.left() - from.right() : from.left() - to.right();
+            const bool overlap = to.top() < from.bottom() && from.top() < to.bottom();
+            across = overlap ? 0 : std::abs(to.center().y() - from.center().y());
+        }
+        if (along < 0)
+            continue; // no está hacia ese lado
+        const double score = along + 2 * across;
+        if (best < 0 || score < bestScore) {
+            best = row;
+            bestScore = score;
+        }
+    }
+    if (best >= 0) {
+        m_cursor = best;
+        update();
+    }
+}
+
 void MenuOverlay::pick(int row)
 {
     const MenuItem* item = itemOf(row);
@@ -115,57 +207,99 @@ void MenuOverlay::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
-    p.fillRect(rect(), theme::kPanel);
+    QPainterPath panel;
+    panel.addRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), theme::kRadioPanel, theme::kRadioPanel);
+    p.fillPath(panel, theme::kPanel);
     p.setPen(theme::kBorde);
-    p.drawRect(rect().adjusted(0, 0, -1, -1));
+    p.drawPath(panel);
 
-    QFont title = font();
-    title.setPointSizeF(title.pointSizeF() * 1.15);
-    title.setBold(true);
-    p.setFont(title);
+    // Título y, a la derecha, las teclas que cierran.
+    const QRect titleRect(kPadding, kPadding, kWidth - 2 * kPadding, kTitleHeight);
+    p.setFont(pixelFont(font(), 26, QFont::DemiBold));
     p.setPen(theme::kTexto);
-    p.drawText(QRect(kPadding + 4, 0, width(), kTitleHeight), Qt::AlignVCenter, m_title);
-    const QFont normal = font();
-    p.setFont(normal);
-    p.setPen(theme::kTextoSecundario);
-    p.drawText(QRect(0, 0, width() - kPadding - 4, kTitleHeight), Qt::AlignVCenter | Qt::AlignRight,
-               QKeySequence(m_closeKey).toString() + QStringLiteral(" o Esc cierra"));
+    p.drawText(titleRect, Qt::AlignVCenter | Qt::AlignLeft, m_title);
+    const QFont hint = pixelFont(font(), 14);
+    QFont mono = pixelFont(font(), 13, QFont::Medium);
+    mono.setFamilies({QString::fromLatin1(theme::kFuenteMono), QStringLiteral("Consolas")});
+    int x = titleRect.right();
+    const auto text = [&](const QString& s) {
+        p.setFont(hint);
+        const int w = p.fontMetrics().horizontalAdvance(s);
+        x -= w;
+        p.setPen(theme::kTextoSecundario);
+        p.drawText(QRect(x, titleRect.top(), w, kTitleHeight), Qt::AlignVCenter, s);
+        x -= 8;
+    };
+    const auto key = [&](const QString& s) {
+        p.setFont(mono);
+        const int w = std::max(28, p.fontMetrics().horizontalAdvance(s) + 16);
+        x -= w;
+        const QRect box(x, titleRect.center().y() - 14, w, 28);
+        QPainterPath path;
+        path.addRoundedRect(QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5), theme::kRadioTecla, theme::kRadioTecla);
+        p.fillPath(path, theme::kPanelAlto);
+        p.setPen(theme::kBorde);
+        p.drawPath(path);
+        p.setPen(theme::kTexto);
+        p.drawText(box, Qt::AlignCenter, s);
+        x -= 8;
+    };
+    text(QStringLiteral("cierra"));
+    key(QStringLiteral("Esc"));
+    text(QStringLiteral("o"));
+    key(QKeySequence(m_closeKey).toString());
 
-    QFont group = font();
-    group.setPointSizeF(group.pointSizeF() * 0.9);
-    group.setBold(true);
-    QFont featured = font();
-    featured.setPointSizeF(featured.pointSizeF() * 1.15);
-    featured.setBold(true);
+    const QFont group = pixelFont(font(), 12, QFont::DemiBold);
+    const QFont normal = pixelFont(font(), 15);
+    const QFont strong = pixelFont(font(), 15, QFont::DemiBold);
+    const QFont featured = pixelFont(font(), 17, QFont::DemiBold);
     for (int row = 0; row < m_rows.size(); ++row) {
         const Row& r = m_rows[row];
         const MenuItem* item = itemOf(row);
         if (!item) { // encabezado de grupo
-            p.setFont(group);
+            QFont spaced = group;
+            spaced.setLetterSpacing(QFont::AbsoluteSpacing, 1.0);
+            p.setFont(spaced);
             p.setPen(theme::kTextoSecundario);
-            p.drawText(r.rect.adjusted(4, 0, 0, -4), Qt::AlignLeft | Qt::AlignBottom,
-                       m_groups[r.group].title.toUpper());
+            p.drawText(r.rect.adjusted(0, 0, 0, -6), Qt::AlignLeft | Qt::AlignBottom, m_groups[r.group].title.toUpper());
             continue;
         }
-        const QRect box = r.rect.adjusted(0, 2, 0, -2);
+        const QRect box = r.rect;
         const bool current = item->id == m_current;
         const bool marked = item->enabled && (row == m_hover || row == m_cursor);
-        if (current || marked || item->featured) {
-            QPainterPath path;
-            path.addRoundedRect(box, theme::kRadioControl, theme::kRadioControl);
-            p.fillPath(path, current ? theme::kSeleccion : theme::kPanelAlto);
-            if (row == m_cursor && !current) {
-                p.setPen(theme::kTextoSecundario);
-                p.drawPath(path);
-            }
+        QPainterPath path;
+        path.addRoundedRect(QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5), theme::kRadioControl, theme::kRadioControl);
+        if (current)
+            p.fillPath(path, theme::kSeleccion);
+        else if (item->featured || marked)
+            p.fillPath(path, theme::kPanelAlto);
+        if (item->featured && !current) {
+            p.setPen(theme::kBorde);
+            p.drawPath(path);
         }
-        p.setFont(item->featured ? featured : normal);
-        p.setPen(current ? theme::kSeleccionTexto : item->enabled ? theme::kTexto : theme::kTextoSecundario);
-        p.drawText(box.adjusted(12, 0, -12, 0), Qt::AlignVCenter | Qt::AlignLeft, item->title);
-        if (!item->note.isEmpty()) {
-            p.setFont(normal);
+        if (row == m_cursor) { // el cursor del teclado, también sobre el actual
+            p.setPen(current ? theme::kSeleccionTexto : theme::kTextoSecundario);
+            p.drawPath(path);
+        }
+        const QRect content = box.adjusted(item->featured ? 20 : 12, 0, item->featured ? -20 : -12, 0);
+        const QColor color = current ? theme::kSeleccionTexto : item->enabled ? theme::kTexto : theme::kTextoSecundario;
+        if (item->featured && !item->description.isEmpty()) {
+            p.setFont(featured);
+            p.setPen(color);
+            p.drawText(content.adjusted(0, 12, 0, 0), Qt::AlignTop | Qt::AlignLeft, item->title);
+            p.setFont(hint);
             p.setPen(theme::kTextoSecundario);
-            p.drawText(box.adjusted(12, 0, -12, 0), Qt::AlignVCenter | Qt::AlignRight, item->note);
+            p.drawText(content.adjusted(0, 0, 0, -12), Qt::AlignBottom | Qt::AlignLeft, item->description);
+        } else {
+            p.setFont(item->featured ? featured : current ? strong : normal);
+            p.setPen(color);
+            p.drawText(content, Qt::AlignVCenter | Qt::AlignLeft,
+                       p.fontMetrics().elidedText(item->title, Qt::ElideRight, content.width()));
+        }
+        if (!item->note.isEmpty()) {
+            p.setFont(mono);
+            p.setPen(theme::kTextoSecundario);
+            p.drawText(content, Qt::AlignVCenter | Qt::AlignRight, item->note);
         }
     }
 }
@@ -194,9 +328,13 @@ void MenuOverlay::keyPressEvent(QKeyEvent* event)
 {
     const int key = event->key();
     if (key == Qt::Key_Up)
-        moveCursor(-1);
+        moveCursor(0, -1);
     else if (key == Qt::Key_Down)
-        moveCursor(1);
+        moveCursor(0, 1);
+    else if (key == Qt::Key_Left)
+        moveCursor(-1, 0);
+    else if (key == Qt::Key_Right)
+        moveCursor(1, 0);
     else if (key == Qt::Key_Return || key == Qt::Key_Enter)
         pick(m_cursor);
     else if (key == Qt::Key_Escape || key == m_closeKey) {
