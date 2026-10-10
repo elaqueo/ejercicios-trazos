@@ -615,7 +615,7 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
         }
     });
 
-    qInfo() << "Trazos" << ET_VERSION << "· escala de Windows" << screen->devicePixelRatio() << "· lienzo"
+    qInfo() << "Trazos" << ET_VERSION << "·" << QApplication::applicationName() << "· escala de Windows" << screen->devicePixelRatio() << "· lienzo"
             << d->canvas->width() << "x" << d->canvas->height() << "px físicos";
     qInfo() << "Monitor" << appkit::ScreenId::of(screen).describe() << (d->area ? "· área útil" : "· SIN área útil")
             << (d->area ? *d->area : QRect());

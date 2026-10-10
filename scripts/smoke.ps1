@@ -1,7 +1,7 @@
 # Prueba de la app real (HU-71): abre Ejercicios (Release), la maneja con teclado como lo haría
 # el usuario y verifica en su log lo que pasó. Encuentra lo que los tests de lógica no ven
 # (teclas, foco, menús: el cursor del menú que daba la vuelta, HU-20).
-#   pwsh scripts/smoke.ps1             # usa build/release/ejercicios.exe (compilarlo antes)
+#   pwsh scripts/smoke.ps1             # usa build/release/ejercicios.exe y mesadeanimacion.exe (compilarlos antes)
 # Toma la pantalla unos 20 s: no tocar el teclado mientras corre. Deja config.json como estaba.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -113,7 +113,7 @@ try {
 
     Send '^,' 1 800
     Send '{ESC}' 1 600
-    Send '^,' 1 800
+    Send '^,' 1 1500 # que la ventana de atajos tenga el foco antes de la segunda Ctrl+,
     Send '^,' 1 600
     $l = Take
     Check 'Ctrl+, abre los atajos; Esc y Ctrl+, los cierran' (($l -join ' ') -match 'Atajos: abiertos.*Atajos: cerrados.*Atajos: abiertos.*Atajos: cerrados') ($l -join ' | ')
@@ -124,6 +124,34 @@ finally {
         if (-not $app.WaitForExit(10000)) { $app.Kill() }
     }
     if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
+}
+# Mesa de animación (HU-84): arranca con su nombre y tiene los atajos del lienzo.
+$mesa = Join-Path $root 'build\release\mesadeanimacion.exe'
+$mesaLog = Join-Path $data 'mesadeanimacion.log'
+if (Get-Process mesadeanimacion -ErrorAction SilentlyContinue) { throw 'Mesa de animación está abierta: cerrarla antes de la prueba' }
+$app = $null
+try {
+    $app = Start-Process $mesa -PassThru
+    Start-Sleep 4
+    $ws = New-Object -ComObject WScript.Shell
+    $null = $ws.AppActivate($app.Id)
+    Start-Sleep 1
+    $ws.SendKeys('^,'); Start-Sleep -Milliseconds 800
+    $ws.SendKeys('{ESC}'); Start-Sleep -Milliseconds 600
+    $l = @(Get-Content $mesaLog -Encoding utf8) # el log empieza de cero en cada sesión
+    $joined = $l -join ' '
+    if ($joined -match 'Mesa de animación' -and $joined -match 'Atajos: abiertos.*Atajos: cerrados') {
+        Write-Host '  ok   Mesa de animación arranca y Ctrl+, abre sus atajos'
+    } else {
+        Write-Host "  FALLA Mesa de animación arranca y Ctrl+, abre sus atajos · $($l -join ' | ')"
+        $failures.Add('Mesa de animación')
+    }
+}
+finally {
+    if ($app -and -not $app.HasExited) {
+        $null = $app.CloseMainWindow()
+        if (-not $app.WaitForExit(10000)) { $app.Kill() }
+    }
 }
 if ($failures.Count) { Write-Host "$($failures.Count) falla(s)"; exit 1 }
 Write-Host 'Prueba de la app real: todo bien'
