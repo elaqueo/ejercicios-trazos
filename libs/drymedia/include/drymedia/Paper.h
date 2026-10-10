@@ -109,6 +109,8 @@ public:
     // próximo trazo no tenga que reservar. Llamar entre trazos.
     TileSet newTileSet() const;
     void swapTiles(TileSet& other);
+    // Una copia del conjunto con el que trabaja el papel (duplicar una hoja, HU-87).
+    TileSet copyTiles() const;
 
     // Hash del relieve (se calcula una vez) y del estado completo (relieve + depósito
     // de los tiles tocados, en orden de tile).

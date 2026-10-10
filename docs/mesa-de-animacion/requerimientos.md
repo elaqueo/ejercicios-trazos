@@ -89,10 +89,10 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. Cerrar la app con Alt+F4 espera a que termine lo pendiente (menos de 2 s con 120 hojas).
     3. No hay Ctrl+S; el atajo queda libre y la lista de atajos no lo muestra.
     4. Al arrancar se abre la última toma (RNF-06); sin ninguna, se crea "toma-1" en la carpeta de datos.
-87. **HU-87 · Agregar, duplicar, borrar y limpiar hojas** (Must · 3 pts). Como animador, quiero manejar hojas con una tecla, para que "acá falta un dibujo" no corte el ritmo.
+87. **HU-87 · Agregar, duplicar, borrar y limpiar hojas** (Must · 5 pts, eran 3: incluye el deshacer de la pila). Como animador, quiero manejar hojas con una tecla, para que "acá falta un dibujo" no corte el ritmo.
     1. Insert agrega una hoja en blanco justo después de la activa y la deja activa.
-    2. Un atajo duplica la activa (misma hoja, después) y otro la limpia; borrar pide confirmación solo si la hoja tiene trazo (una tecla más).
-    3. Las tres se pueden deshacer con Z, como un trazo.
+    2. Ctrl+D duplica la activa (misma hoja, después) y Ctrl+N la limpia; Supr la borra y pide confirmación solo si la hoja tiene trazo (Supr otra vez).
+    3. Todo se deshace con Z y se rehace con Ctrl+Y: Z deshace lo más reciente entre el último trazo de la hoja activa y la última operación con las hojas; deshacer un borrado devuelve la hoja a su lugar con sus trazos y su deshacer.
     4. La hoja nueva tiene el papel y el tamaño de la toma.
 88. **HU-88 · Reordenar con ↑ ↓** (Must · 2 pts). Como animador, quiero mover la hoja activa un lugar con ↑ y ↓, para corregir el orden sin menú.
     1. ↑ la acerca al principio y ↓ al final; en los extremos se queda.

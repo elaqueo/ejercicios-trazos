@@ -23,12 +23,19 @@ class History {
 public:
     explicit History(int limit = 100);
 
-    void beginStroke();
+    // tag: número de orden del trazo (0 si no importa). Con una pila de hojas (HU-87) el
+    // deshacer compara el del último trazo de la hoja con el de la última operación de la
+    // pila para deshacer lo más reciente.
+    void beginStroke(uint64_t tag = 0);
     // before: nullptr si el tile no existía; planes: Paper::tilePlanes del tile.
     void beforeTileWrite(int tileIndex, const uint16_t* before, uint8_t planes);
     void endStroke(const Paper& paper);
 
     bool canUndo() const { return !m_undo.empty(); }
+    // El tag de lo próximo que se deshace o se rehace; 0 si no hay.
+    uint64_t undoTag() const { return m_undo.empty() ? 0 : m_undo.back().tag; }
+    uint64_t redoTag() const { return m_redo.empty() ? 0 : m_redo.back().tag; }
+    void clearRedo() { m_redo.clear(); }
     bool canRedo() const { return !m_redo.empty(); }
     size_t undoCount() const { return m_undo.size(); }
 
@@ -49,6 +56,7 @@ private:
     static std::vector<TileState> captureCurrent(const Paper& paper, const std::vector<TileState>& like);
     struct Entry {
         std::vector<TileState> before, after;
+        uint64_t tag = 0;
     };
     static std::vector<int> apply(Paper& paper, const std::vector<TileState>& states);
 

@@ -171,6 +171,16 @@ private slots:
         paper.swapTiles(otra);
         QCOMPARE(paper.hash(), hojaB);
 
+        // Duplicar (HU-87): la copia tiene lo mismo, en otros tiles.
+        drymedia::TileSet copia = paper.copyTiles();
+        QCOMPARE(copia.tileCount(), paper.tileCount());
+        const uint64_t original = paper.hash();
+        paper.swapTiles(copia);
+        QCOMPARE(paper.hash(), original);
+        paper.depositTile(3, 1)[7] = 1; // tocar la copia no toca la original
+        paper.swapTiles(copia);
+        QCOMPARE(paper.hash(), original);
+
         // Un conjunto vacío (sin crear con newTileSet) entra como hoja en blanco.
         drymedia::TileSet vacio;
         paper.swapTiles(vacio);

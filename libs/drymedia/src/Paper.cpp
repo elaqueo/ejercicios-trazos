@@ -99,7 +99,7 @@ struct Paper::Impl {
         set.m_freeInBlock = kPoolBlock;
     }
 
-    uint16_t* takeTile()
+    static uint16_t* takeTile(TileSet& set)
     {
         if (!set.m_recycled.empty()) {
             uint16_t* tile = set.m_recycled.back();
@@ -183,7 +183,7 @@ uint16_t* Paper::depositTile(int tx, int ty)
         return nullptr;
     uint16_t*& slot = d->set.m_tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
     if (!slot) {
-        slot = d->takeTile();
+        slot = Impl::takeTile(d->set);
         ++d->set.m_tileCount;
     }
     return slot;
@@ -263,6 +263,21 @@ TileSet Paper::newTileSet() const
     set.m_tiles.assign(size_t(d->tilesX) * size_t(d->tilesY), nullptr);
     set.m_planes.assign(set.m_tiles.size(), 0);
     return set;
+}
+
+TileSet Paper::copyTiles() const
+{
+    TileSet copy = newTileSet();
+    for (size_t i = 0; i < d->set.m_tiles.size(); ++i) {
+        if (!d->set.m_tiles[i])
+            continue;
+        uint16_t* tile = Impl::takeTile(copy);
+        std::copy_n(d->set.m_tiles[i], kTileStride, tile);
+        copy.m_tiles[i] = tile;
+    }
+    copy.m_planes = d->set.m_planes;
+    copy.m_tileCount = d->set.m_tileCount;
+    return copy;
 }
 
 void Paper::swapTiles(TileSet& other)

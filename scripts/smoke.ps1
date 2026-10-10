@@ -146,6 +146,17 @@ try {
         Write-Host "  FALLA Mesa de animación arranca y Ctrl+, abre sus atajos · $($l -join ' | ')"
         $failures.Add('Mesa de animación')
     }
+
+    # HU-87: Insert agrega, Ctrl+D duplica, Supr borra (en blanco: sin preguntar), Z deshace.
+    foreach ($k in '{INSERT}', '^d', '{DEL}', 'z') { $ws.SendKeys($k); Start-Sleep -Milliseconds 700 }
+    $l = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Hojas:|Hoja activa' })
+    $joined = $l -join ' '
+    if ($joined -match 'insertada · hoja 2 de 2.*duplicada · hoja 3 de 3.*borrada · hoja 2 de 2.*Hoja activa 3 de 3') {
+        Write-Host '  ok   Insert, Ctrl+D, Supr y Z manejan las hojas'
+    } else {
+        Write-Host "  FALLA Insert, Ctrl+D, Supr y Z manejan las hojas · $($l -join ' | ')"
+        $failures.Add('Hojas')
+    }
 }
 finally {
     if ($app -and -not $app.HasExited) {

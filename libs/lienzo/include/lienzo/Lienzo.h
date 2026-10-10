@@ -42,6 +42,7 @@ QScreen* savedScreen(const appkit::Config& config);
 struct LienzoOptions {
     QString name = QStringLiteral("lienzo"); // para los archivos de diagnóstico (<name>-muestras.csv)
     bool undo = true;                        // Z / Ctrl+Y (Ejercicios no deshace)
+    bool sheets = false; // pila de hojas (Mesa de animación): Ctrl+N limpia la hoja, con deshacer; F3 dice qué hoja es
 };
 
 // El lienzo de baja latencia (HU-63, nacido en Cartuchera): una hoja de grafito del tamaño de
@@ -98,7 +99,14 @@ public:
     // su lugar, mover conserva cuál es. Se atiende en la simulación, entre trazos.
     int sheetCount() const;
     int activeSheet() const;
+    // La activa no tiene ningún trazo (para no pedir confirmación al borrarla). false si
+    // todavía no se sabe (hay pedidos en camino).
+    bool activeSheetBlank() const;
     void addSheet(int at); // hoja en blanco en `at` (0..sheetCount())
+    // HU-87, con deshacer (Z): hoja en blanco justo después de la activa, o una copia de la
+    // activa, que pasa a ser la activa.
+    void insertSheet();
+    void duplicateSheet();
     void removeSheet(int index);
     void moveSheet(int from, int to);
     void activateSheet(int index);

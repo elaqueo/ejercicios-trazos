@@ -693,6 +693,134 @@ private slots:
         QVERIFY(!stack.remove(paper, 0)); // la única no se quita
     }
 
+    // HU-87: insertar, duplicar, limpiar y borrar se deshacen y rehacen; Z deshace lo más
+    // reciente entre el último trazo de la hoja activa y la última operación de la pila.
+    void pilaDeshacer()
+    {
+        drymedia::Paper paper({.seed = 3, .widthMm = 80, .heightMm = 60});
+        SheetStack stack(100);
+        std::vector<uint64_t> left; // hojas que dejaron de ser la activa (onLeave)
+        stack.onLeave = [&left](uint64_t id) { left.push_back(id); };
+        drymedia::Pencil pencil(paper, drymedia::Medium::hb());
+        pencil.setTileObserver([&stack](int i, const uint16_t* before, uint8_t planes) {
+            stack.history().beforeTileWrite(i, before, planes);
+        });
+        uint64_t tag = 0;
+        const auto stroke = [&](double y) {
+            stack.history().beginStroke(++tag);
+            stack.clearRedo();
+            pencil.beginStroke({200, y, 0.6f, 0, 80});
+            for (int i = 1; i <= 30; ++i)
+                pencil.strokeTo({200 + 1000.0 * i / 30, y, 0.6f, 0, 80});
+            pencil.endStroke();
+            stack.history().endStroke(paper);
+        };
+        const uint64_t blank = paper.reliefHash();
+
+        stroke(300); // tag 1, en la hoja 1
+        const uint64_t a = paper.hash();
+        QVERIFY(stack.duplicateActive(paper, ++tag)); // tag 2: copia de A, después, y activa
+        QCOMPARE(stack.count(), 2);
+        QCOMPARE(stack.active(), 1);
+        QCOMPARE(paper.hash(), a);
+        QCOMPARE(left, std::vector<uint64_t>{1});
+        stroke(800); // tag 3, sobre la copia
+        const uint64_t copy = paper.hash();
+        QVERIFY(copy != a);
+        QCOMPARE(stack.hash(paper, 0), a); // la original no cambió
+
+        // Z: primero el trazo de la copia, después la copia misma (y vuelve a la original).
+        QVERIFY(!stack.undo(paper).sheetChanged);
+        QCOMPARE(paper.hash(), a);
+        QVERIFY(stack.undo(paper).sheetChanged);
+        QCOMPARE(stack.count(), 1);
+        QCOMPARE(paper.hash(), a);
+        // Ctrl+Y en el orden inverso: la copia vuelve, con su id, y después su trazo.
+        QVERIFY(stack.redo(paper).sheetChanged);
+        QCOMPARE(stack.count(), 2);
+        QCOMPARE(stack.order().ids, (std::vector<uint64_t>{1, 2}));
+        QCOMPARE(stack.active(), 1);
+        QVERIFY(!stack.redo(paper).sheetChanged);
+        QCOMPARE(paper.hash(), copy);
+
+        // Insertar en blanco después de la activa (tag 4); limpiar (5) y borrar (6) se deshacen.
+        QVERIFY(stack.insertAfterActive(paper, ++tag));
+        QCOMPARE(stack.active(), 2);
+        QCOMPARE(paper.hash(), blank);
+        stack.activate(paper, 1);
+        QVERIFY(stack.clearActive(paper, ++tag));
+        QCOMPARE(paper.hash(), blank);
+        QVERIFY(!stack.undo(paper).sheetChanged); // limpiar es como un trazo
+        QCOMPARE(paper.hash(), copy);
+        QVERIFY(stack.remove(paper, 1, ++tag)); // borrar la activa
+        QCOMPARE(stack.count(), 2);
+        QVERIFY(stack.undo(paper).sheetChanged); // vuelve en su lugar, activa
+        QCOMPARE(stack.count(), 3);
+        QCOMPARE(stack.active(), 1);
+        QCOMPARE(paper.hash(), copy);
+        QCOMPARE(stack.order().ids, (std::vector<uint64_t>{1, 2, 3}));
+        // Lo más reciente ahora es la inserción de la hoja 3 (tag 4), no el trazo de la copia
+        // (tag 3): Z se lleva la hoja 3. Y después sí, el trazo, que volvió con su hoja.
+        QVERIFY(stack.undo(paper).sheetChanged);
+        QCOMPARE(stack.order().ids, (std::vector<uint64_t>{1, 2}));
+        QVERIFY(!stack.undo(paper).sheetChanged);
+        QCOMPARE(paper.hash(), a);
+
+        // Un trazo nuevo descarta lo rehacible de la pila.
+        stack.insertAfterActive(paper, ++tag);
+        QVERIFY(stack.undo(paper).sheetChanged);
+        stroke(500);
+        QVERIFY(!stack.redo(paper).sheetChanged);
+        QCOMPARE(stack.count(), 2);
+    }
+
+    // HU-87: en la simulación, Insert + un trazo + Z dos veces deja la pila como estaba; lo
+    // publicado cuenta los pedidos atendidos.
+    void simulacionDeshaceLaPila()
+    {
+        drymedia::Paper paper({.seed = 3, .widthMm = 80, .heightMm = 60});
+        SheetStack stack(Simulation::kUndoLimit);
+        SampleQueue queue;
+        DisplayImage image;
+        image.width = 400;
+        image.height = 300;
+        image.pixels.resize(size_t(image.width) * size_t(image.height));
+        const SheetMapping mapping = SheetMapping::fit(image.width, image.height, paper.width(), paper.height());
+        Simulation sim(paper, stack, queue, image, mapping);
+        sim.renderAll();
+        sim.start();
+
+        sim.requestInsertSheet();
+        QTRY_COMPARE(sim.sheetState().applied, uint64_t(1));
+        QCOMPARE(sim.sheetCount(), 2);
+        QCOMPARE(sim.activeSheet(), 1);
+        QCOMPARE(sim.sheetState().activeTiles, size_t(0));
+
+        std::vector<tabletinput::PenSample> samples;
+        for (int i = 0; i <= 20; ++i) {
+            tabletinput::PenSample s;
+            s.x = mapping.sheetX + 50 + 10 * i;
+            s.y = mapping.sheetY + 100;
+            s.pressure = 0.6f;
+            s.altitude = 80;
+            s.inContact = true;
+            s.timeUs = 1000 * (i + 1);
+            samples.push_back(s);
+        }
+        samples.push_back(samples.back());
+        samples.back().inContact = false;
+        queue.push(samples);
+        QTRY_VERIFY(sim.sheetState().activeTiles > 0);
+
+        sim.requestUndo(); // el trazo
+        sim.requestUndo(); // la hoja insertada
+        QTRY_COMPARE(sim.sheetState().applied, uint64_t(3));
+        QCOMPARE(sim.sheetCount(), 1);
+        QCOMPARE(sim.activeSheet(), 0);
+        sim.stop();
+        QCOMPARE(paper.hash(), paper.reliefHash());
+    }
+
     // HU-82: la simulación atiende la pila en su hilo y el trazo cae en la hoja activa.
     void simulacionAtiendeLaPila()
     {

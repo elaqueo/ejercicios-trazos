@@ -45,6 +45,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Panel (F2) | Panel a la derecha del área útil, pestañas Ejercicio (parámetros del actual y, en modo mixto, qué ejercicios participan) / Lápiz (mina activa y goma) / Pantalla (área útil y monitor). Los colores de la hoja quedaron fijos | HU-12, HU-20 |
 | Lápices (F5) | Panel a la derecha con la imagen de la colección de grafito arriba y las diez minas con una muestra simulada; la activa resaltada. Reemplaza al selector de pinceles de libmypaint | HU-67 |
 | Calibración | Pantalla oscura, indicador de pasos, marca ámbar en la esquina pedida | HU-10 |
+| Confirmación | Como la mesa "Confirmación": pregunta, detalle y la tecla que confirma en ámbar; cualquier otra tecla cancela | HU-87 |
 | Atajos (Ctrl+,) | Como la mesa "Atajos": título con el nombre de la app, los grupos en tres columnas (Lápiz · Hoja y papel, Vista · Ejercicios, Pantalla), teclas como chips y los gestos que no son teclas en gris claro. Sale del registro de atajos, así no se desactualiza | HU-78 |
 | Íconos | Fondo gris oscuro redondeado: Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; el instalador, los dos juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70 |
 
@@ -72,3 +73,13 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Ctrl+S · Ctrl+N | Guardar el lápiz · hoja nueva | Igual |
 | F3 · F9 · F10 · F12 | Latencia · calibrar el área útil · monitor siguiente · captura | Igual |
 | Alt+F4 | Salir | Salir |
+
+**Mesa de animación** (en construcción): las teclas del lienzo, como Cartuchera, más las de las hojas (HU-87). Todas se deshacen con Z.
+
+| Tecla | Qué hace |
+| --- | --- |
+| Insert | Hoja nueva en blanco después de la activa, que pasa a ser la activa |
+| Ctrl+D | Duplicar la activa: la copia queda después y pasa a ser la activa |
+| Ctrl+N | Limpiar la hoja activa |
+| Supr | Borrar la hoja activa; si tiene trazos, un cartel pide Supr otra vez (mesa "Confirmación") |
+| Z / Ctrl+Y | Deshacer / rehacer lo más reciente: el último trazo de la hoja activa o la última operación con las hojas |

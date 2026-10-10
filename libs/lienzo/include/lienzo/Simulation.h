@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lienzo/Media.h"
+#include "lienzo/SheetStack.h"
 #include "lienzo/SheetMapping.h"
 #include "lienzo/Tone.h"
 #include "lienzo/ViewRotation.h"
@@ -41,7 +42,6 @@ private:
 };
 
 class SampleQueue;
-class SheetStack;
 struct DisplayImage;
 struct SessionTimings;
 
@@ -77,14 +77,30 @@ public:
     static constexpr int kUndoLimit = 100; // decisión del 10 de octubre de 2026
 
     // Pila de hojas (HU-82): se atienden en el hilo de simulación, en orden y después de las
-    // muestras que ya llegaron (el trazo en curso se cierra). Activar otra hoja repinta la
-    // imagen entera. sheetCount() y activeSheet() dicen lo ya atendido.
+    // muestras que ya llegaron (el trazo en curso se cierra). Cambiar la hoja del papel
+    // repinta la imagen entera. Insertar, duplicar, limpiar y quitar se deshacen con Z
+    // (HU-87, si hay deshacer).
     void requestAddSheet(int at) { pushSheetCommand({SheetCommand::Add, at, 0}); }
+    void requestInsertSheet() { pushSheetCommand({SheetCommand::Insert, 0, 0}); }       // después de la activa, y activa
+    void requestDuplicateSheet() { pushSheetCommand({SheetCommand::Duplicate, 0, 0}); } // ídem, una copia
+    void requestClearSheet() { pushSheetCommand({SheetCommand::Clear, 0, 0}); }         // limpia la activa, con deshacer
     void requestRemoveSheet(int index) { pushSheetCommand({SheetCommand::Remove, index, 0}); }
     void requestMoveSheet(int from, int to) { pushSheetCommand({SheetCommand::Move, from, to}); }
     void requestActivateSheet(int index) { pushSheetCommand({SheetCommand::Activate, index, 0}); }
-    int sheetCount() const { return m_sheetCount; }
-    int activeSheet() const { return m_activeSheet; }
+    // Lo ya atendido, para la interfaz (HU-87): el orden de la pila, cuántos tiles tiene la
+    // activa (0 = en blanco) y cuántos pedidos de pila, deshacer y rehacer se atendieron.
+    struct SheetState {
+        SheetOrder order;
+        size_t activeTiles = 0;
+        uint64_t applied = 0;
+    };
+    SheetState sheetState() const
+    {
+        std::lock_guard lock(m_stateMutex);
+        return m_state;
+    }
+    int sheetCount() const { return sheetState().order.count; }
+    int activeSheet() const { return sheetState().order.active; }
     double lastActivationMs() const { return m_activationMs; }
     // Sin deshacer (Ejercicios) no se guardan copias de los tiles. Llamar antes de start().
     void setUndo(bool enabled) { m_undoEnabled = enabled; }
@@ -149,13 +165,15 @@ public:
 
 private:
     struct SheetCommand {
-        enum Kind { Add, Remove, Move, Activate } kind;
+        enum Kind { Add, Insert, Duplicate, Clear, Remove, Move, Activate } kind;
         int a = 0, b = 0;
     };
     void pushSheetCommand(SheetCommand command);
-    bool applySheetCommands(const std::vector<SheetCommand>& commands); // true si cambió la hoja del papel
+    bool applySheetCommand(const SheetCommand& command); // true si cambió la hoja del papel
+    void sheetChanged();      // repinta la hoja entera y lo anota en el log
+    void publishSheetState(); // para la interfaz
     void renderAllParallel();  // toda la imagen, en varios hilos (hoja nueva activa)
-    void retireActiveSheet();  // deja la imagen de la activa para el render, antes de cambiarla
+    void retireSheet(uint64_t id); // deja la imagen de la activa para el render, antes de cambiarla
     void run();
     const uint32_t* guides() const
     {
@@ -170,8 +188,10 @@ private:
     SheetStack& m_sheets;
     std::mutex m_sheetMutex;
     std::vector<SheetCommand> m_sheetCommands;
-    std::atomic<int> m_sheetCount{1};
-    std::atomic<int> m_activeSheet{0};
+    mutable std::mutex m_stateMutex;
+    SheetState m_state;
+    uint64_t m_applied = 0; // del hilo de simulación
+    uint64_t m_tag = 0;     // número de orden del deshacer (HU-87)
     std::atomic<double> m_activationMs{0};
     SampleQueue& m_queue;
     DisplayImage& m_image;

@@ -32,13 +32,14 @@ Simulation::Simulation(drymedia::Paper& paper, SheetStack& sheets, SampleQueue& 
     , m_eraser(Eraser{}.pack())
 {
     m_texture.build(m_paper, m_mapping);
-    m_sheetCount = m_sheets.count();
-    m_activeSheet = m_sheets.active();
+    m_sheets.onLeave = [this](uint64_t id) { retireSheet(id); };
+    publishSheetState();
 }
 
 Simulation::~Simulation()
 {
     stop();
+    m_sheets.onLeave = nullptr;
 }
 
 void Simulation::start()
@@ -126,33 +127,45 @@ void Simulation::pushSheetCommand(SheetCommand command)
     wake();
 }
 
-bool Simulation::applySheetCommands(const std::vector<SheetCommand>& commands)
+bool Simulation::applySheetCommand(const SheetCommand& c)
 {
-    bool changed = false;
-    for (const SheetCommand& c : commands) {
-        switch (c.kind) {
-        case SheetCommand::Add: changed |= m_sheets.add(m_paper, c.a); break;
-        case SheetCommand::Remove: changed |= m_sheets.remove(m_paper, c.a); break;
-        case SheetCommand::Move: changed |= m_sheets.move(c.a, c.b); break;
-        case SheetCommand::Activate:
-            if (m_sheets.order().valid(c.a) && c.a != m_sheets.active())
-                retireActiveSheet();
-            changed |= m_sheets.activate(m_paper, c.a);
-            break;
-        }
+    const uint64_t tag = m_undoEnabled ? ++m_tag : 0; // las operaciones de la pila se deshacen (HU-87)
+    switch (c.kind) {
+    case SheetCommand::Add: return m_sheets.add(m_paper, c.a, tag);
+    case SheetCommand::Insert: return m_sheets.insertAfterActive(m_paper, tag);
+    case SheetCommand::Duplicate: return m_sheets.duplicateActive(m_paper, tag);
+    case SheetCommand::Clear: return m_sheets.clearActive(m_paper, tag);
+    case SheetCommand::Remove: return m_sheets.remove(m_paper, c.a, tag);
+    case SheetCommand::Move: return m_sheets.move(c.a, c.b);
+    case SheetCommand::Activate: return m_sheets.activate(m_paper, c.a);
     }
-    m_sheetCount = m_sheets.count();
-    m_activeSheet = m_sheets.active();
-    return changed;
+    return false;
+}
+
+void Simulation::sheetChanged()
+{
+    renderAllParallel();
+    qInfo().noquote() << QStringLiteral("Hoja activa %1 de %2: imagen en %3 ms")
+                             .arg(m_sheets.active() + 1)
+                             .arg(m_sheets.count())
+                             .arg(m_activationMs.load(), 0, 'f', 1);
+}
+
+void Simulation::publishSheetState()
+{
+    std::lock_guard lock(m_stateMutex);
+    m_state.order = m_sheets.order();
+    m_state.activeTiles = m_paper.tileCount();
+    m_state.applied = m_applied;
 }
 
 // HU-83: la imagen de la hoja que sale queda para el render, que la sube a la textura de esa
 // hoja (la de la CPU, no la que ya está en la GPU: a la GPU pueden faltarle los últimos
 // trazos, porque el render sube la imagen de a partes).
-void Simulation::retireActiveSheet()
+void Simulation::retireSheet(uint64_t id)
 {
     RetiredSheet retired;
-    retired.sheet = m_sheets.order().activeId();
+    retired.sheet = id;
     retired.width = m_mapping.sheetWidth;
     retired.height = m_mapping.sheetHeight;
     retired.pixels.resize(size_t(retired.width) * size_t(retired.height));
@@ -225,8 +238,10 @@ void Simulation::run()
     }
     drymedia::Pencil* active = nullptr; // herramienta del trazo en curso
     const auto beginStroke = [&](drymedia::Pencil& tool, const drymedia::PencilSample& p) {
-        if (m_undoEnabled)
-            m_sheets.history().beginStroke();
+        if (m_undoEnabled) {
+            m_sheets.history().beginStroke(++m_tag);
+            m_sheets.clearRedo(); // algo nuevo: lo rehacible de la pila se descarta
+        }
         tool.beginStroke(p);
         active = &tool;
     };
@@ -336,23 +351,6 @@ void Simulation::run()
         const double pencilMs = batch.ms();
         m_wearPercent = pencil.wear().percent();
 
-        // Deshacer y rehacer después de las muestras del lote: si llegan en medio de un
-        // trazo, primero se cierra el trazo (y deshacer lo borra entero).
-        const int undos = m_undoRequests.exchange(0), redos = m_redoRequests.exchange(0);
-        if (undos || redos) {
-            const Stopwatch undoTime;
-            for (int n = undos; n > 0; --n) {
-                endStroke();
-                repaintTiles(m_sheets.history().undo(m_paper));
-            }
-            for (int n = redos; n > 0; --n) {
-                endStroke();
-                repaintTiles(m_sheets.history().redo(m_paper));
-            }
-            if (m_timings)
-                m_timings->simUndo.add(undoTime.ms());
-        }
-
 
         int px0 = 0, py0 = 0, px1 = 0, py1 = 0;
         const bool any = !dirty.empty() && m_mapping.pixelsOfCells(dirty.x0, dirty.y0, dirty.x1, dirty.y1, px0, py0, px1, py1);
@@ -375,18 +373,39 @@ void Simulation::run()
             m_timings->simBatch.add(batch.ms());
         }
 
-        // Pila de hojas (HU-82), al final del lote: las muestras ya están en la imagen, así la
-        // hoja que sale deja su imagen con todos sus trazos (HU-83).
-        if (!sheetCommands.empty()) {
-            endStroke();
-            if (applySheetCommands(sheetCommands)) {
-                renderAllParallel();
-                qInfo().noquote() << QStringLiteral("Hoja activa %1 de %2: imagen en %3 ms")
-                                         .arg(m_sheets.active() + 1)
-                                         .arg(m_sheets.count())
-                                         .arg(m_activationMs.load(), 0, 'f', 1);
+        // Al final del lote, con las muestras ya en la imagen (así la hoja que sale deja su
+        // imagen con todos sus trazos, HU-83): deshacer y rehacer (si llegan en medio de un
+        // trazo, primero se cierra el trazo y deshacer lo borra entero) y los pedidos de la
+        // pila. Después de cada cosa que cambia la hoja del papel se repinta, antes de la
+        // siguiente: la imagen tiene que ser siempre la de la activa.
+        const int undos = m_undoRequests.exchange(0), redos = m_redoRequests.exchange(0);
+        if (undos || redos) {
+            const Stopwatch undoTime;
+            const auto apply = [&](const SheetStack::UndoResult& r) {
+                if (r.sheetChanged)
+                    sheetChanged();
+                else
+                    repaintTiles(r.tiles);
+            };
+            for (int n = undos; n > 0; --n) {
+                endStroke();
+                apply(m_sheets.undo(m_paper));
             }
+            for (int n = redos; n > 0; --n) {
+                endStroke();
+                apply(m_sheets.redo(m_paper));
+            }
+            m_applied += uint64_t(undos + redos);
+            if (m_timings)
+                m_timings->simUndo.add(undoTime.ms());
         }
+        for (const SheetCommand& c : sheetCommands) {
+            endStroke();
+            if (applySheetCommand(c))
+                sheetChanged();
+            ++m_applied;
+        }
+        publishSheetState();
     }
 }
 

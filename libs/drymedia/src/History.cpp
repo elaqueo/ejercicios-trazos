@@ -11,9 +11,10 @@ History::History(int limit)
 {
 }
 
-void History::beginStroke()
+void History::beginStroke(uint64_t tag)
 {
     m_current = {};
+    m_current.tag = tag;
     m_recording = true;
 }
 

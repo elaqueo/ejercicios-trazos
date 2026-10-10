@@ -2,6 +2,7 @@
 qt_add_library(appkit STATIC
     include/appkit/CalibrationOverlay.h
     include/appkit/Config.h
+    include/appkit/ConfirmOverlay.h
     include/appkit/Guides.h
     include/appkit/Log.h
     include/appkit/MenuOverlay.h
@@ -16,6 +17,7 @@ qt_add_library(appkit STATIC
     include/appkit/UsableArea.h
     src/CalibrationOverlay.cpp
     src/Config.cpp
+    src/ConfirmOverlay.cpp
     src/Guides.cpp
     src/Log.cpp
     src/MenuOverlay.cpp

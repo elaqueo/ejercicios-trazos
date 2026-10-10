@@ -161,6 +161,24 @@ struct Lienzo::Impl {
     // recrearla (F9). `order` es lo mismo visto desde la interfaz (sheetCount, activeSheet).
     SheetStack sheets{Simulation::kUndoLimit};
     SheetOrder order;
+    // HU-87: el deshacer cambia la pila en la simulación, así que `order` se corrige con lo que
+    // ella publica cuando atendió todo lo que se le pidió (pedidos de pila, deshacer, rehacer).
+    uint64_t sentRequests = 0;
+    template <typename F>
+    void post(F request)
+    {
+        ++sentRequests;
+        request();
+    }
+    SheetOrder& syncOrder()
+    {
+        const Simulation::SheetState state = sim->sheetState();
+        if (state.applied == sentRequests)
+            order = state.order;
+        return order;
+    }
+    void requestUndo() { post([this] { sim->requestUndo(); }); }
+    void requestRedo() { post([this] { sim->requestRedo(); }); }
     SampleQueue queue;
     MediaFile media;
     appkit::Shortcuts shortcuts;
@@ -212,6 +230,8 @@ struct Lienzo::Impl {
     void createSimulation()
     {
         sim = std::make_unique<Simulation>(paper, sheets, queue, image, mapping);
+        order = sheets.order(); // la simulación nueva todavía no atendió nada
+        sentRequests = 0;
         sim->setUndo(options.undo);
         sim->setTimings(&timings);
         if (recording)
@@ -238,6 +258,7 @@ struct Lienzo::Impl {
     {
         if (!render)
             return;
+        syncOrder();
         std::vector<SheetLayer> below;
         for (const Lienzo::Underlay& u : underlays)
             if (order.valid(u.index) && u.index != order.active)
@@ -526,6 +547,11 @@ struct Lienzo::Impl {
                      unsaved ? L"   ·   Ctrl+S guarda" : L"");
         }
         std::wstring out = text;
+        if (options.sheets) { // HU-87: qué hoja es (lo que ya atendió la simulación)
+            const SheetOrder o = sim->sheetState().order;
+            swprintf(text, 768, L"   ·   hoja %d de %d", o.active + 1, o.count);
+            out += text;
+        }
         swprintf(text, 768, L"   ·   textura %d %% (Ctrl+[ ])%ls", texture, warning);
         wchar_t version[128];
         swprintf(version, 128, L"escala de Windows %d %%   ·   hoja %d × %d px\n",
@@ -692,10 +718,13 @@ void Lienzo::registerShortcuts()
     });
 
     keys.setGroup(kGroupSheet);
-    keys.add(QStringLiteral("Hoja nueva"), {{'N', true}}, [this] { clear(); });
+    if (d->options.sheets) // con la pila, limpiar la hoja se deshace (HU-87)
+        keys.add(QStringLiteral("Limpiar la hoja"), {{'N', true}}, [impl] { impl->post([impl] { impl->sim->requestClearSheet(); }); });
+    else
+        keys.add(QStringLiteral("Hoja nueva"), {{'N', true}}, [this] { clear(); });
     if (d->options.undo) {
-        keys.add(QStringLiteral("Deshacer"), {{'Z'}}, [impl] { impl->sim->requestUndo(); }); // Z sola (pedido del usuario, 10 de octubre)
-        keys.add(QStringLiteral("Rehacer"), {{'Y', true}}, [impl] { impl->sim->requestRedo(); });
+        keys.add(QStringLiteral("Deshacer"), {{'Z'}}, [impl] { impl->requestUndo(); }); // Z sola (pedido del usuario, 10 de octubre)
+        keys.add(QStringLiteral("Rehacer"), {{'Y', true}}, [impl] { impl->requestRedo(); });
     }
     keys.add(QStringLiteral("Menos textura del papel"), {{VK_OEM_4, true}}, [impl] { impl->stepTexture(false); }); // HU-75
     keys.add(QStringLiteral("Más textura del papel"), {{VK_OEM_6, true}}, [impl] { impl->stepTexture(true); });
@@ -807,29 +836,48 @@ void Lienzo::showOverlay(QWidget* overlay)
 
 int Lienzo::sheetCount() const
 {
-    return d->order.count;
+    return d->syncOrder().count;
 }
 
 int Lienzo::activeSheet() const
 {
-    return d->order.active;
+    return d->syncOrder().active;
+}
+
+bool Lienzo::activeSheetBlank() const
+{
+    const Simulation::SheetState state = d->sim->sheetState();
+    return state.applied == d->sentRequests && state.activeTiles == 0; // con pedidos en camino, no se sabe
 }
 
 void Lienzo::addSheet(int at)
 {
-    d->order.add(at);
-    d->sim->requestAddSheet(at);
+    d->syncOrder().add(at);
+    d->post([&] { d->sim->requestAddSheet(at); });
+}
+
+void Lienzo::insertSheet()
+{
+    SheetOrder& order = d->syncOrder();
+    order.add(order.active + 1);
+    order.activate(order.active + 1);
+    d->post([&] { d->sim->requestInsertSheet(); });
+}
+
+void Lienzo::duplicateSheet()
+{
+    SheetOrder& order = d->syncOrder();
+    order.add(order.active + 1);
+    order.activate(order.active + 1);
+    d->post([&] { d->sim->requestDuplicateSheet(); });
 }
 
 void Lienzo::removeSheet(int index)
 {
-    if (!d->order.valid(index))
+    SheetOrder& order = d->syncOrder();
+    if (!order.valid(index) || !order.remove(index))
         return;
-    const uint64_t id = d->order.ids[size_t(index)];
-    if (!d->order.remove(index))
-        return;
-    d->sim->requestRemoveSheet(index);
-    d->render->dropSheet(id);
+    d->post([&] { d->sim->requestRemoveSheet(index); });
 }
 
 void Lienzo::setUnderlays(const std::vector<Underlay>& underlays)
@@ -846,18 +894,20 @@ void Lienzo::showSheet(int index)
 
 void Lienzo::moveSheet(int from, int to)
 {
-    if (!d->order.valid(from) || !d->order.valid(to) || from == to)
+    SheetOrder& order = d->syncOrder();
+    if (!order.valid(from) || !order.valid(to) || from == to)
         return;
-    d->order.move(from, to);
-    d->sim->requestMoveSheet(from, to);
+    order.move(from, to);
+    d->post([&] { d->sim->requestMoveSheet(from, to); });
 }
 
 void Lienzo::activateSheet(int index)
 {
-    if (!d->order.valid(index) || index == d->order.active)
+    SheetOrder& order = d->syncOrder();
+    if (!order.valid(index) || index == order.active)
         return;
-    d->order.activate(index);
-    d->sim->requestActivateSheet(index);
+    order.activate(index);
+    d->post([&] { d->sim->requestActivateSheet(index); });
 }
 
 void Lienzo::focusCanvas()

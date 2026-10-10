@@ -139,6 +139,8 @@ QString Shortcuts::describe(KeyChord chord)
         case VK_OEM_PERIOD: key = QStringLiteral("."); break;
         case VK_OEM_MINUS: key = QStringLiteral("-"); break;
         case VK_OEM_PLUS: key = QStringLiteral("="); break;
+        case VK_INSERT: key = QStringLiteral("Insert"); break;
+        case VK_DELETE: key = QStringLiteral("Supr"); break;
         default: key = QStringLiteral("0x%1").arg(k, 2, 16, QLatin1Char('0'));
         }
     }
