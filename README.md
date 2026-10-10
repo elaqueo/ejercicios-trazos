@@ -13,7 +13,7 @@ Apps de escritorio para dibujar con tableta digitalizadora sobre un lienzo propi
 
   F4 abre el menú y F2 el panel con los parámetros de cada ejercicio. La tabla completa de teclas está en [docs/diseno.md](docs/diseno.md#teclas-v100).
 - **Cartuchera** (`apps/cartuchera`): hoja libre para dibujar, con deshacer.
-- **Mesa de luz** (idea en estudio, sin código): hojas apiladas y flip a mano para la etapa de rough animation. [docs/mesa-de-luz/idea.md](docs/mesa-de-luz/idea.md).
+- **Mesa de animación** (idea en estudio, sin código): hojas apiladas, mesa de luz y flip a mano para la etapa de rough animation. [docs/mesa-de-animacion/idea.md](docs/mesa-de-animacion/idea.md).
 
 - [Alcance de la v1](docs/alcance-v1.md)
 - [Diseño (sistema visual y pantallas)](docs/diseno.md)

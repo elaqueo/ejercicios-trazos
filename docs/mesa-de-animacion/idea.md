@@ -1,4 +1,4 @@
-# Mesa de luz — La idea
+# Mesa de animación — La idea
 
 10 de octubre de 2026 · Daniel
 
@@ -10,7 +10,7 @@ Una tercera app de la suite, hermana de Cartuchera, para la etapa de *rough anim
 
 La imagen mental es simple: una pila de hojas sobre una mesa de luz. Se dibuja en la hoja de arriba, se ven por transparencia las de abajo, y con las manos se pasan las hojas para ver si el movimiento funciona. La app no hace nada que una mesa de luz no haga; solo lo hace sin papel.
 
-El nombre es ese: **Mesa de luz** (ejecutable `mesadeluz`), porque como *Cartuchera* y *Ejercicios* nombra el objeto del taller, no la etapa del proceso.
+El nombre es **Mesa de animación** (ejecutable `mesadeanimacion`), porque como *Cartuchera* y *Ejercicios* nombra el objeto del taller, no la etapa del proceso: el escritorio del animador, con la mesa de luz en el centro. La mesa de luz es una de sus funciones (el onion skin), no toda la app. (Se llamó *Mesa de luz* hasta el 10 de octubre de 2026.)
 
 ## Qué no es
 
@@ -77,7 +77,7 @@ Que cada color signifique una cosa es lo que permite que una app posterior lea e
 
 ## La vista
 
-Cartuchera ya gira la vista con la rueda de la tableta y con las teclas `4`, `6` y `5`. Mesa de luz agrega **zoom y pan**, porque al animar se trabaja un detalle y después se vuelve a ver todo.
+Cartuchera ya gira la vista con la rueda de la tableta y con las teclas `4`, `6` y `5`. Mesa de animación agrega **zoom y pan**, porque al animar se trabaja un detalle y después se vuelve a ver todo.
 
 - El **anillo** de la tableta se registra con tres funciones, *Girar la vista*, *Zoom* y *Hojas*, y el botón central del anillo alterna entre ellas, como con cualquier otra app que use el anillo.
 - Atajos de zoom, los habituales en este tipo de programas: `+` y `−`, `Ctrl+0` ajusta la hoja a la ventana, `Ctrl+1` vuelve a 1:1, `Ctrl+rueda` del mouse si lo hay.
@@ -136,7 +136,7 @@ Todo lo que no se nombra acá es como en Cartuchera (goma, tamaño, calibración
 - **Roll**: mantener una tecla apretada y ver las últimas tres a cinco hojas sin tinte, como rolar el papel con los dedos. Puede que con el flip rápido y la mesa de luz que se apaga sola no agregue nada; se prueba después de tener el flip.
 - ¿El chart de timing tiene atajo propio (un rincón que se agranda) o es simplemente una zona de la hoja?
 - ¿Qué pasa con el audio al flipear? Por ahora, nada.
-- La app de reproducción / pencil test y la app de fill son otras apps; qué formato comparten con Mesa de luz es lo único que habría que acordar.
+- La app de reproducción / pencil test y la app de fill son otras apps; qué formato comparten con Mesa de animación es lo único que habría que acordar.
 
 ## Qué se reutiliza y qué habría que hacer
 
