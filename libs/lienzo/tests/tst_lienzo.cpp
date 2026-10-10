@@ -265,6 +265,26 @@ private slots:
         QCOMPARE(full, 0);
     }
 
+    // La luz de la textura sigue al giro de la vista cuando el giro se queda quieto (la rueda
+    // de la tableta, HU-74, gira muchas veces por segundo); la intensidad, en el acto.
+    void luzEsperaQueElGiroSeQuedeQuieto()
+    {
+        LightSchedule light;
+        QVERIFY(light.due(0, 20, 0));       // la primera vez, siempre
+        QVERIFY(!light.due(0, 20, 10));     // nada cambió
+        QVERIFY(!light.due(5, 20, 20));     // girando…
+        QVERIFY(!light.due(10, 20, 100));
+        QVERIFY(!light.due(15, 20, 250));   // sigue girando: espera de nuevo
+        QVERIFY(!light.due(15, 20, 400));
+        QVERIFY(light.due(15, 20, 460));    // quieto 210 ms: ahora sí
+        QVERIFY(!light.due(15, 20, 500));
+        QVERIFY(light.due(15, 30, 510));    // otra intensidad: en el acto
+        QVERIFY(light.due(20, 0, 520));     // apagar: en el acto
+        QVERIFY(!light.due(40, 0, 530));    // sin textura el giro no importa
+        QVERIFY(!light.due(40, 0, 900));
+        QVERIFY(light.due(40, 20, 910));    // al prenderla, con el giro de ahora
+    }
+
     void colaEntreHilos()
     {
         SampleQueue queue;

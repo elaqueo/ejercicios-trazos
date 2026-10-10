@@ -4,6 +4,8 @@
 
 #include "lienzo/SampleQueue.h"
 
+#include <QDebug>
+
 namespace lienzo {
 
 namespace {
@@ -32,6 +34,8 @@ CanvasWindow::CanvasWindow(HWND parent, SampleQueue& queue, std::function<void(U
                              wc.hInstance, this);
     ClientToScreen(m_hwnd, &m_origin);
     SetFocus(m_hwnd);
+    if (m_ring.open(m_hwnd, [](const std::string& line) { qInfo().noquote() << QString::fromStdString(line); }))
+        m_ringTracker = tabletinput::RingTracker(int(m_ring.maximum() - m_ring.minimum() + 1));
 }
 
 CanvasWindow::~CanvasWindow()
@@ -88,6 +92,19 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         }
         m_queue.push(toDraw);
         return 0; // sin mouse sintetizado
+    }
+    m_ringEvents.clear();
+    if (m_ring.handleMessage(msg, wParam, lParam, m_ringEvents)) {
+        LARGE_INTEGER now, frequency;
+        QueryPerformanceCounter(&now);
+        QueryPerformanceFrequency(&frequency);
+        const int64_t us = tabletinput::qpcToMicroseconds(now.QuadPart, frequency.QuadPart);
+        for (const tabletinput::RingEvent& e : m_ringEvents) {
+            const tabletinput::RingTracker::Step step = m_ringTracker.feed(e.position, us);
+            if (m_onRing && (step.degrees != 0 || step.ended))
+                m_onRing(step.degrees, step.ended);
+        }
+        return 0;
     }
     switch (msg) {
     case WM_KEYDOWN:

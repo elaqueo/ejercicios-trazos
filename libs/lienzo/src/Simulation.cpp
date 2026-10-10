@@ -12,6 +12,7 @@
 #include <drymedia/Pencil.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 namespace lienzo {
@@ -61,6 +62,22 @@ void Simulation::setGuides(std::vector<uint32_t> guides)
     wake();
 }
 
+bool LightSchedule::due(double view, int percent, double nowMs)
+{
+    if (view != m_seenView) {
+        m_seenView = view;
+        m_seenAt = nowMs;
+    }
+    if (m_percent >= 0 && percent == m_percent && (percent == 0 || view == m_view))
+        return false; // nada que cambie la luz (sin textura el giro no importa)
+    const bool viewOnly = m_percent >= 0 && percent == m_percent;
+    if (viewOnly && nowMs - m_seenAt < kSettleMs)
+        return false; // todavía girando
+    m_view = view;
+    m_percent = percent;
+    return true;
+}
+
 bool Simulation::updateLight()
 {
     double view;
@@ -69,10 +86,10 @@ bool Simulation::updateLight()
         view = m_rotation.degrees;
     }
     const int percent = m_texturePercent;
-    if (percent == m_lightPercent && (percent == 0 || view == m_lightView))
+    const double nowMs = double(std::chrono::duration_cast<std::chrono::microseconds>(
+                                    std::chrono::steady_clock::now().time_since_epoch()).count()) / 1000.0;
+    if (!m_light.due(view, percent, nowMs))
         return false;
-    m_lightPercent = percent;
-    m_lightView = view;
     // La luz gira al revés que la vista para quedar fija en la pantalla.
     m_texture.setLight(kLightDegrees - view, percent / 100.0);
     return true;

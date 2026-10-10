@@ -145,6 +145,7 @@ struct Lienzo::Impl {
     bool tilt = true;                         // costado (HU-73)
     int texture = 20;                         // textura del papel en % (HU-75)
     double gestureStartDegrees = 0, gestureStartPointer = 0;
+    bool ringTurned = false; // la rueda giró la vista desde que se apoyó el dedo (HU-74)
     std::function<void()> onSheetChanged;
     std::unique_ptr<QWidget> calibrationHost; // F9 (HU-66): ventana propia que cubre el monitor
     appkit::CalibrationOverlay* calibration = nullptr;
@@ -522,6 +523,18 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
 
     d->canvas->setOnRotateGesture(
         [impl = d.get()](int phase, double x, double y) { impl->rotateGesture(phase, x, y); });
+    // Rueda táctil (HU-74): giro libre, sin snap; se guarda al levantar el dedo.
+    d->canvas->setOnRing([impl = d.get()](double degrees, bool ended) {
+        if (degrees != 0) {
+            impl->setViewRotation(impl->viewDegrees + degrees, false);
+            impl->ringTurned = true;
+        }
+        if (ended && impl->ringTurned) {
+            impl->ringTurned = false;
+            impl->config->setValue(QStringLiteral("viewRotation"), impl->viewDegrees);
+            qInfo() << "Vista rotada con la rueda" << impl->viewDegrees << "°";
+        }
+    });
 
     d->picker = std::make_unique<LeadPicker>(&shell);
     d->picker->onPick = [impl = d.get()](int grade) {

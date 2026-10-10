@@ -1,4 +1,5 @@
 #include <tabletinput/PenReader.h>
+#include <tabletinput/TouchRing.h>
 
 #include <QTest>
 
@@ -132,6 +133,49 @@ private slots:
         p.penMask |= PEN_MASK_ROTATION;
         p.rotation = 45;
         QCOMPARE(tabletinput::normalize(p, desktopRects(), kQpcHz).rotation.value_or(-1), 45.0f);
+    }
+
+    // Rueda (HU-74), con lo medido en la Intuos4: posiciones 1 a 72, suben en el sentido de
+    // las agujas del reloj, 0 al levantar el dedo.
+    void ruedaGiraLoQueSeDesliza()
+    {
+        using tabletinput::RingTracker;
+        RingTracker ring;
+        int64_t t = 0;
+        const auto feed = [&](uint32_t p) { return ring.feed(p, t += 25000); };
+        QCOMPARE(feed(70).degrees, 0.0); // apoyar no gira
+        QCOMPARE(feed(71).degrees, 5.0);
+        QCOMPARE(feed(72).degrees, 5.0);
+        QCOMPARE(feed(1).degrees, 5.0); // cruza de 72 a 1 sin saltar
+        QCOMPARE(feed(3).degrees, 10.0); // se saltea una posición si el dedo va rápido
+        QCOMPARE(feed(2).degrees, -5.0); // al revés, negativo
+        QCOMPARE(feed(1).degrees, -5.0);
+        QCOMPARE(feed(72).degrees, -5.0);
+        const RingTracker::Step up = feed(0);
+        QVERIFY(up.ended);
+        QCOMPARE(up.degrees, 0.0);
+        QVERIFY(!feed(0).ended); // un solo aviso por levantada
+
+        // Apoyar en otro lado, después de soltar: no salta hasta ahí.
+        t += 1000000;
+        QCOMPARE(feed(30).degrees, 0.0);
+        QCOMPARE(feed(31).degrees, 5.0);
+    }
+
+    // Un 0 suelto en medio de una vuelta (el dedo se despega apenas) no corta el giro: se
+    // sigue desde donde estaba. Pero si pasó tiempo o el dedo volvió lejos, es otro toque.
+    void ruedaIgnoraRebotes()
+    {
+        using tabletinput::RingTracker;
+        RingTracker ring;
+        QCOMPARE(ring.feed(60, 0).degrees, 0.0);
+        QCOMPARE(ring.feed(62, 25000).degrees, 10.0);
+        QVERIFY(ring.feed(0, 50000).ended);
+        QCOMPARE(ring.feed(63, 75000).degrees, 5.0);   // rebote: sigue
+        QVERIFY(ring.feed(0, 100000).ended);
+        QCOMPARE(ring.feed(20, 125000).degrees, 0.0);  // lejos: otro toque
+        QVERIFY(ring.feed(0, 150000).ended);
+        QCOMPARE(ring.feed(21, 500000).degrees, 0.0);  // tarde: otro toque
     }
 
     // PenReader ignora todo lo que no sea WM_POINTER de un lápiz.

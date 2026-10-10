@@ -25,6 +25,21 @@ inline float penAltitude(float tabletAltitude, bool tilt)
     return tilt ? tabletAltitude : 90.0f;
 }
 
+// Cuándo recalcular la luz de la textura (HU-75) al girar la vista: con la rueda (HU-74) el
+// giro cambia muchas veces por segundo y cada recálculo repinta la hoja entera, así que la
+// luz espera a que el giro se quede quieto kSettleMs. La intensidad cambia en el acto.
+class LightSchedule {
+public:
+    static constexpr double kSettleMs = 200;
+    // true si hay que recalcular ahora con (view, percent); nowMs: reloj monotónico.
+    bool due(double view, int percent, double nowMs);
+
+private:
+    double m_view = 0;    // con qué giro e intensidad se calculó
+    int m_percent = -1;   // -1: nunca
+    double m_seenView = 0, m_seenAt = 0; // el último giro visto y desde cuándo
+};
+
 class SampleQueue;
 struct DisplayImage;
 struct SessionTimings;
@@ -157,8 +172,7 @@ private:
     std::atomic<int> m_wearPercent{0};
     PaperTexture m_texture;
     std::atomic<int> m_texturePercent{0};
-    int m_lightPercent = -1;   // con qué intensidad y giro se calculó el factor de la textura
-    double m_lightView = 0;
+    LightSchedule m_light;
 };
 
 } // namespace lienzo

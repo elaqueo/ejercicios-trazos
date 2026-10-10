@@ -247,7 +247,7 @@ Primero se valida la latencia y la entrada con un lienzo trivial; recién despu�
     2. Salida: funcionan técnicas reales (línea blanca, capa bruñida que rechaza grafito, sombreado de costado).
 4. **Fase 3 — Papel real**
     1. Relieve por fotometría estéreo del papel que se usa sobre la tableta, iluminación con brillo del grafito, rotación de la hoja, modo 1:1 calibrado.
-    2. Hecho: textura del papel visible y ajustable (HU-75). Pendiente: rueda táctil de la tableta (HU-74), decidido el 9 de octubre de 2026: solo rotación libre de la vista, sin snap, y sin zoom (el zoom no existe en el lienzo y por ahora no se agrega).
+    2. Hecho: textura del papel visible y ajustable (HU-75) y rueda táctil de la tableta (HU-74): solo rotación libre de la vista, sin snap, sin zoom (decidido el 9 de octubre de 2026). La rueda se lee por las extensiones de Wintab (Windows Ink no la conoce; lo que manda el driver según el panel de Wacom depende de cada máquina y chocaba con teclas de la app). El lápiz sigue por Windows Ink: el contexto de Wintab excluye todos los cursores (WTX_CSRMASK), porque si no el driver le manda el lápiz a Wintab y deja de llegar por Ink. Mientras la app tiene el foco toma los modos de la rueda (override); 72 posiciones por vuelta, 5° cada una, 0 al levantar el dedo (un 0 suelto de menos de 150 ms no corta el giro). La luz de la textura se recalcula recién cuando el giro se queda quieto 200 ms.
     3. Salida: el grano que se ve coincide con el que se siente.
 5. **Fase 4 — Persistencia y replay**
     1. Log de muestras, snapshots, re-simulación con parámetros nuevos, pruebas de regresión por hash.

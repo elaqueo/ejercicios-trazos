@@ -3,6 +3,8 @@
 add_library(tabletinput STATIC
     include/tabletinput/PenReader.h
     src/PenReader.cpp
+    include/tabletinput/TouchRing.h
+    src/TouchRing.cpp
 )
 target_include_directories(tabletinput PUBLIC include)
 target_link_libraries(tabletinput PUBLIC user32)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <tabletinput/PenReader.h>
+#include <tabletinput/TouchRing.h>
 
 #include <windows.h>
 
@@ -30,6 +31,9 @@ public:
     {
         m_onRotateGesture = std::move(callback);
     }
+    // Rueda táctil de la tableta (HU-74): grados que giró el dedo (positivos = sentido de las
+    // agujas del reloj) y ended al levantarlo. En el hilo de la interfaz.
+    void setOnRing(std::function<void(double degrees, bool ended)> callback) { m_onRing = std::move(callback); }
     // Al apretar el botón lateral del lápiz (flanco de subida; en el hilo de la interfaz).
     void setOnStylusButton(std::function<void()> callback) { m_onStylusButton = std::move(callback); }
     int width() const { return m_width; }
@@ -51,6 +55,10 @@ private:
     bool m_rotating = false; // gesto de rotación en curso
     HCURSOR m_cursor = nullptr; // la cruz abierta (HU-38)
     tabletinput::PenReader m_reader;
+    tabletinput::TouchRing m_ring; // rueda táctil (HU-74)
+    std::vector<tabletinput::RingEvent> m_ringEvents;
+    tabletinput::RingTracker m_ringTracker;
+    std::function<void(double, bool)> m_onRing;
     std::vector<tabletinput::PenSample> m_samples;
 };
 
