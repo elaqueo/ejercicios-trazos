@@ -27,7 +27,14 @@ struct PenSample {
     bool inContact = false;         // false = proximidad (en el aire)
     bool eraser = false;            // extremo goma
     bool barrel = false;            // botón lateral apretado
+    // En el borde de la superficie activa: al pasarse, el driver deja el lápiz clavado en el
+    // borde y la posición ya no es la de la punta (trazos que corrían a lo largo del borde).
+    bool atEdge = false;
 };
+
+// Qué tan cerca del borde (en fracción del ancho o alto de la tableta) cuenta como clavado:
+// ~1,5 px en 1080, ~0,2 mm en la Intuos4.
+constexpr double kEdgeFraction = 0.0015;
 
 // Rectángulos de GetPointerDeviceRects: la tableta (himétrico) y la pantalla a la que
 // el driver dice que mapea. Ojo: puede no ser el mapeo real (HU-43); para milímetros

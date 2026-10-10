@@ -50,6 +50,9 @@ PenSample normalize(const POINTER_PEN_INFO& pen, const DeviceRects& rects, int64
                                        double(rects.display.right - rects.display.left) / pw;
         s.y = rects.display.top + (p.ptHimetricLocation.y - rects.pointer.top) *
                                       double(rects.display.bottom - rects.display.top) / ph;
+        const double fx = (p.ptHimetricLocation.x - rects.pointer.left) / pw;
+        const double fy = (p.ptHimetricLocation.y - rects.pointer.top) / ph;
+        s.atEdge = fx <= kEdgeFraction || fx >= 1 - kEdgeFraction || fy <= kEdgeFraction || fy >= 1 - kEdgeFraction;
     } else {
         s.x = p.ptPixelLocation.x; // sin rectángulos: lo mejor que hay, cuantizado
         s.y = p.ptPixelLocation.y;

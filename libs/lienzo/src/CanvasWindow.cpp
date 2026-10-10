@@ -73,6 +73,10 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         for (tabletinput::PenSample& s : m_samples) { // pantalla → cliente
             s.x -= m_origin.x;
             s.y -= m_origin.y;
+            // Clavado en el borde de la tableta: la posición es falsa, el trazo se corta ahí
+            // (con la vista girada dibujaba una línea a lo largo del borde).
+            if (s.atEdge)
+                s.inContact = false;
             if (s.barrel && !m_barrel && m_onStylusButton)
                 m_onStylusButton();
             m_barrel = s.barrel;

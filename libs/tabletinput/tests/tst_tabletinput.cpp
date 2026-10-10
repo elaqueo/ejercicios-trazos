@@ -178,6 +178,19 @@ private slots:
         QCOMPARE(ring.feed(21, 500000).degrees, 0.0);  // tarde: otro toque
     }
 
+    // En el borde de la superficie activa el driver deja el lápiz clavado: esas muestras se
+    // marcan (la app corta el trazo ahí). Adentro, aunque sea cerca, no.
+    void bordeDeLaTableta()
+    {
+        const DeviceRects r = desktopRects();
+        QVERIFY(tabletinput::normalize(pen(16000, r.pointer.top + 5, 512, 1), r, 1000).atEdge);       // arriba
+        QVERIFY(tabletinput::normalize(pen(r.pointer.right - 2, 10000, 512, 1), r, 1000).atEdge);     // derecha
+        QVERIFY(tabletinput::normalize(pen(r.pointer.left, 10000, 512, 1), r, 1000).atEdge);          // izquierda
+        QVERIFY(tabletinput::normalize(pen(16000, r.pointer.bottom - 1, 512, 1), r, 1000).atEdge);    // abajo
+        QVERIFY(!tabletinput::normalize(pen(16000, 10000, 512, 1), r, 1000).atEdge);
+        QVERIFY(!tabletinput::normalize(pen(16000, r.pointer.top + 200, 512, 1), r, 1000).atEdge);   // ~11 px: adentro
+    }
+
     // PenReader ignora todo lo que no sea WM_POINTER de un lápiz.
     void otrosMensajesNoSeConsumen()
     {
