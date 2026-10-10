@@ -23,7 +23,7 @@ El flip es el producto; lo demás son restricciones heredadas de Cartuchera.
 | ID | Requerimiento | Criterio de verificación |
 | --- | --- | --- |
 | RNF-01 | Flip instantáneo | Al apretar ← o →, la hoja nueva está en pantalla en el frame siguiente: menos de 17 ms a 60 Hz desde la tecla hasta la presentación, medido con las estadísticas de F3; también manteniendo la tecla apretada (autorepetición) y con el anillo |
-| RNF-02 | Pila en RAM | Una toma de 120 hojas (5 segundos en unos a 24 fps) abierta entera en memoria, con menos de 1,5 GB en la desktop (16 GB) y sin que el flip se degrade con el tamaño de la pila |
+| RNF-02 | Pila en memoria | Una toma de 120 hojas (5 segundos en unos a 24 fps) abierta entera: el estado de simulación de todas las hojas en RAM (≈ 1,1 GB con los lápices de color, por el recorte del medio, ver [spikes/flip.md](spikes/flip.md)) y su imagen en la GPU (≈ 7 MB por hoja), sin que el flip se degrade con el tamaño de la pila |
 | RNF-03 | Mesa de luz sin demora perceptible | Al soltar la tecla, las hojas teñidas aparecen en menos de 50 ms; mientras se flipea no se compone nada |
 | RNF-04 | Dibujar como en Cartuchera | La latencia del trazo sobre la hoja activa es la de Cartuchera (mediana ≈ 12 ms en F3); la pila no suma trabajo al hilo de simulación |
 | RNF-05 | Guardado invisible | El guardado automático nunca frena el trazo ni el flip: se hace fuera de los hilos de simulación y render, por hoja cambiada |
@@ -59,9 +59,11 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     3. Salida: una nota en `docs/mesa-de-animacion/spikes/` con las mediciones y la decisión; el código del spike es descartable.
 82. **HU-82 · Pila de hojas en el lienzo** (enabler · Must · 5 pts). Como desarrollador, quiero que `lienzo` tenga una pila de hojas con una activa, para que el trazo caiga en la hoja de arriba y las demás existan sin costo en el hilo de simulación.
     1. `lienzo::Lienzo` expone una pila: agregar, quitar, mover y elegir la hoja activa; Cartuchera y Ejercicios siguen con una sola hoja sin cambiar su código.
-    2. Cambiar la hoja activa cambia el papel que simula el hilo de simulación sin perder trazos ni deshacer de la hoja anterior (deshacer es por hoja).
-    3. Cada hoja no activa guarda lo que decidió HU-81 y su imagen se presenta sin recalcular.
-    4. Pruebas unitarias: la hoja activa recibe el trazo, las otras no; mover una hoja conserva su contenido.
+    2. `drymedia` separa el relieve (uno por toma, de solo lectura) del conjunto de tiles de depósito, que es un objeto por hoja; cambiar la hoja activa cambia de conjunto sin copiar tiles (HU-81).
+    3. `drymedia` acepta un perfil de medio por app: resolución (600 o 300 dpi) y planos por tile. Mesa de animación usa 300 dpi y 2 planos (grafito y color, HU-99); Cartuchera y Ejercicios siguen en 600 dpi con los 4 planos de hoy, con los mismos hashes (prueba de regresión).
+    4. Todas las hojas de la toma tienen su estado en RAM; cambiar la hoja activa tarda menos de 5 ms y no pierde trazos ni el deshacer de la hoja anterior (deshacer es por hoja).
+    5. La imagen de cada hoja vive en una textura de la GPU y se presenta sin recalcular (HU-81).
+    6. Pruebas unitarias: la hoja activa recibe el trazo, las otras no; mover una hoja conserva su contenido.
 83. **HU-83 · Tinte de la mesa de luz en el render** (enabler · Must · 5 pts). Como desarrollador, quiero que el render componga la hoja activa sobre hojas teñidas, para que la mesa de luz sea un modo del render y no una copia de píxeles.
     1. El render recibe hasta N hojas anteriores y M siguientes con un color y una opacidad por hoja y las compone bajo la hoja activa, en orden.
     2. Con N = M = 0 el render es el de hoy, byte a byte (prueba de regresión con hash).
@@ -127,14 +129,20 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 
 97. **HU-97 · Papel de animación** (Must · 2 pts). Como animador, quiero un papel más blanco y de grano más fino que el de Cartuchera, sin relieve visual, para que la mesa de luz se vea limpia.
     1. La hoja de Mesa de animación tiene su color (token del tema, más cercano al blanco) y un grano más fino en la simulación; el relieve visual está en 0 y no tiene atajo.
-    2. Cartuchera y Ejercicios no cambian: el papel es un parámetro del lienzo.
+    2. El papel no se trabaja: sin bruñido, sin deformación ni daño de fibra (no hay planos para eso, HU-82). El grano sigue respondiendo al lápiz.
+    3. Simulación a 300 dpi: la línea se ve igual que a 600 dpi hasta un zoom de 200 % (verificado con capturas lado a lado).
+    4. Cartuchera y Ejercicios no cambian: el papel es un parámetro del lienzo.
 98. **HU-98 · Un solo grafito** (Must · 2 pts). Como animador, quiero un único grafito (HB o B) en vez de la escala 2H a 6B, para no elegir dureza.
     1. La app arranca con el grafito; la dureza (HB o B) se decide dibujando en esta historia y queda escrita en idea.md.
-    2. `[ ]`, `, .` y `- =` siguen calibrando ese lápiz; Ctrl+S no existe (HU-86): los ajustes se guardan solos en `medios.json` de la app.
+    2. La punta no se gasta: sin desgaste ni afilado (no hay tecla A), así la línea de la hoja 40 es la de la hoja 1. Sin punta seca (no hay tecla E).
+    3. El costado (I) queda, apagado por defecto.
+    4. La goma solo levanta grafito (no hay bruñido que resista ni fibra que se dañe).
+    5. `[ ]`, `, .` y `- =` siguen calibrando ese lápiz; Ctrl+S no existe (HU-86): los ajustes se guardan solos en `medios.json` de la app.
 99. **HU-99 · Lápices de color** (Must · 5 pts). Como animador, quiero azul no-foto, rojo, verde y violeta con el trazo de un lápiz de color real, para marcar construcción, sombras y cierres con significado fijo.
     1. Cuatro lápices con color, dureza y punta propias (más cera, trazo más tenue, menos borrable que el grafito), simulados por `drymedia` como un medio distinto del grafito, no como grafito teñido.
-    2. Cada color deposita en su propio canal: borrar un color no toca los otros; exportar (HU-109) conserva los colores.
-    3. Prueba unitaria: el trazo de cada lápiz deposita solo en su canal; el render mezcla los canales con el orden de la lista (grafito encima).
+    2. Los colores comparten un plano, separado del grafito: cada celda guarda qué color tiene (2 bits) y cuánto (14 bits), y donde dos colores se pisan gana el último. El grafito va en su plano, encima: borrar grafito no borra el color, como con un col-erase real.
+    3. Exportar (HU-109) conserva los colores.
+    4. Prueba unitaria: el grafito y los colores depositan cada uno en su plano; pintar azul sobre rojo deja azul; el render pone el grafito encima.
 100. **HU-100 · F5 elige entre los cinco** (Must · 2 pts). Como animador, quiero elegir el lápiz con F5 o con una tecla por lápiz, para cambiar de color sin mirar.
     1. F5 abre el selector con los cinco lápices (muestra real de cada uno); 1 a 5 eligen directo (los números quedan libres: en esta app 4/6/5 no giran la vista, el anillo y Shift + arrastrar sí).
     2. El lápiz activo se ve en F3 y queda en config.
@@ -216,6 +224,7 @@ Heredadas de idea.md; cada una se cierra en la historia que la toca.
 1. HB o B para el grafito (HU-98).
 2. Breakdown como rol, o solo key (HU-104).
 3. Si el roll suma algo con el flip rápido (HU-96).
-4. Qué representación guarda una hoja no activa en RAM y cuál en disco (HU-81, HU-85).
-5. Cómo deposita un lápiz de color en drymedia: medio nuevo con cera, o grafito con otro perfil de depósito y canal propio (HU-99).
+4. ~~Qué representación guarda una hoja no activa en RAM y cuál en disco~~: cerrada por HU-81 ([spikes/flip.md](spikes/flip.md)). Para mostrar, cada hoja es una textura en la GPU; para dibujar, todas las hojas tienen su estado en RAM gracias al recorte del medio (punto 7) y la activa es la que simula; en disco, comprimido. El relieve es uno por toma.
+5. ~~Cómo se guardan los colores~~: un plano compartido por los cuatro colores (2 bits de color, 14 de cantidad, gana el último), separado del grafito (decidido después de HU-81). Queda abierto cómo deposita la cera: medio nuevo o perfil de depósito del grafito (HU-99).
 6. Qué pasa con el audio al flipear: por ahora, nada.
+7. ~~Qué funciones del medio necesita la animación~~: decidido después de HU-81. Fuera, solo en esta app: bruñido, punta seca, deformación, daño de fibra, desgaste y afilado. Queda el costado, apagado por defecto. Simulación a 300 dpi.

@@ -138,6 +138,10 @@ Todo lo que no se nombra acá es como en Cartuchera (goma, tamaño, calibración
 - ¿Qué pasa con el audio al flipear? Por ahora, nada.
 - La app de reproducción / pencil test y la app de fill son otras apps; qué formato comparten con Mesa de animación es lo único que habría que acordar.
 
+## Apps que salen de esta
+
+- **Ejercicios para animación** (pedido del usuario el 10 de octubre de 2026, para más adelante): los mismos ejercicios de trazo de Ejercicios, pero con el papel y los lápices de Mesa de animación (papel de animación, grafito único sin desgaste, lápices de color, 300 dpi). Practicar el trazo con la herramienta con la que después se anima. Sale casi gratis cuando exista el perfil de medio por app (HU-82): es Ejercicios con otro perfil.
+
 ## Qué se reutiliza y qué habría que hacer
 
 Solo a nivel idea, para medir el tamaño.
