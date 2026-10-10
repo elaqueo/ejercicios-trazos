@@ -298,11 +298,11 @@ struct Renderer::Impl {
     void drawStats(const std::wstring& extra)
     {
         const std::vector<double> recent(latencies.begin(), latencies.end());
-        wchar_t text[512];
-        const int len = swprintf(text, 512,
-                                 L"F3 oculta   muestra → vsync: mediana %.1f ms · p95 %.1f ms\n"
+        wchar_t text[1024];
+        const int len = swprintf(text, 1024,
+                                 L"Trazos %hs   ·   F3 oculta   ·   muestra → vsync: mediana %.1f ms · p95 %.1f ms\n"
                                  L"adelanto %.2f ms · vsyncs perdidos %d\n%ls",
-                                 percentile(recent, 0.5), percentile(recent, 0.95), lead.leadMs(), lead.missed(),
+                                 ET_VERSION, percentile(recent, 0.5), percentile(recent, 0.95), lead.leadMs(), lead.missed(),
                                  extra.c_str());
         RECT box{0, 0, kStatsW, kStatsH};
         HBRUSH brush = CreateSolidBrush(RGB(34, 38, 43));

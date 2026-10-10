@@ -47,7 +47,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Calibración | Pantalla oscura, indicador de pasos, marca ámbar en la esquina pedida | HU-10 |
 | Íconos | Fondo gris oscuro redondeado: Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; el instalador, los dos juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70 |
 
-## Teclas (v1.2.0)
+## Teclas (v1.2.1)
 
 Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden la misma tecla, la app avisa al iniciar.
 

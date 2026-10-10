@@ -474,7 +474,7 @@ struct Lienzo::Impl {
         std::wstring out = text;
         swprintf(text, 768, L"   ·   textura %d %% (Ctrl+[ ])%ls", texture, warning);
         wchar_t version[128];
-        swprintf(version, 128, L"Trazos %hs   ·   escala de Windows %d %%   ·   hoja %d × %d px\n", ET_VERSION,
+        swprintf(version, 128, L"escala de Windows %d %%   ·   hoja %d × %d px\n",
                  int(std::lround(screen->devicePixelRatio() * 100)), mapping.sheetWidth, mapping.sheetHeight);
         return version + out + text;
     }
