@@ -2,14 +2,18 @@
 #include <lienzo/Cursor.h>
 #include <lienzo/LeadPicker.h>
 #include <lienzo/Media.h>
+#include <lienzo/DisplayImage.h>
 #include <lienzo/SampleQueue.h>
+#include <lienzo/SheetStack.h>
 #include <lienzo/SheetMapping.h>
 #include <lienzo/Simulation.h>
 #include <lienzo/Tone.h>
 #include <lienzo/ToolPage.h>
 #include <lienzo/ViewRotation.h>
 
+#include <drymedia/Medium.h>
 #include <drymedia/Paper.h>
+#include <drymedia/Pencil.h>
 #include <drymedia/Tip.h>
 
 #include <appkit/ParamForm.h>
@@ -598,6 +602,127 @@ private slots:
         const drymedia::Medium m = e.medium();
         QVERIFY(m.kind == drymedia::Medium::Kind::Eraser);
         QCOMPARE(m.leadDiameterMm, 5.0);
+    }
+
+    // HU-82: la activa sigue a su hoja al agregar, quitar y mover.
+    void pilaOrden()
+    {
+        SheetOrder o;
+        o.add(1); // [0*, n]
+        QCOMPARE(o.count, 2);
+        QCOMPARE(o.active, 0);
+        o.add(0); // [n, 0*, n]
+        QCOMPARE(o.active, 1);
+        o.move(1, 2); // [n, n, 0*]
+        QCOMPARE(o.active, 2);
+        o.move(0, 2); // la de antes pasa al final: la activa corre una
+        QCOMPARE(o.active, 1);
+        QVERIFY(o.remove(1)); // quitar la activa: pasa la que queda en su lugar
+        QCOMPARE(o.count, 2);
+        QCOMPARE(o.active, 1);
+        QVERIFY(o.remove(1)); // la activa era la última: pasa la anterior
+        QCOMPARE(o.active, 0);
+        QVERIFY(!o.remove(0)); // con una sola hoja no se quita
+        o.activate(5);         // fuera de rango: nada
+        QCOMPARE(o.active, 0);
+    }
+
+    // HU-82: cada hoja guarda su depósito y su deshacer; el papel trabaja con el de la activa.
+    void pilaDeHojas()
+    {
+        drymedia::Paper paper({.seed = 3, .widthMm = 80, .heightMm = 60});
+        SheetStack stack(100);
+        drymedia::Pencil pencil(paper, drymedia::Medium::hb());
+        pencil.setTileObserver([&stack](int i, const uint16_t* before, uint8_t planes) {
+            stack.history().beforeTileWrite(i, before, planes);
+        });
+        const auto stroke = [&](double y) {
+            stack.history().beginStroke();
+            pencil.beginStroke({200, y, 0.6f, 0, 80});
+            for (int i = 1; i <= 30; ++i)
+                pencil.strokeTo({200 + 1000.0 * i / 30, y, 0.6f, 0, 80});
+            pencil.endStroke();
+            stack.history().endStroke(paper);
+        };
+        const uint64_t blank = paper.reliefHash();
+
+        stroke(300);
+        const uint64_t h0 = paper.hash();
+        QVERIFY(!stack.add(paper, 1)); // agregar no cambia la hoja del papel
+        QCOMPARE(stack.count(), 2);
+        QCOMPARE(paper.hash(), h0);
+        QVERIFY(stack.activate(paper, 1));
+        QCOMPARE(paper.hash(), blank); // hoja nueva, en blanco
+        stroke(800);
+        const uint64_t h1 = paper.hash();
+        QVERIFY(h1 != h0);
+        QCOMPARE(stack.hash(paper, 0), h0);
+        QCOMPARE(paper.hash(), h1); // hash() devuelve la hoja a su lugar
+
+        // Deshacer por hoja: volver a la 0 y deshacer borra su trazo, no el de la 1.
+        stack.activate(paper, 0);
+        QCOMPARE(paper.hash(), h0);
+        stack.history().undo(paper);
+        QCOMPARE(paper.hash(), blank);
+        QCOMPARE(stack.hash(paper, 1), h1);
+        stack.history().redo(paper);
+        QCOMPARE(paper.hash(), h0);
+
+        // Mover conserva el contenido y cuál es la activa.
+        QVERIFY(!stack.move(0, 1));
+        QCOMPARE(stack.active(), 1);
+        QCOMPARE(paper.hash(), h0);
+        QCOMPARE(stack.hash(paper, 0), h1);
+
+        // Quitar la activa: entra la que queda.
+        QVERIFY(stack.remove(paper, 1));
+        QCOMPARE(stack.count(), 1);
+        QCOMPARE(stack.active(), 0);
+        QCOMPARE(paper.hash(), h1);
+        QVERIFY(!stack.remove(paper, 0)); // la única no se quita
+    }
+
+    // HU-82: la simulación atiende la pila en su hilo y el trazo cae en la hoja activa.
+    void simulacionAtiendeLaPila()
+    {
+        drymedia::Paper paper({.seed = 3, .widthMm = 80, .heightMm = 60});
+        SheetStack stack(Simulation::kUndoLimit);
+        SampleQueue queue;
+        DisplayImage image;
+        image.width = 400;
+        image.height = 300;
+        image.pixels.resize(size_t(image.width) * size_t(image.height));
+        const SheetMapping mapping = SheetMapping::fit(image.width, image.height, paper.width(), paper.height());
+        Simulation sim(paper, stack, queue, image, mapping);
+        sim.renderAll();
+        sim.start();
+
+        sim.requestAddSheet(1);
+        sim.requestActivateSheet(1);
+        QTRY_COMPARE(sim.activeSheet(), 1);
+        QCOMPARE(sim.sheetCount(), 2);
+        QVERIFY(sim.lastActivationMs() > 0);
+
+        std::vector<tabletinput::PenSample> samples;
+        for (int i = 0; i <= 20; ++i) {
+            tabletinput::PenSample s;
+            s.x = mapping.sheetX + 50 + 10 * i;
+            s.y = mapping.sheetY + 100;
+            s.pressure = 0.6f;
+            s.altitude = 80;
+            s.inContact = true;
+            s.timeUs = 1000 * (i + 1);
+            samples.push_back(s);
+        }
+        samples.push_back(samples.back());
+        samples.back().inContact = false;
+        queue.push(samples);
+        sim.requestActivateSheet(0); // después de las muestras: el trazo queda en la 1
+        QTRY_COMPARE(sim.activeSheet(), 0);
+        sim.stop();
+
+        QCOMPARE(stack.hash(paper, 0), paper.reliefHash());
+        QVERIFY(stack.hash(paper, 1) != paper.reliefHash());
     }
 };
 

@@ -91,6 +91,16 @@ public:
     // (al cerrarla).
     void showOverlay(QWidget* overlay);
     void focusCanvas();
+
+    // Pila de hojas (HU-82, Mesa de animación): Cartuchera y Ejercicios tienen una sola. El
+    // trazo cae en la activa; agregar no la cambia, quitar la activa activa la que queda en
+    // su lugar, mover conserva cuál es. Se atiende en la simulación, entre trazos.
+    int sheetCount() const;
+    int activeSheet() const;
+    void addSheet(int at); // hoja en blanco en `at` (0..sheetCount())
+    void removeSheet(int index);
+    void moveSheet(int from, int to);
+    void activateSheet(int index);
     // Panel de configuración (HU-12): agrega las pestañas del lienzo ("Lápiz": mina activa y
     // goma; "Pantalla": área útil y monitor) y lo muestra pegado al borde derecho del área
     // útil.

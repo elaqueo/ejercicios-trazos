@@ -41,6 +41,7 @@ private:
 };
 
 class SampleQueue;
+class SheetStack;
 struct DisplayImage;
 struct SessionTimings;
 
@@ -49,7 +50,9 @@ struct SessionTimings;
 // cambiaron en la imagen de pantalla.
 class Simulation {
 public:
-    Simulation(drymedia::Paper& paper, SampleQueue& queue, DisplayImage& image, const SheetMapping& mapping);
+    // sheets: la pila de hojas (HU-82), del mismo papel; la simulación es la única que la cambia.
+    Simulation(drymedia::Paper& paper, SheetStack& sheets, SampleQueue& queue, DisplayImage& image,
+               const SheetMapping& mapping);
     ~Simulation();
 
     void start();
@@ -72,6 +75,17 @@ public:
         wake();
     }
     static constexpr int kUndoLimit = 100; // decisión del 10 de octubre de 2026
+
+    // Pila de hojas (HU-82): se atienden en el hilo de simulación, en orden y después de las
+    // muestras que ya llegaron (el trazo en curso se cierra). Activar otra hoja repinta la
+    // imagen entera. sheetCount() y activeSheet() dicen lo ya atendido.
+    void requestAddSheet(int at) { pushSheetCommand({SheetCommand::Add, at, 0}); }
+    void requestRemoveSheet(int index) { pushSheetCommand({SheetCommand::Remove, index, 0}); }
+    void requestMoveSheet(int from, int to) { pushSheetCommand({SheetCommand::Move, from, to}); }
+    void requestActivateSheet(int index) { pushSheetCommand({SheetCommand::Activate, index, 0}); }
+    int sheetCount() const { return m_sheetCount; }
+    int activeSheet() const { return m_activeSheet; }
+    double lastActivationMs() const { return m_activationMs; }
     // Sin deshacer (Ejercicios) no se guardan copias de los tiles. Llamar antes de start().
     void setUndo(bool enabled) { m_undoEnabled = enabled; }
     // La mina activa (HU-57): cambia al elegir otra dureza o al calibrar en vivo. Si
@@ -134,6 +148,13 @@ public:
     void setRecording(std::FILE* file) { m_recording = file; }
 
 private:
+    struct SheetCommand {
+        enum Kind { Add, Remove, Move, Activate } kind;
+        int a = 0, b = 0;
+    };
+    void pushSheetCommand(SheetCommand command);
+    bool applySheetCommands(const std::vector<SheetCommand>& commands); // true si cambió la hoja del papel
+    void renderAllParallel();  // toda la imagen, en varios hilos (hoja nueva activa)
     void run();
     const uint32_t* guides() const
     {
@@ -145,6 +166,12 @@ private:
     void repaintAllInStrips();
 
     drymedia::Paper& m_paper;
+    SheetStack& m_sheets;
+    std::mutex m_sheetMutex;
+    std::vector<SheetCommand> m_sheetCommands;
+    std::atomic<int> m_sheetCount{1};
+    std::atomic<int> m_activeSheet{0};
+    std::atomic<double> m_activationMs{0};
     SampleQueue& m_queue;
     DisplayImage& m_image;
     SheetMapping m_mapping;

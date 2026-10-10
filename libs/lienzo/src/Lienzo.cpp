@@ -7,6 +7,7 @@
 #include "lienzo/Media.h"
 #include "lienzo/Renderer.h"
 #include "lienzo/SampleQueue.h"
+#include "lienzo/SheetStack.h"
 #include "lienzo/Simulation.h"
 #include "lienzo/Timing.h"
 #include "lienzo/ToolPage.h"
@@ -156,6 +157,10 @@ struct Lienzo::Impl {
     // La hoja ocupa todo el mapeo de la tableta (HU-69, pedido del usuario: dibuja sobre una
     // A3 que cubre la superficie), así que coincide con el área útil calibrada.
     drymedia::Paper paper{{.widthMm = kTabletWidthMm, .heightMm = kTabletHeightMm}};
+    // Pila de hojas (HU-82): la cambia solo la simulación; acá, junto al papel, sobrevive a
+    // recrearla (F9). `order` es lo mismo visto desde la interfaz (sheetCount, activeSheet).
+    SheetStack sheets{Simulation::kUndoLimit};
+    SheetOrder order;
     SampleQueue queue;
     MediaFile media;
     appkit::Shortcuts shortcuts;
@@ -206,7 +211,7 @@ struct Lienzo::Impl {
     // dibujado, queda; el historial de deshacer se pierde).
     void createSimulation()
     {
-        sim = std::make_unique<Simulation>(paper, queue, image, mapping);
+        sim = std::make_unique<Simulation>(paper, sheets, queue, image, mapping);
         sim->setUndo(options.undo);
         sim->setTimings(&timings);
         if (recording)
@@ -775,6 +780,44 @@ void Lienzo::setGuides(const QPicture& guides)
 void Lienzo::showOverlay(QWidget* overlay)
 {
     d->showOverlay(overlay);
+}
+
+int Lienzo::sheetCount() const
+{
+    return d->order.count;
+}
+
+int Lienzo::activeSheet() const
+{
+    return d->order.active;
+}
+
+void Lienzo::addSheet(int at)
+{
+    d->order.add(at);
+    d->sim->requestAddSheet(at);
+}
+
+void Lienzo::removeSheet(int index)
+{
+    if (d->order.remove(index))
+        d->sim->requestRemoveSheet(index);
+}
+
+void Lienzo::moveSheet(int from, int to)
+{
+    if (!d->order.valid(from) || !d->order.valid(to) || from == to)
+        return;
+    d->order.move(from, to);
+    d->sim->requestMoveSheet(from, to);
+}
+
+void Lienzo::activateSheet(int index)
+{
+    if (!d->order.valid(index) || index == d->order.active)
+        return;
+    d->order.activate(index);
+    d->sim->requestActivateSheet(index);
 }
 
 void Lienzo::focusCanvas()

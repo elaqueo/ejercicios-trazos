@@ -141,6 +141,42 @@ private slots:
         c.depositTile(2, 3)[100] = 500;
         QVERIFY(c.hash() != a.hash());
     }
+
+    // HU-82: el papel cambia de conjunto de tiles (de hoja) sin copiar; cada conjunto
+    // conserva lo suyo y el relieve es el mismo para todos.
+    void cambiarDeConjuntoDeTiles()
+    {
+        Paper paper({.seed = 1, .widthMm = 50, .heightMm = 50});
+        paper.depositTile(2, 2)[100] = 500;
+        paper.setTilePlanes(2, 2, 0b0010);
+        const uint64_t hojaA = paper.hash();
+        const uint16_t* tileA = paper.findDepositTile(2, 2);
+
+        drymedia::TileSet otra = paper.newTileSet();
+        QCOMPARE(otra.tileCount(), size_t(0));
+        paper.swapTiles(otra); // entra la hoja en blanco; la A queda en `otra`
+        QCOMPARE(otra.tileCount(), size_t(1));
+        QCOMPARE(paper.tileCount(), size_t(0));
+        QCOMPARE(paper.hash(), paper.reliefHash());
+        QCOMPARE(paper.tilePlanes(2, 2), uint8_t(0));
+
+        paper.depositTile(3, 1)[7] = 900;
+        const uint64_t hojaB = paper.hash();
+        QVERIFY(hojaB != hojaA);
+
+        paper.swapTiles(otra); // vuelve la A, tal cual y sin copiar
+        QCOMPARE(paper.hash(), hojaA);
+        QCOMPARE(paper.findDepositTile(2, 2), tileA);
+        QCOMPARE(paper.tilePlanes(2, 2), uint8_t(0b0010));
+        paper.swapTiles(otra);
+        QCOMPARE(paper.hash(), hojaB);
+
+        // Un conjunto vacío (sin crear con newTileSet) entra como hoja en blanco.
+        drymedia::TileSet vacio;
+        paper.swapTiles(vacio);
+        QCOMPARE(paper.hash(), paper.reliefHash());
+        QCOMPARE(vacio.tileCount(), size_t(1));
+    }
 };
 
 QTEST_GUILESS_MAIN(TestPaper)

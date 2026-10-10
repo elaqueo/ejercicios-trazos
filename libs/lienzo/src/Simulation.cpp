@@ -2,6 +2,7 @@
 
 #include "lienzo/DisplayImage.h"
 #include "lienzo/SampleQueue.h"
+#include "lienzo/SheetStack.h"
 #include "lienzo/Timing.h"
 #include "lienzo/Tone.h"
 
@@ -11,14 +12,19 @@
 #include <drymedia/Paper.h>
 #include <drymedia/Pencil.h>
 
+#include <QDebug>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <thread>
 
 namespace lienzo {
 
-Simulation::Simulation(drymedia::Paper& paper, SampleQueue& queue, DisplayImage& image, const SheetMapping& mapping)
+Simulation::Simulation(drymedia::Paper& paper, SheetStack& sheets, SampleQueue& queue, DisplayImage& image,
+                       const SheetMapping& mapping)
     : m_paper(paper)
+    , m_sheets(sheets)
     , m_queue(queue)
     , m_image(image)
     , m_mapping(mapping)
@@ -26,6 +32,8 @@ Simulation::Simulation(drymedia::Paper& paper, SampleQueue& queue, DisplayImage&
     , m_eraser(Eraser{}.pack())
 {
     m_texture.build(m_paper, m_mapping);
+    m_sheetCount = m_sheets.count();
+    m_activeSheet = m_sheets.active();
 }
 
 Simulation::~Simulation()
@@ -109,6 +117,57 @@ void Simulation::renderAll()
     m_image.markDirty(0, 0, m_image.width, m_image.height);
 }
 
+void Simulation::pushSheetCommand(SheetCommand command)
+{
+    {
+        std::lock_guard lock(m_sheetMutex);
+        m_sheetCommands.push_back(command);
+    }
+    wake();
+}
+
+bool Simulation::applySheetCommands(const std::vector<SheetCommand>& commands)
+{
+    bool changed = false;
+    for (const SheetCommand& c : commands) {
+        switch (c.kind) {
+        case SheetCommand::Add: changed |= m_sheets.add(m_paper, c.a); break;
+        case SheetCommand::Remove: changed |= m_sheets.remove(m_paper, c.a); break;
+        case SheetCommand::Move: changed |= m_sheets.move(c.a, c.b); break;
+        case SheetCommand::Activate: changed |= m_sheets.activate(m_paper, c.a); break;
+        }
+    }
+    m_sheetCount = m_sheets.count();
+    m_activeSheet = m_sheets.active();
+    return changed;
+}
+
+// Hoja nueva activa (HU-82): la hoja entera de una vez, repartida en filas entre los
+// núcleos (en un hilo tarda ~110 ms; spike HU-81). Lo de afuera de la hoja no cambia. El
+// render espera el candado lo que dure: es al cambiar de hoja, no mientras se dibuja.
+void Simulation::renderAllParallel()
+{
+    const Stopwatch time;
+    const int threads = int(std::max(1u, std::min(8u, std::thread::hardware_concurrency())));
+    const int x0 = m_mapping.sheetX, x1 = m_mapping.sheetX + m_mapping.sheetWidth;
+    const int top = m_mapping.sheetY, bottom = m_mapping.sheetY + m_mapping.sheetHeight;
+    std::lock_guard lock(m_image.mutex);
+    const int rows = (bottom - top + threads - 1) / threads;
+    std::vector<std::thread> pool;
+    for (int t = 0; t < threads; ++t) {
+        const int y0 = top + t * rows, y1 = std::min(bottom, y0 + rows);
+        if (y0 >= y1)
+            break;
+        pool.emplace_back([this, x0, x1, y0, y1] {
+            renderTone(m_paper, m_mapping, x0, y0, x1, y1, m_image.pixels.data(), guides(), m_texture.shade());
+        });
+    }
+    for (std::thread& th : pool)
+        th.join();
+    m_image.markDirty(x0, top, x1, bottom);
+    m_activationMs = time.ms();
+}
+
 // Toda la imagen de a franjas: el candado se suelta entre una y otra para que el render no
 // pierda frames (como repaintTiles).
 void Simulation::repaintAllInStrips()
@@ -133,10 +192,10 @@ void Simulation::run()
     drymedia::Pencil eraser(m_paper, Eraser::unpack(eraserParams).medium()); // goma (HU-58)
     drymedia::Pencil stylus(m_paper, drymedia::Medium::stylus());           // punta seca (HU-61)
     // Deshacer y rehacer (HU-53): el lápiz y la goma avisan antes de la primera escritura
-    // de cada tile en un trazo, y el historial guarda cómo estaba.
-    drymedia::History history(kUndoLimit);
-    const auto observer = [&history](int tile, const uint16_t* before, uint8_t planes) {
-        history.beforeTileWrite(tile, before, planes);
+    // de cada tile en un trazo, y el historial de la hoja activa guarda cómo estaba (cada hoja
+    // tiene el suyo, HU-82).
+    const auto observer = [this](int tile, const uint16_t* before, uint8_t planes) {
+        m_sheets.history().beforeTileWrite(tile, before, planes);
     };
     if (m_undoEnabled) {
         pencil.setTileObserver(observer);
@@ -146,7 +205,7 @@ void Simulation::run()
     drymedia::Pencil* active = nullptr; // herramienta del trazo en curso
     const auto beginStroke = [&](drymedia::Pencil& tool, const drymedia::PencilSample& p) {
         if (m_undoEnabled)
-            history.beginStroke();
+            m_sheets.history().beginStroke();
         tool.beginStroke(p);
         active = &tool;
     };
@@ -156,7 +215,7 @@ void Simulation::run()
         active->endStroke();
         active = nullptr;
         if (m_undoEnabled)
-            history.endStroke(m_paper);
+            m_sheets.history().endStroke(m_paper);
     };
     // Vuelve a pintar el tono de los tiles que cambió el deshacer o el rehacer. El
     // candado de la imagen se toma y se suelta en cada tile (~0,1 ms): tomarlo una vez para
@@ -191,7 +250,7 @@ void Simulation::run()
         if (m_clearRequested.exchange(false)) {
             endStroke();
             m_paper.clear();
-            history.clear(); // la hoja nueva no se deshace
+            m_sheets.history().clear(); // la hoja nueva no se deshace
             renderAll();
         }
         if (lead != m_lead || grade != m_grade) {
@@ -208,6 +267,13 @@ void Simulation::run()
             eraser.setMedium(Eraser::unpack(eraserParams).medium());
         }
 
+        // Los pedidos de la pila se toman antes que las muestras y se atienden después: así
+        // toda muestra que llegó antes que un pedido se dibuja antes de atenderlo.
+        std::vector<SheetCommand> sheetCommands;
+        {
+            std::lock_guard lock(m_sheetMutex);
+            sheetCommands.swap(m_sheetCommands);
+        }
         m_queue.takeAll(samples);
         ViewRotation rotation;
         {
@@ -256,14 +322,26 @@ void Simulation::run()
             const Stopwatch undoTime;
             for (int n = undos; n > 0; --n) {
                 endStroke();
-                repaintTiles(history.undo(m_paper));
+                repaintTiles(m_sheets.history().undo(m_paper));
             }
             for (int n = redos; n > 0; --n) {
                 endStroke();
-                repaintTiles(history.redo(m_paper));
+                repaintTiles(m_sheets.history().redo(m_paper));
             }
             if (m_timings)
                 m_timings->simUndo.add(undoTime.ms());
+        }
+
+        // Pila de hojas (HU-82), después de las muestras y del deshacer del lote.
+        if (!sheetCommands.empty()) {
+            endStroke();
+            if (applySheetCommands(sheetCommands)) {
+                renderAllParallel();
+                qInfo().noquote() << QStringLiteral("Hoja activa %1 de %2: imagen en %3 ms")
+                                         .arg(m_sheets.active() + 1)
+                                         .arg(m_sheets.count())
+                                         .arg(m_activationMs.load(), 0, 'f', 1);
+            }
         }
 
         int px0 = 0, py0 = 0, px1 = 0, py1 = 0;

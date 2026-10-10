@@ -64,13 +64,7 @@ struct Paper::Impl {
     std::vector<uint16_t> relief, crest;
     uint64_t reliefHash = 0;
 
-    std::vector<uint16_t*> tiles; // tilesX × tilesY; nullptr = no tocado
-    std::vector<uint8_t> planes;  // tilesX × tilesY: qué planos usa cada tile
-    std::vector<std::unique_ptr<uint16_t[]>> blocks;
-    uint16_t* nextFree = nullptr;
-    int freeInBlock = 0;
-    std::vector<uint16_t*> recycled; // tiles devueltos por clear(), ya en cero
-    size_t tileCount = 0;
+    TileSet set; // el depósito de la hoja con la que trabaja el papel (HU-82)
 
     void generateRelief()
     {
@@ -98,26 +92,33 @@ struct Paper::Impl {
     }
 
     // Bloque nuevo de tiles, ya en cero.
-    void reserveBlock()
+    static void reserveBlock(TileSet& set)
     {
-        blocks.push_back(std::make_unique<uint16_t[]>(size_t(kPoolBlock) * kTileStride));
-        nextFree = blocks.back().get();
-        freeInBlock = kPoolBlock;
+        set.m_blocks.push_back(std::make_unique<uint16_t[]>(size_t(kPoolBlock) * kTileStride));
+        set.m_nextFree = set.m_blocks.back().get();
+        set.m_freeInBlock = kPoolBlock;
     }
 
     uint16_t* takeTile()
     {
-        if (!recycled.empty()) {
-            uint16_t* tile = recycled.back();
-            recycled.pop_back();
+        if (!set.m_recycled.empty()) {
+            uint16_t* tile = set.m_recycled.back();
+            set.m_recycled.pop_back();
             return tile;
         }
-        if (freeInBlock == 0)
-            reserveBlock(); // una vez cada kPoolBlock tiles
-        uint16_t* tile = nextFree;
-        nextFree += kTileStride;
-        --freeInBlock;
+        if (set.m_freeInBlock == 0)
+            reserveBlock(set); // una vez cada kPoolBlock tiles
+        uint16_t* tile = set.m_nextFree;
+        set.m_nextFree += kTileStride;
+        --set.m_freeInBlock;
         return tile;
+    }
+
+    void release(uint16_t*& slot)
+    {
+        std::fill(slot, slot + kTileStride, uint16_t(0));
+        set.m_recycled.push_back(slot);
+        slot = nullptr;
     }
 };
 
@@ -129,10 +130,9 @@ Paper::Paper(const PaperSpec& spec)
     d->height = int(std::lround(spec.heightMm * kCellsPerMm));
     d->tilesX = (d->width + kTileSize - 1) / kTileSize;
     d->tilesY = (d->height + kTileSize - 1) / kTileSize;
-    d->tiles.assign(size_t(d->tilesX) * size_t(d->tilesY), nullptr);
-    d->planes.assign(d->tiles.size(), 0);
+    d->set = newTileSet();
     d->generateRelief();
-    d->reserveBlock(); // el primer bloque, antes de que empiece el dibujo
+    Impl::reserveBlock(d->set); // el primer bloque, antes de que empiece el dibujo
 }
 
 Paper::~Paper() = default;
@@ -181,10 +181,10 @@ uint16_t* Paper::depositTile(int tx, int ty)
 {
     if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
         return nullptr;
-    uint16_t*& slot = d->tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
+    uint16_t*& slot = d->set.m_tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
     if (!slot) {
         slot = d->takeTile();
-        ++d->tileCount;
+        ++d->set.m_tileCount;
     }
     return slot;
 }
@@ -193,28 +193,28 @@ const uint16_t* Paper::findDepositTile(int tx, int ty) const
 {
     if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
         return nullptr;
-    return d->tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
+    return d->set.m_tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
 }
 
 uint8_t Paper::tilePlanes(int tx, int ty) const
 {
     if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
         return 0;
-    return d->planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
+    return d->set.m_planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
 }
 
 void Paper::markTilePlanes(int tx, int ty, uint8_t planes)
 {
     if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
         return;
-    d->planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)] |= planes;
+    d->set.m_planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)] |= planes;
 }
 
 void Paper::setTilePlanes(int tx, int ty, uint8_t planes)
 {
     if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
         return;
-    d->planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)] = planes;
+    d->set.m_planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)] = planes;
 }
 
 void Paper::refreshTilePlanes(int tx, int ty)
@@ -223,44 +223,55 @@ void Paper::refreshTilePlanes(int tx, int ty)
         return;
     const size_t i = size_t(ty) * size_t(d->tilesX) + size_t(tx);
     uint8_t used = 0;
-    if (const uint16_t* tile = d->tiles[i])
+    if (const uint16_t* tile = d->set.m_tiles[i])
         for (int pl = 1; pl < kTilePlanes; ++pl)
             if (std::any_of(tile + size_t(pl) * kTileCells, tile + size_t(pl + 1) * kTileCells,
                             [](uint16_t v) { return v != 0; }))
                 used |= uint8_t(1 << pl);
-    d->planes[i] = used;
+    d->set.m_planes[i] = used;
 }
 
 void Paper::clear()
 {
-    std::fill(d->planes.begin(), d->planes.end(), uint8_t(0));
-    for (uint16_t*& slot : d->tiles) {
-        if (!slot)
-            continue;
-        std::fill(slot, slot + kTileStride, uint16_t(0));
-        d->recycled.push_back(slot);
-        slot = nullptr;
-    }
-    d->tileCount = 0;
+    std::fill(d->set.m_planes.begin(), d->set.m_planes.end(), uint8_t(0));
+    for (uint16_t*& slot : d->set.m_tiles)
+        if (slot)
+            d->release(slot);
+    d->set.m_tileCount = 0;
 }
 
 void Paper::releaseTile(int tx, int ty)
 {
     if (tx < 0 || ty < 0 || tx >= d->tilesX || ty >= d->tilesY)
         return;
-    uint16_t*& slot = d->tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
+    uint16_t*& slot = d->set.m_tiles[size_t(ty) * size_t(d->tilesX) + size_t(tx)];
     if (!slot)
         return;
-    std::fill(slot, slot + kTileStride, uint16_t(0));
-    d->recycled.push_back(slot);
-    slot = nullptr;
-    d->planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)] = 0;
-    --d->tileCount;
+    d->release(slot);
+    d->set.m_planes[size_t(ty) * size_t(d->tilesX) + size_t(tx)] = 0;
+    --d->set.m_tileCount;
 }
 
 size_t Paper::tileCount() const
 {
-    return d->tileCount;
+    return d->set.m_tileCount;
+}
+
+TileSet Paper::newTileSet() const
+{
+    TileSet set;
+    set.m_tiles.assign(size_t(d->tilesX) * size_t(d->tilesY), nullptr);
+    set.m_planes.assign(set.m_tiles.size(), 0);
+    return set;
+}
+
+void Paper::swapTiles(TileSet& other)
+{
+    if (other.m_tiles.size() != d->set.m_tiles.size())
+        other = newTileSet(); // vacío o de otro tamaño: entra una hoja en blanco
+    std::swap(d->set, other);
+    if (d->set.m_recycled.empty() && d->set.m_freeInBlock == 0)
+        Impl::reserveBlock(d->set);
 }
 
 uint64_t Paper::reliefHash() const
@@ -271,11 +282,11 @@ uint64_t Paper::reliefHash() const
 uint64_t Paper::hash() const
 {
     uint64_t h = d->reliefHash;
-    for (size_t i = 0; i < d->tiles.size(); ++i) {
-        if (!d->tiles[i])
+    for (size_t i = 0; i < d->set.m_tiles.size(); ++i) {
+        if (!d->set.m_tiles[i])
             continue;
         fnv(h, &i, sizeof(i));
-        fnv(h, d->tiles[i], size_t(kTileStride) * sizeof(uint16_t));
+        fnv(h, d->set.m_tiles[i], size_t(kTileStride) * sizeof(uint16_t));
     }
     return h;
 }

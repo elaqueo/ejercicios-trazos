@@ -4,8 +4,10 @@
 // Sin dependencias de Qt ni de D3D. Todo el estado es entero y determinista: la misma
 // semilla y la misma secuencia de muestras dan el mismo papel en cualquier máquina.
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace drymedia {
 
@@ -24,6 +26,31 @@ struct PaperSpec {
     uint32_t seed = 1;
     double widthMm = 297.0;  // A4 apaisado recortado a la altura útil de la tableta
     double heightMm = 203.0; // (decisión del 10 de octubre de 2026)
+};
+
+// El depósito de una hoja (HU-82): los tiles tocados, qué planos usa cada uno y el pool del
+// que salen. El papel trabaja sobre un conjunto a la vez; una pila de hojas (Mesa de
+// animación) tiene un conjunto por hoja y el papel cambia de uno a otro con swapTiles, sin
+// copiar tiles y con un solo relieve para todas. Se crea con Paper::newTileSet().
+class TileSet {
+public:
+    TileSet() = default;
+    TileSet(TileSet&&) noexcept = default;
+    TileSet& operator=(TileSet&&) noexcept = default;
+    TileSet(const TileSet&) = delete;
+    TileSet& operator=(const TileSet&) = delete;
+
+    size_t tileCount() const { return m_tileCount; }
+
+private:
+    friend class Paper;
+    std::vector<uint16_t*> m_tiles; // tilesX × tilesY; nullptr = no tocado
+    std::vector<uint8_t> m_planes;  // tilesX × tilesY: qué planos usa cada tile
+    std::vector<std::unique_ptr<uint16_t[]>> m_blocks;
+    uint16_t* m_nextFree = nullptr;
+    int m_freeInBlock = 0;
+    std::vector<uint16_t*> m_recycled; // tiles devueltos por clear(), ya en cero
+    size_t m_tileCount = 0;
 };
 
 // La hoja. Dos capas, como en el plan:
@@ -75,6 +102,13 @@ public:
     void clear();
     // Devuelve un tile al pool, como si nunca se hubiera tocado (lo usa el deshacer).
     void releaseTile(int tx, int ty);
+
+    // Pila de hojas (HU-82): un conjunto de tiles vacío del tamaño de este papel, y el cambio
+    // del conjunto con el que trabaja el papel por otro (el de otra hoja). No copia tiles. El
+    // conjunto que entra queda con un bloque libre reservado, para que el primer tile del
+    // próximo trazo no tenga que reservar. Llamar entre trazos.
+    TileSet newTileSet() const;
+    void swapTiles(TileSet& other);
 
     // Hash del relieve (se calcula una vez) y del estado completo (relieve + depósito
     // de los tiles tocados, en orden de tile).

@@ -13,6 +13,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/Renderer.h
     include/lienzo/SampleQueue.h
     include/lienzo/SheetMapping.h
+    include/lienzo/SheetStack.h
     include/lienzo/Simulation.h
     include/lienzo/Timing.h
     include/lienzo/Tone.h
@@ -26,6 +27,7 @@ qt_add_library(lienzo STATIC
     src/Media.cpp
     src/Renderer.cpp
     src/SheetMapping.cpp
+    src/SheetStack.cpp
     src/Simulation.cpp
     src/Tone.cpp
     src/ToolPage.cpp

@@ -89,3 +89,10 @@ Estimación con los números medidos (a confirmar en HU-82): una hoja al 26 % pa
   texturas creadas en la GPU: 120 de 120 (857 MB)
   copiar una hoja que ya está en la GPU (CopyResource)       mediana    0.158 ms   máx    0.854 ms
 ```
+
+## Hecho en HU-82
+
+- `drymedia::TileSet`: el depósito de una hoja, separado del papel. `Paper::swapTiles` cambia de hoja sin copiar tiles; el relieve es uno solo (el del papel). El hash de referencia de Cartuchera (`tst_pencil`, `determinismoYRutas`) no cambió.
+- `lienzo::SheetStack`: la pila (un conjunto de tiles y un deshacer por hoja), junto al papel en el `Lienzo`, así sobrevive a recrear la simulación al calibrar (F9); como efecto lateral, el deshacer ya no se pierde al calibrar. La cambia solo el hilo de simulación, con pedidos que se atienden después de las muestras que llegaron antes.
+- Activar una hoja repinta la hoja entera repartida entre los núcleos: **30,6 ms** en la desktop (4 núcleos; en un hilo, 107 ms). Lo de afuera de la hoja no se repinta.
+- Latencia del trazo sin cambios: muestra → vsync mediana 11,7 ms, p95 15,3 ms, 0 vsyncs perdidos (`cartuchera --bench`).

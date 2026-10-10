@@ -34,6 +34,7 @@
 #include <functional>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 using Microsoft::WRL::ComPtr;
@@ -255,6 +256,20 @@ int main(int argc, char** argv)
     measure("renderTone de la hoja (un hilo)", 10, [&] {
         lienzo::renderTone(paper, mapping, mapping.sheetX, mapping.sheetY, mapping.sheetX + mapping.sheetWidth,
                            mapping.sheetY + mapping.sheetHeight, image.data());
+    });
+    // Como Simulation::renderAllParallel (HU-82): la imagen entera repartida en filas.
+    measure("renderTone de la hoja, repartida entre los núcleos", 10, [&] {
+        const int threads = int(std::max(1u, std::min(8u, std::thread::hardware_concurrency())));
+        const int x0 = mapping.sheetX, x1 = mapping.sheetX + mapping.sheetWidth;
+        const int top = mapping.sheetY, bottom = mapping.sheetY + mapping.sheetHeight;
+        const int rows = (bottom - top + threads - 1) / threads;
+        std::vector<std::thread> pool;
+        for (int t = 0; t < threads; ++t) {
+            const int y0 = top + t * rows, y1 = std::min(bottom, y0 + rows);
+            pool.emplace_back([&, y0, y1] { lienzo::renderTone(paper, mapping, x0, y0, x1, y1, image.data()); });
+        }
+        for (std::thread& th : pool)
+            th.join();
     });
     std::printf("\n");
 

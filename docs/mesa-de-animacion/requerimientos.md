@@ -33,11 +33,11 @@ El flip es el producto; lo demás son restricciones heredadas de Cartuchera.
 
 ## Épicas
 
-Nueve épicas, 30 historias. Las dos primeras son plataforma; el MVP es la Fase 1.
+Nueve épicas, 31 historias. Las dos primeras son plataforma; el MVP es la Fase 1.
 
 | ID | Épica | Objetivo | Historias | Fase |
 | --- | --- | --- | --- | --- |
-| E1 | Pila en el lienzo | Varias hojas en `lienzo`, una activa en simulación y las demás listas para mostrar; tinte en el render | HU-81 a HU-84 | 0–1 |
+| E1 | Pila en el lienzo | Varias hojas en `lienzo`, una activa en simulación y las demás listas para mostrar; tinte en el render; perfil de medio por app | HU-81 a HU-84, HU-112 | 0–1 |
 | E2 | Toma y hojas | Formato de toma, guardado automático, agregar, duplicar, borrar, reordenar, hoja fija | HU-85 a HU-89 | 1–2 |
 | E3 | Flip y mesa de luz | ← →, mesa de luz rojo/verde, cuántas hojas, solo keys, círculo, anillo, roll | HU-90 a HU-96 | 1–2 |
 | E4 | Lápices y papel | Papel de animación, grafito único, lápices de color, F5 | HU-97 a HU-100 | 1–2 |
@@ -58,19 +58,25 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. Se mide la memoria por hoja en las dos representaciones (papel con tiles y la imagen lista para mostrar) y se decide cuál se guarda para las hojas no activas; si la imagen completa no entra en RNF-02, se decide una forma más chica (tono por celda, tiles).
     3. Salida: una nota en `docs/mesa-de-animacion/spikes/` con las mediciones y la decisión; el código del spike es descartable.
 82. **HU-82 · Pila de hojas en el lienzo** (enabler · Must · 5 pts). Como desarrollador, quiero que `lienzo` tenga una pila de hojas con una activa, para que el trazo caiga en la hoja de arriba y las demás existan sin costo en el hilo de simulación.
-    1. `lienzo::Lienzo` expone una pila: agregar, quitar, mover y elegir la hoja activa; Cartuchera y Ejercicios siguen con una sola hoja sin cambiar su código.
-    2. `drymedia` separa el relieve (uno por toma, de solo lectura) del conjunto de tiles de depósito, que es un objeto por hoja; cambiar la hoja activa cambia de conjunto sin copiar tiles (HU-81).
-    3. `drymedia` acepta un perfil de medio por app: resolución (600 o 300 dpi) y planos por tile. Mesa de animación usa 300 dpi y 2 planos (grafito y color, HU-99); Cartuchera y Ejercicios siguen en 600 dpi con los 4 planos de hoy, con los mismos hashes (prueba de regresión).
-    4. Todas las hojas de la toma tienen su estado en RAM; cambiar la hoja activa tarda menos de 5 ms y no pierde trazos ni el deshacer de la hoja anterior (deshacer es por hoja).
-    5. La imagen de cada hoja vive en una textura de la GPU y se presenta sin recalcular (HU-81).
-    6. Pruebas unitarias: la hoja activa recibe el trazo, las otras no; mover una hoja conserva su contenido.
+    1. `drymedia` separa el relieve (uno por toma, de solo lectura, compartido) del conjunto de tiles de depósito, que es un objeto por hoja; cambiar la hoja activa cambia de conjunto sin copiar tiles (HU-81).
+    2. La simulación sostiene la pila y atiende, en su hilo, agregar, quitar, mover y activar; al activar repinta la imagen de la hoja en varios hilos (meta: ≤ 30 ms en la desktop, medido).
+    3. Deshacer es por hoja: cambiar de hoja y volver conserva el deshacer de cada una.
+    4. `lienzo::Lienzo` expone la pila; Cartuchera y Ejercicios siguen con una sola hoja sin cambiar su código, y el hash de una hoja dibujada con trazos fijos es el mismo que antes del cambio (prueba de regresión).
+    5. Pruebas unitarias: la hoja activa recibe el trazo, las otras no; mover una hoja conserva su contenido.
 83. **HU-83 · Tinte de la mesa de luz en el render** (enabler · Must · 5 pts). Como desarrollador, quiero que el render componga la hoja activa sobre hojas teñidas, para que la mesa de luz sea un modo del render y no una copia de píxeles.
     1. El render recibe hasta N hojas anteriores y M siguientes con un color y una opacidad por hoja y las compone bajo la hoja activa, en orden.
     2. Con N = M = 0 el render es el de hoy, byte a byte (prueba de regresión con hash).
-    3. Componer N + M = 6 hojas de tamaño tableta tarda menos de 8 ms en la desktop (GPU o CPU, lo que dé el spike).
+    3. Cada hoja tiene su imagen en una textura de la GPU, que se actualiza al dejar de dibujar en ella; el render presenta y compone esas texturas sin copiar píxeles de la CPU durante el flip (HU-81).
+    4. Componer N + M = 6 hojas de tamaño tableta tarda menos de 8 ms en la desktop.
 84. **HU-84 · App Mesa de animación** (enabler · Must · 2 pts). Como usuario, quiero una app `mesadeanimacion` que abra sobre el lienzo, para empezar a usar la pila.
     1. `apps/mesadeanimacion` arranca como Cartuchera (monitor, área útil, F3, F9, F10, Ctrl+, con sus atajos) y con el nombre "Mesa de animación".
     2. Comparte config con la familia (monitor y área útil) y tiene la suya para la toma y la vista.
+
+112. **HU-112 · Perfil de medio por app** (enabler · Must · 5 pts). Como desarrollador, quiero que el papel y el lápiz se configuren por app, para que Mesa de animación use un medio recortado sin tocar el de Cartuchera.
+    1. Una hoja que no está activa guarda sus tiles solo con los planos que usa (con las funciones de ilustración apagadas, solo el depósito): 4 veces menos memoria, sin cambiar los kernels de contacto.
+    2. La resolución es un dato del papel (600 o 300 dpi) en vez de una constante; el relieve se escala para que el grano conserve su tamaño físico, y la punta, el desgaste, el mapeo de pantalla y el selector F5 usan la del papel.
+    3. Un perfil "animación" junta lo anterior: 300 dpi y sin bruñido, punta seca, daño de fibra ni desgaste. Cartuchera y Ejercicios siguen en 600 dpi con todo, con los mismos hashes.
+    4. Medido con el spike de HU-81 adaptado: una hoja al 26 % de tiles ocupa ≤ 10 MB.
 
 ### E2 · Toma y hojas
 
@@ -201,8 +207,8 @@ Primero se mide el flip con hojas reales; recién después se construye la pila.
 
 1. **Fase 0 — Factibilidad** (HU-81; 3 pts)
     1. Spike del flip y de la memoria por hoja. Salida: arquitectura de la pila decidida y escrita.
-2. **Fase 1 — MVP: flipear** (HU-82 a HU-88, HU-90, HU-91, HU-97, HU-98, HU-110; 39 pts)
-    1. Pila en el lienzo, tinte en el render, app, formato y guardado automático, hojas, flip, mesa de luz, papel de animación, grafito único, instalador.
+2. **Fase 1 — MVP: flipear** (HU-82 a HU-88, HU-90, HU-91, HU-97, HU-98, HU-110, HU-112; 44 pts)
+    1. Pila en el lienzo, perfil de medio, tinte en el render, app, formato y guardado automático, hojas, flip, mesa de luz, papel de animación, grafito único, instalador.
     2. Salida: una toma de 24 hojas animada de punta a punta con flip y mesa de luz, guardada sola y reabierta igual.
 3. **Fase 2 — Mano de animador** (HU-89, HU-92 a HU-95, HU-99 a HU-105; 33 pts)
     1. Hoja fija, cuántas hojas, solo keys, círculo, anillo con tres funciones, lápices de color, F5, zoom, pan, guía de campo, rol y número, chart.
