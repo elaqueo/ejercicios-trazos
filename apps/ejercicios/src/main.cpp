@@ -15,6 +15,7 @@
 #include "exercises/CajasRotadas.h"
 #include "exercises/Concentricas.h"
 #include "exercises/Curva.h"
+#include "exercises/CurvaDireccion.h"
 #include "exercises/Direccion.h"
 #include "exercises/Elipse.h"
 #include "exercises/ElipsePerspectiva.h"
@@ -80,6 +81,7 @@ int main(int argc, char* argv[])
     SheetCanvas sheet(canvas);
     const ejercicios::Recta recta;
     const ejercicios::Curva curva;
+    const ejercicios::CurvaDireccion curvaDireccion;
     const ejercicios::Hatching hatching;
     const ejercicios::Radiales radiales;
     const ejercicios::Direccion direccion;
@@ -93,10 +95,11 @@ int main(int argc, char* argv[])
     const ejercicios::CajasRotadas cajasRotadas;
     const ejercicios::Ghosting ghosting;
     const ejercicios::Presion presion;
-    const QList<const ejercicios::Exercise*> exercises{&recta,   &hatching,     &radiales, &direccion,
-                                                       &curva,   &elipse,       &concentricas, &elipsePerspectiva,
-                                                       &cajas,   &cajasRotadas, &renglon,      &renglonCurvo,
-                                                       &parrafo, &ghosting,     &presion};
+    const QList<const ejercicios::Exercise*> exercises{&recta,    &hatching,       &radiales,     &direccion,
+                                                       &curva,    &curvaDireccion, &elipse,       &concentricas,
+                                                       &elipsePerspectiva,         &cajas,        &cajasRotadas,
+                                                       &renglon,  &renglonCurvo,   &parrafo,      &ghosting,
+                                                       &presion};
     // Lo guardado (HU-13): el último ejercicio elegido y los parámetros de cada uno.
     config.remove(QStringLiteral("brush")); // del selector de pinceles de libmypaint (HU-68)
     const ejercicios::Exercise* first =

@@ -17,6 +17,7 @@ public:
     static constexpr int kDirectionCount = 8;
     static int directionDegrees(int index) { return 45 * index; }
     static QString directionKey(int index);
+    static QString directionLabel(int index); // "→  hacia la derecha" (casilla del panel)
 
     QString id() const override;
     QString title() const override;

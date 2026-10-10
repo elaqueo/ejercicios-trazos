@@ -2,9 +2,9 @@
 
 Apps de escritorio para dibujar con tableta digitalizadora sobre un lienzo propio de baja latencia, con grafito simulado (minas 2H a 6B y goma) sobre una hoja a escala real que ocupa toda la superficie activa de la tableta. C++20, Qt 6 y Direct3D 11.
 
-- **Ejercicios** (`apps/ejercicios`): genera ejercicios de trazo al azar, uno por hoja; → pasa al siguiente y R repite el mismo. Tiene 15 ejercicios en siete grupos, más un modo mixto que los alterna:
+- **Ejercicios** (`apps/ejercicios`): genera ejercicios de trazo al azar, uno por hoja; → pasa al siguiente y R repite el mismo. Tiene 16 ejercicios en siete grupos, más un modo mixto que los alterna:
   - **Líneas:** dos puntos → recta, hatching, radiales hacia un punto, dirección forzada.
-  - **Curvas:** tres puntos → curva.
+  - **Curvas:** tres puntos → curva, dirección forzada (con la curva a lograr tenue).
   - **Elipses:** por grado, concéntricas sobre un eje, en perspectiva.
   - **Perspectiva:** cajas con 1, 2 o 3 PF (arista inicial opcional), cajas rotadas.
   - **Escritura:** sobre una recta, sobre una curva, sobre varias curvas.
