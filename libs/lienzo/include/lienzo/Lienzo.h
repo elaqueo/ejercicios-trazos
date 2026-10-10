@@ -61,7 +61,7 @@ struct LienzoOptions {
 // - = techo) o de la goma con el lápiz dado vuelta ([ ] diámetro, , . fuerza) · Ctrl+S
 // guarda en medios.json · F9 calibra el área útil · F10 pasa al monitor siguiente (guarda la
 // elección y reinicia la app ahí: el lienzo nativo no cambia de tamaño en caliente) · F12
-// guarda la imagen de pantalla. Opciones de línea de comandos:
+// guarda la imagen de pantalla · Ctrl+, la lista de atajos (HU-78). Opciones de línea de comandos:
 // --grabar (muestras crudas en CSV) y --bench [undo] [costado] (30 s de trazos sintéticos).
 class Lienzo {
 public:
@@ -73,8 +73,14 @@ public:
     Lienzo& operator=(const Lienzo&) = delete;
 
     // Registro único de atajos (HU-14): ya tiene los del lienzo; la app agrega los suyos
-    // antes de start(), que muestra los choques si los hay.
+    // antes de start(), que muestra los choques si los hay. Ctrl+, muestra la lista (HU-78),
+    // por grupos: los del lienzo son estos; la app suma los suyos con setGroup y los ubica con
+    // setColumns.
     appkit::Shortcuts& shortcuts();
+    static inline const QString kGroupLead = QStringLiteral("Lápiz");
+    static inline const QString kGroupSheet = QStringLiteral("Hoja y papel");
+    static inline const QString kGroupView = QStringLiteral("Vista");
+    static inline const QString kGroupScreen = QStringLiteral("Pantalla");
     // Botón lateral del lápiz (en el hilo de la interfaz).
     void setOnStylusButton(std::function<void()> callback);
     // La hoja cambió de lugar o de tamaño en pantalla (después de calibrar con F9). Lo

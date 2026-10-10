@@ -45,9 +45,10 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Panel (F2) | Panel a la derecha del área útil, pestañas Ejercicio (parámetros del actual y, en modo mixto, qué ejercicios participan) / Lápiz (mina activa y goma) / Pantalla (área útil y monitor). Los colores de la hoja quedaron fijos | HU-12, HU-20 |
 | Lápices (F5) | Panel a la derecha con la imagen de la colección de grafito arriba y las diez minas con una muestra simulada; la activa resaltada. Reemplaza al selector de pinceles de libmypaint | HU-67 |
 | Calibración | Pantalla oscura, indicador de pasos, marca ámbar en la esquina pedida | HU-10 |
+| Atajos (Ctrl+,) | Como la mesa "Atajos": título con el nombre de la app, los grupos en tres columnas (Lápiz · Hoja y papel, Vista · Ejercicios, Pantalla), teclas como chips y los gestos que no son teclas en gris claro. Sale del registro de atajos, así no se desactualiza | HU-78 |
 | Íconos | Fondo gris oscuro redondeado: Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; el instalador, los dos juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70 |
 
-## Teclas (v1.2.3)
+## Teclas (v1.2.4)
 
 Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden la misma tecla, la app avisa al iniciar.
 
@@ -63,6 +64,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | G | Mostrar u ocultar las guías (comparar) | — |
 | F4 / F2 | Menú / panel | — |
 | F5 | Selector de lápices | Selector de lápices |
+| Ctrl+, | Lista de atajos; Esc o Ctrl+, la cierran (HU-78) | Igual |
 | 4 / 6 / 5 | Girar la vista de a 15° / volver a 0° | Igual (desde el 10 de octubre de 2026; las durezas se eligen con F5) |
 | Shift + arrastrar con el lápiz | Girar la vista libremente, sin snap (HU-79) | Igual |
 | Z / Ctrl+Y | — (sin deshacer) | Deshacer / rehacer |

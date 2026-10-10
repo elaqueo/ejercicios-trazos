@@ -61,6 +61,10 @@ private:
 
 } // namespace
 
+namespace {
+const QString kGroupExercises = QStringLiteral("Ejercicios");
+} // namespace
+
 int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
@@ -188,6 +192,22 @@ int main(int argc, char* argv[])
         qInfo() << "Panel: cerrado";
         canvas.focusCanvas();
     };
+    // En la lista de atajos (Ctrl+, HU-78), los de Ejercicios arriba de Pantalla, en la
+    // tercera columna (mesa "Atajos").
+    using lienzo::Lienzo;
+    canvas.shortcuts().setColumns({{Lienzo::kGroupLead}, {Lienzo::kGroupSheet, Lienzo::kGroupView},
+                                   {kGroupExercises, Lienzo::kGroupScreen}});
+    canvas.shortcuts().setGroup(kGroupExercises);
+    canvas.shortcuts().add(QStringLiteral("Ejercicio siguiente"), {{VK_RIGHT}}, [&session] { session.next(); });
+    // Las acciones quedan en el log: las verifica la prueba de la app real (scripts/smoke.ps1, HU-71).
+    canvas.shortcuts().add(QStringLiteral("Repetir el ejercicio"), {{'R'}}, [&session] { // HU-17
+        session.repeat();
+        qInfo() << "Repetir:" << session.exercise()->id();
+    });
+    canvas.shortcuts().add(QStringLiteral("Mostrar u ocultar las guías"), {{'G'}}, [&session] { // HU-35: comparar
+        session.toggleGuides();
+        qInfo() << "Guías:" << (session.guidesVisible() ? "visibles" : "ocultas");
+    });
     canvas.shortcuts().add(QStringLiteral("Panel de configuración"), {{VK_F2}}, [&] {
         if (panel.isVisible()) {
             panel.hide();
@@ -223,16 +243,6 @@ int main(int argc, char* argv[])
         menu.setCurrent(session.mixed() ? ejercicios::kMixedModeId : session.exercise()->id());
         panel.hide();
         canvas.showOverlay(&menu);
-    });
-    canvas.shortcuts().add(QStringLiteral("Ejercicio siguiente"), {{VK_RIGHT}}, [&session] { session.next(); });
-    // Las acciones quedan en el log: las verifica la prueba de la app real (scripts/smoke.ps1, HU-71).
-    canvas.shortcuts().add(QStringLiteral("Repetir el ejercicio"), {{'R'}}, [&session] { // HU-17
-        session.repeat();
-        qInfo() << "Repetir:" << session.exercise()->id();
-    });
-    canvas.shortcuts().add(QStringLiteral("Mostrar u ocultar las guías"), {{'G'}}, [&session] { // HU-35: comparar
-        session.toggleGuides();
-        qInfo() << "Guías:" << (session.guidesVisible() ? "visibles" : "ocultas");
     });
     // Calibrar con F9 mueve la hoja: el mismo ejercicio, adaptado a la hoja nueva.
     canvas.setOnSheetChanged([&session] { session.regenerate(); });

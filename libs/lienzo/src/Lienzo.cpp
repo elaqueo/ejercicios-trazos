@@ -16,6 +16,7 @@
 #include <appkit/Paths.h>
 #include <appkit/ScreenChoice.h>
 #include <appkit/Shortcuts.h>
+#include <appkit/ShortcutsOverlay.h>
 #include <appkit/SidePanel.h>
 #include <appkit/UsableArea.h>
 #include <drymedia/Paper.h>
@@ -150,6 +151,7 @@ struct Lienzo::Impl {
     std::unique_ptr<QWidget> calibrationHost; // F9 (HU-66): ventana propia que cubre el monitor
     appkit::CalibrationOverlay* calibration = nullptr;
     std::unique_ptr<LeadPicker> picker; // F5 (HU-67)
+    std::unique_ptr<appkit::ShortcutsOverlay> shortcutsOverlay; // Ctrl+, (HU-78)
     std::optional<QRect> area;
     // La hoja ocupa todo el mapeo de la tableta (HU-69, pedido del usuario: dibuja sobre una
     // A3 que cubre la superficie), así que coincide con el área útil calibrada.
@@ -415,6 +417,31 @@ struct Lienzo::Impl {
         SetFocus(canvas->hwnd());
     }
 
+    // Un overlay (menú, atajos) centrado sobre la hoja, con el foco del teclado.
+    void showOverlay(QWidget* overlay)
+    {
+        const QRect sheet = toQt({mapping.sheetX, mapping.sheetY, mapping.sheetWidth, mapping.sheetHeight});
+        overlay->move(shell->mapToGlobal(sheet.center() - QPoint(overlay->width() / 2, overlay->height() / 2)));
+        overlay->show();
+        overlay->raise();
+        overlay->activateWindow();
+        overlay->setFocus();
+    }
+
+    // Ctrl+, (HU-78): la lista sale del registro al abrirla, con lo que la app haya sumado.
+    void toggleShortcuts()
+    {
+        if (shortcutsOverlay->isVisible()) {
+            shortcutsOverlay->hide();
+            qInfo() << "Atajos: cerrados";
+            focusCanvas();
+            return;
+        }
+        shortcutsOverlay->setSheet(QApplication::applicationName(), shortcuts.sheet());
+        showOverlay(shortcutsOverlay.get());
+        qInfo() << "Atajos: abiertos";
+    }
+
     void togglePicker()
     {
         if (picker->isVisible()) {
@@ -541,6 +568,11 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
         impl->focusCanvas();
     };
     d->picker->onClose = [impl = d.get()] { impl->focusCanvas(); };
+    d->shortcutsOverlay = std::make_unique<appkit::ShortcutsOverlay>(&shell);
+    d->shortcutsOverlay->onClose = [impl = d.get()] {
+        qInfo() << "Atajos: cerrados";
+        impl->focusCanvas();
+    };
 
     // Recarga en caliente de medios.json. Muchos editores guardan reemplazando el archivo y
     // el watcher lo pierde: se vuelve a agregar.
@@ -589,41 +621,12 @@ void Lienzo::registerShortcuts()
     appkit::Shortcuts& keys = d->shortcuts;
     Impl* impl = d.get();
     MediaFile& media = d->media;
-    keys.add(QStringLiteral("Hoja nueva"), {{'N', true}}, [this] { clear(); });
-    if (d->options.undo) {
-        keys.add(QStringLiteral("Deshacer"), {{'Z'}}, [impl] { impl->sim->requestUndo(); }); // Z sola (pedido del usuario, 10 de octubre)
-        keys.add(QStringLiteral("Rehacer"), {{'Y', true}}, [impl] { impl->sim->requestRedo(); });
-    }
-    keys.add(QStringLiteral("Latencia y herramienta"), {{VK_F3}}, [impl] { impl->render->toggleOverlay(); });
+    // Grupos de la lista de atajos (Ctrl+, HU-78), en las columnas de la mesa "Atajos"; la
+    // app ubica los suyos (Ejercicios) con setColumns.
+    keys.setColumns({{kGroupLead}, {kGroupSheet, kGroupView}, {kGroupScreen}});
+
+    keys.setGroup(kGroupLead);
     keys.add(QStringLiteral("Selector de lápices"), {{VK_F5}}, [impl] { impl->togglePicker(); }); // HU-67
-    keys.add(QStringLiteral("Costado sí o no"), {{'I'}}, [impl] { impl->toggleTilt(); }); // HU-73
-    keys.add(QStringLiteral("Punta seca o mina"), {{'E'}}, [impl] { impl->toggleStylus(); }); // HU-61
-    keys.add(QStringLiteral("Afilar"), {{'A'}}, [impl] { impl->sharpen(); });                 // HU-62
-    keys.add(QStringLiteral("Menos textura del papel"), {{VK_OEM_4, true}}, [impl] { impl->stepTexture(false); }); // HU-75
-    keys.add(QStringLiteral("Más textura del papel"), {{VK_OEM_6, true}}, [impl] { impl->stepTexture(true); });
-    keys.add(QStringLiteral("Calibrar el área útil"), {{VK_F9}}, [impl] { impl->startCalibration(); }); // HU-66
-    keys.add(QStringLiteral("Monitor siguiente"), {{VK_F10}}, [impl] { impl->nextScreen(); }); // HU-66
-    keys.add(QStringLiteral("Imagen de pantalla"), {{VK_F12}}, [impl] { impl->saveScreenImage(); }); // diagnóstico
-    keys.add(QStringLiteral("Guardar el lápiz"), {{'S', true}}, [impl] {
-        if (impl->erasing())
-            impl->saveEraser();
-        else
-            impl->saveLead();
-    });
-    { // los números son de la vista (HU-40), en las dos apps; la dureza se elige con F5
-        keys.add(QStringLiteral("Girar la vista a la izquierda"), {{'4'}, {VK_NUMPAD4}}, [impl] {
-            impl->setViewRotation(ViewRotation::snapped(impl->viewDegrees) - ViewRotation::kSnapStep);
-            qInfo() << "Vista rotada" << impl->viewDegrees << "° (tecla)";
-        });
-        keys.add(QStringLiteral("Girar la vista a la derecha"), {{'6'}, {VK_NUMPAD6}}, [impl] {
-            impl->setViewRotation(ViewRotation::snapped(impl->viewDegrees) + ViewRotation::kSnapStep);
-            qInfo() << "Vista rotada" << impl->viewDegrees << "° (tecla)";
-        });
-        keys.add(QStringLiteral("Vista a 0°"), {{'5'}, {VK_NUMPAD5}}, [impl] {
-            impl->setViewRotation(0);
-            qInfo() << "Vista rotada 0 ° (tecla)";
-        });
-    }
     // [ y ] tamaño, pasos de ~15 % (pedido del usuario: como el tamaño del pincel).
     const auto size = [impl, &media](bool up) {
         if (impl->erasing()) // goma: 2 a 8 mm
@@ -633,6 +636,7 @@ void Lienzo::registerShortcuts()
     };
     keys.add(QStringLiteral("Achicar"), {{VK_OEM_4}}, [size] { size(false); });
     keys.add(QStringLiteral("Agrandar"), {{VK_OEM_6}}, [size] { size(true); });
+    keys.joinWithPrevious(QStringLiteral("Tamaño de la mina"));
     // , y . blandura de la mina o fuerza de la goma, pasos de ~25 %.
     const auto softness = [impl, &media](bool up) {
         int& value = impl->erasing() ? media.current.eraser.strength : media.lead().softness;
@@ -640,6 +644,7 @@ void Lienzo::registerShortcuts()
     };
     keys.add(QStringLiteral("Menos blandura o fuerza"), {{VK_OEM_COMMA}}, [softness] { softness(false); });
     keys.add(QStringLiteral("Más blandura o fuerza"), {{VK_OEM_PERIOD}}, [softness] { softness(true); });
+    keys.joinWithPrevious(QStringLiteral("Blandura o fuerza"));
     // - y = techo de tono de la mina, pasos de ~10 % (la goma no tiene).
     const auto ceiling = [impl, &media](bool up) {
         if (!impl->erasing())
@@ -647,6 +652,53 @@ void Lienzo::registerShortcuts()
     };
     keys.add(QStringLiteral("Bajar el techo"), {{VK_OEM_MINUS}}, [ceiling] { ceiling(false); });
     keys.add(QStringLiteral("Subir el techo"), {{VK_OEM_PLUS}}, [ceiling] { ceiling(true); });
+    keys.joinWithPrevious(QStringLiteral("Techo de tono"));
+    keys.add(QStringLiteral("Afilar"), {{'A'}}, [impl] { impl->sharpen(); });                 // HU-62
+    keys.add(QStringLiteral("Punta seca o mina"), {{'E'}}, [impl] { impl->toggleStylus(); }); // HU-61
+    keys.add(QStringLiteral("Costado sí o no"), {{'I'}}, [impl] { impl->toggleTilt(); });     // HU-73
+    keys.add(QStringLiteral("Guardar el lápiz"), {{'S', true}}, [impl] {
+        if (impl->erasing())
+            impl->saveEraser();
+        else
+            impl->saveLead();
+    });
+
+    keys.setGroup(kGroupSheet);
+    keys.add(QStringLiteral("Hoja nueva"), {{'N', true}}, [this] { clear(); });
+    if (d->options.undo) {
+        keys.add(QStringLiteral("Deshacer"), {{'Z'}}, [impl] { impl->sim->requestUndo(); }); // Z sola (pedido del usuario, 10 de octubre)
+        keys.add(QStringLiteral("Rehacer"), {{'Y', true}}, [impl] { impl->sim->requestRedo(); });
+    }
+    keys.add(QStringLiteral("Menos textura del papel"), {{VK_OEM_4, true}}, [impl] { impl->stepTexture(false); }); // HU-75
+    keys.add(QStringLiteral("Más textura del papel"), {{VK_OEM_6, true}}, [impl] { impl->stepTexture(true); });
+    keys.joinWithPrevious(QStringLiteral("Textura del papel"));
+
+    keys.setGroup(kGroupView);
+    { // los números son de la vista (HU-40), en las dos apps; la dureza se elige con F5
+        keys.add(QStringLiteral("Girar la vista a la izquierda"), {{'4'}, {VK_NUMPAD4}}, [impl] {
+            impl->setViewRotation(ViewRotation::snapped(impl->viewDegrees) - ViewRotation::kSnapStep);
+            qInfo() << "Vista rotada" << impl->viewDegrees << "° (tecla)";
+        });
+        keys.add(QStringLiteral("Girar la vista a la derecha"), {{'6'}, {VK_NUMPAD6}}, [impl] {
+            impl->setViewRotation(ViewRotation::snapped(impl->viewDegrees) + ViewRotation::kSnapStep);
+            qInfo() << "Vista rotada" << impl->viewDegrees << "° (tecla)";
+        });
+        keys.joinWithPrevious(QStringLiteral("Girar de a 15°"));
+        keys.add(QStringLiteral("Vista a 0°"), {{'5'}, {VK_NUMPAD5}}, [impl] {
+            impl->setViewRotation(0);
+            qInfo() << "Vista rotada 0 ° (tecla)";
+        });
+    }
+    keys.note(QStringLiteral("Shift+arrastrar"), QStringLiteral("Girar libre con el lápiz")); // HU-79
+    keys.note(QStringLiteral("Rueda"), QStringLiteral("Girar con la rueda de la tableta"));   // HU-74
+
+    keys.setGroup(kGroupScreen);
+    keys.add(QStringLiteral("Atajos"), {{VK_OEM_COMMA, true}}, [impl] { impl->toggleShortcuts(); }); // HU-78
+    keys.add(QStringLiteral("Latencia y herramienta"), {{VK_F3}}, [impl] { impl->render->toggleOverlay(); });
+    keys.add(QStringLiteral("Calibrar el área útil"), {{VK_F9}}, [impl] { impl->startCalibration(); }); // HU-66
+    keys.add(QStringLiteral("Monitor siguiente"), {{VK_F10}}, [impl] { impl->nextScreen(); });          // HU-66
+    keys.add(QStringLiteral("Imagen de pantalla"), {{VK_F12}}, [impl] { impl->saveScreenImage(); });    // diagnóstico
+    keys.note(QStringLiteral("Alt+F4"), QStringLiteral("Salir"));
 }
 
 void Lienzo::clear()
@@ -722,12 +774,7 @@ void Lienzo::setGuides(const QPicture& guides)
 
 void Lienzo::showOverlay(QWidget* overlay)
 {
-    const QRect sheet = d->toQt(sheetRect());
-    overlay->move(d->shell->mapToGlobal(sheet.center() - QPoint(overlay->width() / 2, overlay->height() / 2)));
-    overlay->show();
-    overlay->raise();
-    overlay->activateWindow();
-    overlay->setFocus();
+    d->showOverlay(overlay);
 }
 
 void Lienzo::focusCanvas()

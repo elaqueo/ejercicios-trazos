@@ -3,13 +3,14 @@
 #include <windows.h>
 
 #include <QDebug>
+#include <algorithm>
 #include <QMessageBox>
 
 namespace appkit {
 
 bool Shortcuts::add(const QString& name, std::initializer_list<KeyChord> keys, std::function<void()> action)
 {
-    Entry entry{name, {}, std::move(action)};
+    Entry entry{name, {}, std::move(action), m_group};
     bool ok = true;
     for (const KeyChord chord : keys) {
         if (const Entry* owner = find(chord)) {
@@ -21,6 +22,69 @@ bool Shortcuts::add(const QString& name, std::initializer_list<KeyChord> keys, s
     }
     m_entries.push_back(std::move(entry));
     return ok;
+}
+
+void Shortcuts::joinWithPrevious(const QString& label)
+{
+    if (m_entries.size() < 2)
+        return;
+    m_entries.back().joined = true;
+    m_entries[m_entries.size() - 2].label = label;
+}
+
+void Shortcuts::note(const QString& gesture, const QString& name)
+{
+    Entry entry;
+    entry.name = name;
+    entry.group = m_group;
+    entry.gesture = gesture;
+    m_entries.push_back(std::move(entry));
+}
+
+QList<ShortcutGroup> Shortcuts::sheet() const
+{
+    QList<ShortcutGroup> groups;
+    const auto groupFor = [&groups](const QString& title) -> ShortcutGroup& {
+        for (ShortcutGroup& g : groups)
+            if (g.title == title)
+                return g;
+        groups.append({title, {}});
+        return groups.last();
+    };
+    for (const Entry& entry : m_entries) {
+        ShortcutGroup& group = groupFor(entry.group);
+        if (!entry.gesture.isEmpty()) {
+            group.rows.append({{entry.gesture}, entry.name, true});
+            continue;
+        }
+        if (entry.keys.empty()) // todas sus teclas eran de otro: no tiene fila
+            continue;
+        const QString key = describe(entry.keys.front());
+        if (entry.joined && !group.rows.isEmpty())
+            group.rows.last().keys.append(key);
+        else
+            group.rows.append({{key}, entry.label.isEmpty() ? entry.name : entry.label, false});
+    }
+    // Por columna y, dentro de cada una, en el orden pedido; los que no figuran, al final de
+    // la última, como aparecieron (stable_sort conserva el orden).
+    const int last = std::max(0, int(m_columns.size()) - 1);
+    QList<std::pair<int, ShortcutGroup>> ranked; // (posición, grupo)
+    for (ShortcutGroup& g : groups) {
+        g.column = last;
+        int position = last * 1000 + 999;
+        for (int column = 0; column < m_columns.size(); ++column)
+            if (const qsizetype i = m_columns[column].indexOf(g.title); i >= 0) {
+                g.column = column;
+                position = column * 1000 + int(i);
+                break;
+            }
+        ranked.append({position, g});
+    }
+    std::stable_sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    groups.clear();
+    for (const auto& [position, g] : ranked)
+        groups.append(g);
+    return groups;
 }
 
 bool Shortcuts::trigger(unsigned key, bool ctrl) const

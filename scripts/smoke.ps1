@@ -37,7 +37,7 @@ try {
     $seen = 0
     function Take() {
         Start-Sleep -Milliseconds 400
-        $lines = @(Get-Content $log -Encoding utf8 | Where-Object { $_ -match 'Menú:|Ejercicio:|Repetir:|Guías:|Panel:|Costado:|Punta seca:|Afilada:|Textura del papel:|Vista rotada' })
+        $lines = @(Get-Content $log -Encoding utf8 | Where-Object { $_ -match 'Menú:|Ejercicio:|Repetir:|Guías:|Panel:|Costado:|Punta seca:|Afilada:|Textura del papel:|Vista rotada|Atajos:' })
         $new = $lines | Select-Object -Skip $script:seen
         $script:seen = $lines.Count
         return @($new)
@@ -110,6 +110,13 @@ try {
     Send '{ESC}' 1 600
     $l = Take
     Check 'F2 abre el panel y Esc lo cierra' (($l -join ' ') -match 'Panel: abierto.*Panel: cerrado') ($l -join ' | ')
+
+    Send '^,' 1 800
+    Send '{ESC}' 1 600
+    Send '^,' 1 800
+    Send '^,' 1 600
+    $l = Take
+    Check 'Ctrl+, abre los atajos; Esc y Ctrl+, los cierran' (($l -join ' ') -match 'Atajos: abiertos.*Atajos: cerrados.*Atajos: abiertos.*Atajos: cerrados') ($l -join ' | ')
 }
 finally {
     if ($app -and -not $app.HasExited) {
