@@ -4,7 +4,7 @@
 
 Backlog de la app definida en [idea.md](idea.md): la tercera app de la suite, para la etapa de rough animation. Mismo enfoque ágil que [requerimientos-backlog.md](../requerimientos-backlog.md) (roles, sprints, MoSCoW, puntos Fibonacci, Definition of Ready y Done) y mismo molde que el plan por fases de Cartuchera.
 
-> **Estado:** documento de planificación. Las historias se cargan al tablero por fase, cuando esa fase arranca; hasta entonces viven acá.
+> **Estado (10 de octubre de 2026):** Fase 0 cerrada (HU-81, [spikes/flip.md](spikes/flip.md)); Fase 1 en curso. Todas las historias están en los [issues](https://github.com/elaqueo/ejercicios-trazos/issues?q=label%3A%22E11+%C2%B7+Mesa+de+animaci%C3%B3n%22) y el [tablero](https://github.com/users/elaqueo/projects/3), con el milestone de su fase (se cargaron juntas para que la issue #N siga siendo la HU-N). El estado vivo está ahí; este documento es el plan.
 
 ## Visión y MVP
 
@@ -211,7 +211,7 @@ Primero se mide el flip con hojas reales; recién después se construye la pila.
     1. Audio con onda, play/pausa y marcas; exportación PNG; el roll, si sumó.
     2. Salida: un lip sync corto animado contra el audio y exportado.
 
-Las fases son milestones propios de la app ("Mesa de animación · Fase N"), no de Cartuchera. Las historias entran al tablero cuando su fase arranca.
+Las fases son milestones propios de la app ("Mesa de animación · Fase N"), no de Cartuchera.
 
 ## Diseño
 
