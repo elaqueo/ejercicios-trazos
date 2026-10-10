@@ -303,9 +303,9 @@ struct Lienzo::Impl {
             gestureStartPointer = pointerAngle(x, y);
             return;
         }
-        // Gira según el ángulo que recorre la punta alrededor del centro de la hoja, con
-        // snap de 15° (como el Ejercicios anterior).
-        setViewRotation(ViewRotation::snapped(gestureStartDegrees + pointerAngle(x, y) - gestureStartPointer), phase == 2);
+        // Gira según el ángulo que recorre la punta alrededor del centro de la hoja, libre
+        // (HU-79; antes con snap de 15°).
+        setViewRotation(ViewRotation::dragged(gestureStartDegrees, gestureStartPointer, pointerAngle(x, y)), phase == 2);
         if (phase == 2)
             qInfo() << "Vista rotada" << viewDegrees << "°";
     }

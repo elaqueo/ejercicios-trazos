@@ -48,6 +48,13 @@ struct ViewRotation {
 
     static double snapped(double degrees) { return std::round(degrees / kSnapStep) * kSnapStep; }
 
+    // Shift + arrastrar (HU-79): la vista gira lo mismo que recorre la punta alrededor del
+    // centro, libre, sin snap. Los ángulos de la punta, en grados.
+    static double dragged(double startDegrees, double startPointer, double pointer)
+    {
+        return normalized(startDegrees + pointer - startPointer);
+    }
+
 private:
     void rotate(double radians, double& x, double& y) const
     {

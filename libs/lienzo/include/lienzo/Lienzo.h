@@ -53,7 +53,7 @@ struct LienzoOptions {
 // lápices (elige la dureza) · 4 y 6 rotan la vista y 5 la vuelve a 0° (las dos apps igual,
 // pedido del usuario el 10 de octubre de 2026; antes en Cartuchera 1 a 0 eran las durezas) ·
 // la rueda de la tableta gira la vista libremente (HU-74) ·
-// Shift + arrastrar con el lápiz rota la vista (snap de 15°) · I activa o desactiva el
+// Shift + arrastrar con el lápiz rota la vista libremente (HU-79) · I activa o desactiva el
 // costado (apagado, la punta es siempre la vertical) · E cambia entre la mina y la punta
 // seca (hunde el papel sin grafito: líneas blancas) · A afila la mina activa (cada dureza
 // se gasta por su cuenta) · F3

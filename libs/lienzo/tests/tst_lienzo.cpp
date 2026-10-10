@@ -488,6 +488,14 @@ private slots:
         QCOMPARE(ViewRotation::snapped(23), 30.0);
     }
 
+    // HU-79: Shift + arrastrar gira lo que recorre la punta, sin saltar de a 15°.
+    void arrastreGiraLibre()
+    {
+        QCOMPARE(ViewRotation::dragged(0, 10, 32), 22.0);
+        QCOMPARE(ViewRotation::dragged(30, -170, 175), 15.0); // la punta cruza ±180: −15°
+        QCOMPARE(ViewRotation::dragged(7.5, 0, 0.25), 7.75);
+    }
+
     // HU-38: la cruz abierta. Un punto de tinta en el centro y el resto libre; los cuatro
     // brazos tienen tinta y están rodeados de un borde claro.
     void punteroCruzAbierta()
