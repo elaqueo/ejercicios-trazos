@@ -47,7 +47,9 @@ Con `←` y `→` se pasa a la hoja anterior o siguiente. Es la herramienta prin
 - `↑` y `↓` mueven la hoja activa un lugar en la pila. Reordenar es parte de animar: una hoja que estaba antes resulta que va después.
 - `Insert` agrega una hoja en blanco justo después de la activa. Es el gesto más común: "acá falta un dibujo".
 - Además: duplicar la hoja activa (para arrancar el siguiente dibujo desde el anterior), borrarla y limpiarla. Deshacer, como en Cartuchera, pero por hoja.
-- **Roll**: manteniendo una tecla apretada se ven las últimas hojas (tres a cinco) sin tinte, como cuando el animador rola el papel con los dedos para ver el movimiento sin levantar las hojas de las clavijas.
+- **El anillo también pasa hojas.** Es la tercera función del anillo, *Hojas*: girarlo recorre la pila como un jog, el gesto más parecido a pasar hojas con los dedos, y sin soltar el lápiz. Mismas reglas que las flechas: instantáneo y sin mesa de luz.
+- **Pila en círculo** (se prende y apaga): después de la última hoja viene la primera. Para un ciclo de caminata, lo que se quiere probar al flipear es justamente el empalme.
+- **Hoja fija.** Una hoja que va debajo de todas, sin tinte, y no participa del flip ni del orden: el layout, el fondo o una model sheet. En papel es la hoja que queda debajo de las clavijas. No es un layer: es una sola, no se anima y no se apila.
 
 ## La mesa de luz (onion skin)
 
@@ -77,7 +79,7 @@ Que cada color signifique una cosa es lo que permite que una app posterior lea e
 
 Cartuchera ya gira la vista con la rueda de la tableta y con las teclas `4`, `6` y `5`. Mesa de luz agrega **zoom y pan**, porque al animar se trabaja un detalle y después se vuelve a ver todo.
 
-- El **anillo** de la tableta se registra con dos funciones, *Girar la vista* y *Zoom*, y el botón central del anillo alterna entre ellas, como con cualquier otra app que use el anillo.
+- El **anillo** de la tableta se registra con tres funciones, *Girar la vista*, *Zoom* y *Hojas*, y el botón central del anillo alterna entre ellas, como con cualquier otra app que use el anillo.
 - Atajos de zoom, los habituales en este tipo de programas: `+` y `−`, `Ctrl+0` ajusta la hoja a la ventana, `Ctrl+1` vuelve a 1:1, `Ctrl+rueda` del mouse si lo hay.
 - Pan: `Espacio` + arrastrar con el lápiz.
 - Sin textura visual del papel ni luz (ver el papel, más arriba).
@@ -102,6 +104,7 @@ Se discutió y se dejó afuera, por ahora, que al flipear suene el pedacito de a
 
 - **Formato propio para la hoja**, porque lo que hay que guardar es el estado de la simulación (grafito por celda, por color), no una imagen. Si es comprimido sin pérdida o crudo es un detalle; lo importante es que no se pierde nada.
 - Un **JSON** con el orden de las hojas, sus roles, las marcas de audio y la ruta del audio.
+- **Guardado automático, sin Ctrl+S.** Una toma es como un block: siempre está como la dejaste. Guardar a mano es un concepto de archivo, no de mesa de luz, y en el flujo de flipear y dibujar uno se olvida.
 - **PNG solo para exportar**: una secuencia numerada para llevar el rough a otra app o armar un pencil test afuera.
 
 Sobre PNG, para que quede dicho: es sin pérdida, los píxeles salen idénticos (la compresión es como un zip). Lo que no sirve es como formato nativo, porque una imagen no guarda la simulación. Y el flip no depende del formato en disco: la pila está toda en RAM desde que se abre la toma; lo único que PNG haría más lento es abrir, no flipear.
@@ -115,19 +118,22 @@ Todo lo que no se nombra acá es como en Cartuchera (goma, tamaño, calibración
 | `←` `→` | Hoja anterior / siguiente (flip; apaga la mesa de luz mientras tanto) |
 | `↑` `↓` | Mueve la hoja activa un lugar en la pila |
 | `Insert` | Hoja nueva después de la activa |
-| (a definir) | Duplicar, borrar, limpiar la hoja; key/breakdown; roll (mantenida) |
+| (a definir) | Duplicar, borrar, limpiar la hoja; key/breakdown; pila en círculo; hoja fija |
 | (a definir) | Mesa de luz on/off; hojas hacia atrás / adelante; solo keys |
 | `+` `−` | Zoom |
 | `Ctrl+0` / `Ctrl+1` | Ajustar a la ventana / 1:1 |
 | `Espacio` + arrastre | Pan |
 | `4` `6` `5` | Girar / a 0°, como hoy |
+| Anillo | Girar la vista / Zoom / Hojas, según la función elegida con el botón central |
 | (a definir) | Play/pausa del audio; marca en la onda; guía de campo |
+
+**Para la mano izquierda.** Si se dibuja con la derecha, las flechas quedan lejos. Las teclas oficiales son estas, y la configuración recomendada es mandar desde los ExpressKeys de la tableta (se configuran en el driver de Wacom) las que más se usan: `←`, `→`, `Insert` y la mesa de luz. No hay que programar nada; solo documentarlo.
 
 ## Ideas abiertas
 
 - ¿Breakdown como rol, o solo key?
 - ¿HB o B? Se decide dibujando.
-- ¿Cuántas hojas muestra el roll? ¿Las últimas N fijas o configurable?
+- **Roll**: mantener una tecla apretada y ver las últimas tres a cinco hojas sin tinte, como rolar el papel con los dedos. Puede que con el flip rápido y la mesa de luz que se apaga sola no agregue nada; se prueba después de tener el flip.
 - ¿El chart de timing tiene atajo propio (un rincón que se agranda) o es simplemente una zona de la hoja?
 - ¿Qué pasa con el audio al flipear? Por ahora, nada.
 - La app de reproducción / pencil test y la app de fill son otras apps; qué formato comparten con Mesa de luz es lo único que habría que acordar.
@@ -138,4 +144,4 @@ Solo a nivel idea, para medir el tamaño.
 
 **Se reutiliza tal cual:** el motor de medios secos (`libs/drymedia`), el lienzo de baja latencia (`libs/lienzo`), la entrada del lápiz y el anillo (`libs/tabletinput`), calibración, configuración, atajos, menú y tema (`libs/appkit`), la textura del papel y el overlay F3.
 
-**Es nuevo:** la pila de hojas en memoria con cambio instantáneo; el papel de animación (más blanco, grano fino, sin relieve visual); el grafito único y los lápices de color con dureza y punta propias; el tinte rojo/verde de la mesa de luz en el render; zoom y pan en la vista (hoy solo gira); la lectura del audio, su onda y sus marcas; el formato de archivo de la toma y la exportación a PNG.
+**Es nuevo:** la pila de hojas en memoria con cambio instantáneo; el papel de animación (más blanco, grano fino, sin relieve visual); el grafito único y los lápices de color con dureza y punta propias; el tinte rojo/verde de la mesa de luz en el render y la hoja fija; la tercera función del anillo; el guardado automático; zoom y pan en la vista (hoy solo gira); la lectura del audio, su onda y sus marcas; el formato de archivo de la toma y la exportación a PNG.
