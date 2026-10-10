@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
+#include <functional>
 #include <mutex>
 #include <vector>
 #include <thread>
@@ -100,6 +101,9 @@ public:
         std::lock_guard lock(m_stateMutex);
         return m_state;
     }
+    // Cada vez que se atendió algún pedido de pila, deshacer o rehacer (HU-91: la mesa de luz
+    // se recalcula). En el hilo de simulación; llamar antes de start().
+    void setOnSheetState(std::function<void()> callback) { m_onSheetState = std::move(callback); }
     int sheetCount() const { return sheetState().order.count; }
     int activeSheet() const { return sheetState().order.active; }
     double lastActivationMs() const { return m_activationMs; }
@@ -193,6 +197,8 @@ private:
     mutable std::mutex m_stateMutex;
     SheetState m_state;
     uint64_t m_applied = 0; // del hilo de simulación
+    uint64_t m_notified = 0; // m_applied en el último aviso
+    std::function<void()> m_onSheetState;
     uint64_t m_tag = 0;     // número de orden del deshacer (HU-87)
     std::atomic<double> m_activationMs{0};
     SampleQueue& m_queue;

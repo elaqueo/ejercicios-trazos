@@ -1,6 +1,7 @@
 #include <lienzo/LeadController.h>
 #include <lienzo/Cursor.h>
 #include <lienzo/LeadPicker.h>
+#include <lienzo/LightTable.h>
 #include <lienzo/Media.h>
 #include <lienzo/Renderer.h>
 #include <lienzo/DisplayImage.h>
@@ -872,6 +873,38 @@ private slots:
         QCOMPARE(image.retired.size(), size_t(1));
         const auto& left = image.retired[0].pixels;
         QVERIFY(std::any_of(left.begin(), left.end(), [](uint32_t px) { return px != kPaperColor; }));
+    }
+
+    // HU-91: la mesa de luz se cuenta desde la activa; en los extremos, las hojas que haya.
+    void mesaDeLuzDesdeLaActiva()
+    {
+        SheetOrder order;
+        for (int i = 1; i < 5; ++i)
+            order.add(i); // ids 1 a 5
+        const LightTable table{{{0xA1, 0.6f}, {0xA2, 0.3f}}, {{0xB1, 0.6f}}};
+        const auto ids = [&](const std::vector<SheetLayer>& layers) {
+            std::vector<uint64_t> out;
+            for (const SheetLayer& l : layers)
+                out.push_back(l.sheet);
+            return out;
+        };
+
+        order.activate(2); // la 3: dos atrás y una adelante
+        std::vector<SheetLayer> layers = lightTableLayers(order, table);
+        QCOMPARE(ids(layers), (std::vector<uint64_t>{1, 2, 4}));
+        QCOMPARE(layers[0].color, 0xA2u); // la más lejana, más tenue
+        QCOMPARE(layers[0].opacity, 0.3f);
+        QCOMPARE(layers[1].color, 0xA1u);
+        QCOMPARE(layers[2].color, 0xB1u);
+
+        order.activate(0); // la primera: solo la siguiente
+        QCOMPARE(ids(lightTableLayers(order, table)), (std::vector<uint64_t>{2}));
+        order.activate(4); // la última: solo las anteriores
+        QCOMPARE(ids(lightTableLayers(order, table)), (std::vector<uint64_t>{3, 4}));
+        order.move(4, 0); // la activa pasa a ser la primera: se recalcula con el orden nuevo
+        QCOMPARE(order.activeId(), uint64_t(5));
+        QCOMPARE(ids(lightTableLayers(order, table)), (std::vector<uint64_t>{1}));
+        QVERIFY(lightTableLayers(order, LightTable{}).empty()); // apagada
     }
 
     // HU-90: la región de la hoja sale de la imagen de pantalla cuando ya tiene entera la

@@ -484,7 +484,7 @@ void Renderer::run()
         RECT sheetRect;
         uint64_t shown;
         bool untilActive;
-        int64_t flipQpc;
+        int64_t flipQpc, lightQpc;
         std::vector<SheetLayer> below;
         {
             std::lock_guard layersLock(m_layersMutex);
@@ -493,6 +493,8 @@ void Renderer::run()
             untilActive = m_untilActive;
             flipQpc = m_flipQpc;
             m_flipQpc = 0;
+            lightQpc = m_lightQpc;
+            m_lightQpc = 0;
             below = m_below;
             for (const uint64_t id : m_dropped)
                 d.sheets.erase(id);
@@ -561,6 +563,8 @@ void Renderer::run()
         d.swapChain->Present(1, 0);
         if (flipQpc && m_onFlip)
             m_onFlip(double(qpcNow() - flipQpc) * 1000.0 / double(d.qpcFrequency));
+        if (lightQpc && m_onLightTable)
+            m_onLightTable(double(qpcNow() - lightQpc) * 1000.0 / double(d.qpcFrequency));
         d.swapChain->GetLastPresentCount(&frame.presentCount);
         d.pending.push_back(frame);
         d.resolve(periodMs);

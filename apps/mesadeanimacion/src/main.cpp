@@ -2,13 +2,15 @@
 // (docs/mesa-de-animacion/idea.md y requerimientos.md). Corre sobre el lienzo de libs/lienzo,
 // como Cartuchera; las teclas comunes están en lienzo/Lienzo.h.
 // HU-84: el armazón. HU-87: Insert, Ctrl+D, Ctrl+N y Supr manejan las hojas, con deshacer.
-// HU-90: ← → flipean. El resto de la Fase 1 (mesa de luz, papel de animación, grafito único,
-// toma guardada) entra en las historias que siguen.
+// HU-90: ← → flipean. HU-91: L prende y apaga la mesa de luz. El resto de la Fase 1 (papel
+// de animación, grafito único, toma guardada) entra en las historias que siguen.
 
 #include <appkit/Config.h>
 #include <appkit/ConfirmOverlay.h>
 #include <appkit/Log.h>
+#include <appkit/Theme.h>
 #include <lienzo/Lienzo.h>
+#include <lienzo/Tone.h>
 
 #include <QApplication>
 #include <QDebug>
@@ -47,6 +49,27 @@ int main(int argc, char* argv[])
     canvas.shortcuts().add(QStringLiteral("Hoja anterior"), {{VK_LEFT}}, [&canvas] { canvas.flip(-1); });
     canvas.shortcuts().add(QStringLiteral("Hoja siguiente"), {{VK_RIGHT}}, [&canvas] { canvas.flip(1); });
     canvas.shortcuts().joinWithPrevious(QStringLiteral("Flip"));
+
+    // Mesa de luz (HU-91): 2 hojas hacia atrás en rojo y 1 hacia adelante en verde, la más
+    // lejana más tenue (tokens de la mesa "Mesa de luz"). L la prende y apaga; queda guardada.
+    namespace theme = appkit::theme;
+    const auto tint = [](const QColor& c, float opacity) {
+        return lienzo::Tint{lienzo::bgra(c.red(), c.green(), c.blue()), opacity};
+    };
+    const lienzo::LightTable lightTable{
+        {tint(theme::kMesaLuzAnterior, theme::kMesaLuzOpacidad[0]), tint(theme::kMesaLuzAnterior, theme::kMesaLuzOpacidad[1])},
+        {tint(theme::kMesaLuzSiguiente, theme::kMesaLuzOpacidad[0])}};
+    bool lightOn = config.value(QStringLiteral("lightTable"), true).toBool();
+    const auto applyLight = [&] {
+        canvas.setLightTable(lightOn ? lightTable : lienzo::LightTable{});
+        qInfo() << "Mesa de luz:" << (lightOn ? "prendida" : "apagada");
+    };
+    applyLight();
+    canvas.shortcuts().add(QStringLiteral("Mesa de luz"), {{'L'}}, [&] {
+        lightOn = !lightOn;
+        config.setValue(QStringLiteral("lightTable"), lightOn);
+        applyLight();
+    });
     const auto logSheet = [&canvas](const char* what) {
         qInfo().noquote() << QStringLiteral("Hojas: %1 · hoja %2 de %3")
                                  .arg(QString::fromUtf8(what))

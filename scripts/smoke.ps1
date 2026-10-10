@@ -129,6 +129,12 @@ finally {
 $mesa = Join-Path $root 'build\release\mesadeanimacion.exe'
 $mesaLog = Join-Path $data 'mesadeanimacion.log'
 if (Get-Process mesadeanimacion -ErrorAction SilentlyContinue) { throw 'Mesa de animación está abierta: cerrarla antes de la prueba' }
+# Estado conocido: la mesa de luz prendida (HU-91).
+$backup = if (Test-Path $config) { [IO.File]::ReadAllBytes($config) } else { $null }
+$state = if ($backup) { Get-Content $config -Raw | ConvertFrom-Json -AsHashtable } else { @{} }
+if (-not $state.ContainsKey('mesadeanimacion')) { $state['mesadeanimacion'] = @{} }
+$state['mesadeanimacion']['lightTable'] = $true
+$state | ConvertTo-Json -Depth 32 | Set-Content $config -Encoding utf8
 $app = $null
 try {
     $app = Start-Process $mesa -PassThru
@@ -176,12 +182,28 @@ try {
         Write-Host "  FALLA flips: $shown pedidos, $($flips.Count) presentados, $($slow.Count) de 18 ms o más (máx. $max ms)"
         $failures.Add('Flip')
     }
+
+    # HU-91: al soltar cada flip la mesa de luz vuelve en menos de 50 ms (RNF-03); L la apaga
+    # y la vuelve a prender.
+    $lights = @(Get-Content $mesaLog -Encoding utf8 | ForEach-Object {
+        if ($_ -match 'Mesa de luz presentada en ([\d.]+) ms') { [double]$Matches[1] } })
+    $late = @($lights | Where-Object { $_ -ge 50 })
+    $lmax = ($lights | Measure-Object -Maximum).Maximum
+    foreach ($k in 'l', 'l') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    $toggles = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Mesa de luz: ' }) -join ' ')
+    if ($lights.Count -ge 30 -and $late.Count -eq 0 -and $toggles -match 'prendida.*apagada.*prendida') {
+        Write-Host "  ok   la mesa de luz vuelve al soltar ($($lights.Count) veces, la más lenta en $lmax ms) y L la apaga y prende"
+    } else {
+        Write-Host "  FALLA mesa de luz: $($lights.Count) veces, $($late.Count) de 50 ms o más (máx. $lmax ms) · $toggles"
+        $failures.Add('Mesa de luz')
+    }
 }
 finally {
     if ($app -and -not $app.HasExited) {
         $null = $app.CloseMainWindow()
         if (-not $app.WaitForExit(10000)) { $app.Kill() }
     }
+    if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
 }
 if ($failures.Count) { Write-Host "$($failures.Count) falla(s)"; exit 1 }
 Write-Host 'Prueba de la app real: todo bien'

@@ -112,3 +112,9 @@ Estimación con los números medidos (a confirmar en HU-82): una hoja al 26 % pa
 - Mientras hay una flecha apretada, el lápiz no dibuja (las muestras llegan sin contacto) y la mesa de luz no se compone. Si el lienzo pierde el foco, el flip termina como si se soltara.
 - Orden entre pedidos y muestras: cada pedido de la pila lleva cuántas muestras había en la cola cuando se hizo y la simulación lo atiende justo ahí, aunque llegue en el mismo lote (antes se atendían al final del lote: soltar la flecha y apoyar el lápiz enseguida podía dejar el trazo en la hoja anterior).
 - Medido en la desktop (smoke, 32 flips): de la tecla al Present, de 0,4 a 16,7 ms, repartidos en un frame como se espera. Latencia del trazo sin cambios (`cartuchera --bench`: mediana 11,8 ms, p95 15,7 ms).
+
+## Hecho en HU-91
+
+- La mesa de luz se pide contada desde la activa (`LightTable`: hojas hacia atrás y hacia adelante, cada una con color y opacidad) y `Lienzo` la recalcula cada vez que cambia la pila: los cambios de la interfaz al momento y los que hace la simulación sola (deshacer) por un aviso (`Simulation::setOnSheetState`).
+- Mesa de animación: L la prende y apaga y queda en config (`lightTable`, prendida por defecto); 2 hojas atrás (60 % y 30 %) en `kMesaLuzAnterior` y 1 adelante (60 %) en `kMesaLuzSiguiente` (`Theme.h`, mesa "Mesa de luz" del canvas).
+- RNF-03 medido (smoke, 32 flips): al soltar, la mesa de luz se presenta en 14,6 ms como mucho. Latencia del trazo sin cambios (mediana 11,8 ms).

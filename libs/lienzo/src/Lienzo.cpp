@@ -23,6 +23,7 @@
 #include <drymedia/Paper.h>
 
 #include <QApplication>
+#include <QMetaObject>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -254,6 +255,9 @@ struct Lienzo::Impl {
         order = sheets.order(); // la simulación nueva todavía no atendió nada
         sentRequests = 0;
         sim->setUndo(options.undo);
+        // Deshacer cambia la pila sin que la interfaz lo pida: la mesa de luz se recalcula al
+        // aviso (encolado: si el lienzo ya no está, relay tampoco y el aviso se descarta).
+        sim->setOnSheetState([this] { QMetaObject::invokeMethod(&relay, [this] { applyLayers(); }, Qt::QueuedConnection); });
         sim->setTimings(&timings);
         if (recording)
             sim->setRecording(recording);
@@ -272,9 +276,11 @@ struct Lienzo::Impl {
         return {mapping.sheetX, mapping.sheetY, mapping.sheetX + mapping.sheetWidth, mapping.sheetY + mapping.sheetHeight};
     }
 
-    // Mesa de luz y flip (HU-83): lo pedido por posición, pasado a ids para el render.
-    std::vector<Lienzo::Underlay> underlays;
+    // Mesa de luz (HU-91) y la hoja que se muestra (HU-83, flip HU-90), pasadas a ids para el
+    // render con la pila como está.
+    LightTable lightTable;
     int shownSheet = -1;
+    QObject relay; // la simulación avisa que cambió la pila; acá se atiende en este hilo
     void applyLayers()
     {
         if (!render)
@@ -282,9 +288,7 @@ struct Lienzo::Impl {
         syncOrder();
         std::vector<SheetLayer> below;
         if (!flipping()) // mientras se flipea, la mesa de luz no se ve (HU-90)
-            for (const Lienzo::Underlay& u : underlays)
-                if (order.valid(u.index) && u.index != order.active)
-                    below.push_back({order.ids[size_t(u.index)], u.color, u.opacity});
+            below = lightTableLayers(order, lightTable);
         uint64_t shown = 0;
         bool untilActive = false;
         if (order.valid(shownSheet) && (flipping() || shownSheet != order.active))
@@ -695,6 +699,9 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     d->render->setOnFlip([](double ms) { // RNF-01 (HU-90): lo verifica scripts/smoke.ps1
         qInfo().noquote() << QStringLiteral("Flip presentado en %1 ms").arg(ms, 0, 'f', 1);
     });
+    d->render->setOnLightTable([](double ms) { // RNF-03 (HU-91), ídem
+        qInfo().noquote() << QStringLiteral("Mesa de luz presentada en %1 ms").arg(ms, 0, 'f', 1);
+    });
     if (!d->area)
         d->render->setOverlay(true); // el aviso tiene que verse sin apretar nada
 
@@ -964,6 +971,7 @@ void Lienzo::addSheet(int at)
     d->beforeSheetChange();
     d->syncOrder().add(at);
     d->post([&] { d->sim->requestAddSheet(at); });
+    d->applyLayers();
 }
 
 void Lienzo::insertSheet()
@@ -973,6 +981,7 @@ void Lienzo::insertSheet()
     order.add(order.active + 1);
     order.activate(order.active + 1);
     d->post([&] { d->sim->requestInsertSheet(); });
+    d->applyLayers();
 }
 
 void Lienzo::duplicateSheet()
@@ -982,6 +991,7 @@ void Lienzo::duplicateSheet()
     order.add(order.active + 1);
     order.activate(order.active + 1);
     d->post([&] { d->sim->requestDuplicateSheet(); });
+    d->applyLayers();
 }
 
 void Lienzo::removeSheet(int index)
@@ -991,11 +1001,12 @@ void Lienzo::removeSheet(int index)
     if (!order.valid(index) || !order.remove(index))
         return;
     d->post([&] { d->sim->requestRemoveSheet(index); });
+    d->applyLayers();
 }
 
-void Lienzo::setUnderlays(const std::vector<Underlay>& underlays)
+void Lienzo::setLightTable(const LightTable& table)
 {
-    d->underlays = underlays;
+    d->lightTable = table;
     d->applyLayers();
 }
 
@@ -1024,6 +1035,7 @@ void Lienzo::moveSheet(int from, int to)
         return;
     order.move(from, to);
     d->post([&] { d->sim->requestMoveSheet(from, to); });
+    d->applyLayers();
 }
 
 void Lienzo::activateSheet(int index)
@@ -1034,6 +1046,7 @@ void Lienzo::activateSheet(int index)
         return;
     order.activate(index);
     d->post([&] { d->sim->requestActivateSheet(index); });
+    d->applyLayers();
 }
 
 void Lienzo::focusCanvas()

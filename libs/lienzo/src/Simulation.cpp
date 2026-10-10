@@ -424,6 +424,11 @@ void Simulation::run()
         for (; nextCommand < sheetCommands.size(); ++nextCommand)
             applyCommand(sheetCommands[nextCommand]);
         publishSheetState();
+        if (m_applied != m_notified) {
+            m_notified = m_applied;
+            if (m_onSheetState)
+                m_onSheetState();
+        }
     }
 }
 

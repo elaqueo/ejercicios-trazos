@@ -97,11 +97,12 @@ public:
     void setLayers(uint64_t shown, std::vector<SheetLayer> below, bool untilActive = false)
     {
         std::lock_guard lock(m_layersMutex);
-        if (shown && shown != m_shown && !untilActive && !m_flipQpc) { // un flip: se mide hasta el Present
-            LARGE_INTEGER now;
-            QueryPerformanceCounter(&now);
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        if (shown && shown != m_shown && !untilActive && !m_flipQpc) // un flip: se mide hasta el Present
             m_flipQpc = now.QuadPart;
-        }
+        if (!below.empty() && m_below.empty() && !m_lightQpc) // la mesa de luz aparece (HU-91)
+            m_lightQpc = now.QuadPart;
         m_shown = shown;
         m_untilActive = untilActive;
         m_below = std::move(below);
@@ -109,6 +110,9 @@ public:
     // Cada flip presentado (HU-90): ms desde setLayers hasta el Present. En el hilo de render;
     // llamar antes de start().
     void setOnFlip(std::function<void(double ms)> callback) { m_onFlip = std::move(callback); }
+    // Cada vez que la mesa de luz aparece (HU-91, RNF-03: al soltar el flip o al prenderla), ms
+    // desde setLayers hasta el Present. En el hilo de render; llamar antes de start().
+    void setOnLightTable(std::function<void(double ms)> callback) { m_onLightTable = std::move(callback); }
     void dropSheet(uint64_t sheet)
     {
         std::lock_guard lock(m_layersMutex);
@@ -138,6 +142,8 @@ private:
     bool m_untilActive = false;
     int64_t m_flipQpc = 0; // cuándo se pidió el flip que todavía no se presentó
     std::function<void(double)> m_onFlip;
+    int64_t m_lightQpc = 0; // cuándo apareció la mesa de luz que todavía no se presentó
+    std::function<void(double)> m_onLightTable;
     std::vector<SheetLayer> m_below;
     std::vector<uint64_t> m_dropped;
 };

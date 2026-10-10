@@ -26,6 +26,13 @@ inline const QColor kGuia{0x25, 0x63, 0xEB};       // lo que se une o se sigue
 inline const QColor kGuiaSuave{0x9D, 0xB8, 0xF2};  // construcción (horizonte, líneas a PF)
 inline const QColor kEnfasis{0xE0, 0x8A, 0x1E};    // dirección, PF, objetivos
 
+// Mesa de luz (HU-91, Mesa de animación; mesa "Mesa de luz" del canvas): las hojas anteriores
+// y las siguientes, teñidas como lápices de color; la opacidad según la distancia a la
+// activa, la más cercana primero.
+inline const QColor kMesaLuzAnterior{0xC8, 0x35, 0x2E};
+inline const QColor kMesaLuzSiguiente{0x2F, 0x8A, 0x4E};
+inline constexpr float kMesaLuzOpacidad[] = {0.6f, 0.3f};
+
 // Medidas (px).
 inline constexpr int kEspacio[] = {4, 8, 12, 16, 24, 32};
 inline constexpr int kRadioPanel = 12;

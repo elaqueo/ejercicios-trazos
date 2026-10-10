@@ -9,6 +9,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/DisplayImage.h
     include/lienzo/LeadController.h
     include/lienzo/LeadPicker.h
+    include/lienzo/LightTable.h
     include/lienzo/Lienzo.h
     include/lienzo/Media.h
     include/lienzo/Renderer.h

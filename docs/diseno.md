@@ -23,6 +23,8 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | `guia` | `#2563EB` | Puntos a unir, líneas de muestra, ejes |
 | `guia-suave` | `#9DB8F2` | Construcción: horizonte, líneas a PF (punteada) |
 | `enfasis` | `#E08A1E` | Dirección, puntos de fuga, perfil de presión, selección |
+| `mesaLuzAnterior` | `#C8352E` | Mesa de luz (Mesa de animación): hojas anteriores, al 60 % la más cercana y al 30 % la segunda |
+| `mesaLuzSiguiente` | `#2F8A4E` | Mesa de luz: hojas siguientes, ídem |
 
 ## Tipografía y medidas
 
@@ -79,6 +81,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Tecla | Qué hace |
 | --- | --- |
 | ← / → | Flip: mantener la flecha muestra la hoja anterior o la siguiente; al soltarla, esa hoja queda activa. Mientras tanto el lápiz no dibuja y la mesa de luz no se ve |
+| L | Mesa de luz: prende y apaga (queda guardada); 2 hojas atrás en rojo y 1 adelante en verde (mesa "Mesa de luz") |
 | Insert | Hoja nueva en blanco después de la activa, que pasa a ser la activa |
 | Ctrl+D | Duplicar la activa: la copia queda después y pasa a ser la activa |
 | Ctrl+N | Limpiar la hoja activa |
