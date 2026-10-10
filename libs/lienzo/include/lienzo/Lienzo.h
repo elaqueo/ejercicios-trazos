@@ -12,6 +12,7 @@
 
 #include <functional>
 #include <memory>
+#include <vector>
 
 class QKeyEvent;
 class QPicture;
@@ -101,6 +102,19 @@ public:
     void removeSheet(int index);
     void moveSheet(int from, int to);
     void activateSheet(int index);
+
+    // Mesa de luz y flip (HU-83): hojas que se ven debajo de la activa, teñidas (color BGRA,
+    // como los de Tone.h; se toma solo su grafito), y la hoja que se muestra en lugar de la
+    // activa (-1 = la activa). Van por posición en la pila en el momento de la llamada: al
+    // agregar, mover o quitar hojas, la app las vuelve a pedir. Cada hoja se ve como quedó la
+    // última vez que estuvo activa; una que nunca lo estuvo, como hoja en blanco.
+    struct Underlay {
+        int index = 0;
+        uint32_t color = 0;
+        float opacity = 1;
+    };
+    void setUnderlays(const std::vector<Underlay>& underlays);
+    void showSheet(int index);
     // Panel de configuración (HU-12): agrega las pestañas del lienzo ("Lápiz": mina activa y
     // goma; "Pantalla": área útil y monitor) y lo muestra pegado al borde derecho del área
     // útil.

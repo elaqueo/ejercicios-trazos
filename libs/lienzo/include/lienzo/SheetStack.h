@@ -11,9 +11,16 @@ namespace lienzo {
 // Cuántas hojas hay y cuál es la activa, y cómo se mueve la activa al agregar, quitar o
 // mover hojas (HU-82). Solo cuentas, sin hilos: la usan la pila (en el hilo de simulación) y
 // el Lienzo (en el de la interfaz), que así saben lo mismo sin preguntarse.
+// Cada hoja tiene además un id que no cambia al moverla ni al agregar otras (HU-83: el render
+// guarda la textura de cada hoja por id). Los dos lados hacen las mismas operaciones en el
+// mismo orden, así que dan los mismos ids.
 struct SheetOrder {
     int count = 1;
     int active = 0;
+    std::vector<uint64_t> ids{1}; // por posición
+    uint64_t nextId = 2;
+
+    uint64_t activeId() const { return ids[size_t(active)]; }
 
     // Hoja en blanco en `at` (0..count); la activa sigue siendo la misma hoja.
     void add(int at);

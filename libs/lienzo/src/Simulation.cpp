@@ -134,12 +134,33 @@ bool Simulation::applySheetCommands(const std::vector<SheetCommand>& commands)
         case SheetCommand::Add: changed |= m_sheets.add(m_paper, c.a); break;
         case SheetCommand::Remove: changed |= m_sheets.remove(m_paper, c.a); break;
         case SheetCommand::Move: changed |= m_sheets.move(c.a, c.b); break;
-        case SheetCommand::Activate: changed |= m_sheets.activate(m_paper, c.a); break;
+        case SheetCommand::Activate:
+            if (m_sheets.order().valid(c.a) && c.a != m_sheets.active())
+                retireActiveSheet();
+            changed |= m_sheets.activate(m_paper, c.a);
+            break;
         }
     }
     m_sheetCount = m_sheets.count();
     m_activeSheet = m_sheets.active();
     return changed;
+}
+
+// HU-83: la imagen de la hoja que sale queda para el render, que la sube a la textura de esa
+// hoja (la de la CPU, no la que ya está en la GPU: a la GPU pueden faltarle los últimos
+// trazos, porque el render sube la imagen de a partes).
+void Simulation::retireActiveSheet()
+{
+    RetiredSheet retired;
+    retired.sheet = m_sheets.order().activeId();
+    retired.width = m_mapping.sheetWidth;
+    retired.height = m_mapping.sheetHeight;
+    retired.pixels.resize(size_t(retired.width) * size_t(retired.height));
+    std::lock_guard lock(m_image.mutex);
+    for (int y = 0; y < retired.height; ++y)
+        std::copy_n(m_image.pixels.data() + size_t(m_mapping.sheetY + y) * size_t(m_image.width) + size_t(m_mapping.sheetX),
+                    retired.width, retired.pixels.data() + size_t(y) * size_t(retired.width));
+    m_image.retired.push_back(std::move(retired));
 }
 
 // Hoja nueva activa (HU-82): la hoja entera de una vez, repartida en filas entre los
@@ -332,17 +353,6 @@ void Simulation::run()
                 m_timings->simUndo.add(undoTime.ms());
         }
 
-        // Pila de hojas (HU-82), después de las muestras y del deshacer del lote.
-        if (!sheetCommands.empty()) {
-            endStroke();
-            if (applySheetCommands(sheetCommands)) {
-                renderAllParallel();
-                qInfo().noquote() << QStringLiteral("Hoja activa %1 de %2: imagen en %3 ms")
-                                         .arg(m_sheets.active() + 1)
-                                         .arg(m_sheets.count())
-                                         .arg(m_activationMs.load(), 0, 'f', 1);
-            }
-        }
 
         int px0 = 0, py0 = 0, px1 = 0, py1 = 0;
         const bool any = !dirty.empty() && m_mapping.pixelsOfCells(dirty.x0, dirty.y0, dirty.x1, dirty.y1, px0, py0, px1, py1);
@@ -363,6 +373,19 @@ void Simulation::run()
         if (m_timings && !samples.empty()) {
             m_timings->simPencil.add(pencilMs);
             m_timings->simBatch.add(batch.ms());
+        }
+
+        // Pila de hojas (HU-82), al final del lote: las muestras ya están en la imagen, así la
+        // hoja que sale deja su imagen con todos sus trazos (HU-83).
+        if (!sheetCommands.empty()) {
+            endStroke();
+            if (applySheetCommands(sheetCommands)) {
+                renderAllParallel();
+                qInfo().noquote() << QStringLiteral("Hoja activa %1 de %2: imagen en %3 ms")
+                                         .arg(m_sheets.active() + 1)
+                                         .arg(m_sheets.count())
+                                         .arg(m_activationMs.load(), 0, 'f', 1);
+            }
         }
     }
 }

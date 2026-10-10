@@ -1,5 +1,6 @@
 #include "lienzo/Renderer.h"
 
+#include "lienzo/Compositor.h"
 #include "lienzo/DisplayImage.h"
 #include "lienzo/LeadController.h"
 #include "lienzo/Timing.h"
@@ -17,6 +18,7 @@
 #include <cmath>
 #include <cstdio>
 #include <deque>
+#include <unordered_map>
 #include <vector>
 
 using Microsoft::WRL::ComPtr;
@@ -83,6 +85,13 @@ struct FrameRecord {
 
 } // namespace
 
+// La textura de una hoja de la pila (HU-83): la región de la hoja, en BGRA.
+struct SheetTexture {
+    ComPtr<ID3D11Texture2D> texture;
+    ComPtr<ID3D11ShaderResourceView> view;
+    int width = 0, height = 0;
+};
+
 struct Renderer::Impl {
     ComPtr<ID3D11Device> device;
     ComPtr<ID3D11DeviceContext> context;
@@ -94,6 +103,13 @@ struct Renderer::Impl {
     ComPtr<ID3D11PixelShader> rotatePs;
     ComPtr<ID3D11Buffer> viewConstants;
     ComPtr<ID3D11SamplerState> sampler;
+    // Mesa de luz (HU-83): texturas por hoja y la vista compuesta.
+    Compositor compositor;
+    bool compositorReady = false;
+    ComPtr<ID3D11Texture2D> composed;
+    ComPtr<ID3D11ShaderResourceView> composedView;
+    std::unordered_map<uint64_t, SheetTexture> sheets;
+    SheetTexture blank; // una hoja que nunca estuvo activa: papel liso
     HANDLE waitable = nullptr, timer = nullptr;
     HDC statsDc = nullptr;
     HBITMAP statsBitmap = nullptr;
@@ -170,6 +186,11 @@ struct Renderer::Impl {
         td.BindFlags = D3D11_BIND_SHADER_RESOURCE; // la vista rotada la usa como textura
         device->CreateTexture2D(&td, nullptr, &display);
         device->CreateShaderResourceView(display.Get(), nullptr, &displayView);
+        td.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET; // la mesa de luz compone acá
+        device->CreateTexture2D(&td, nullptr, &composed);
+        device->CreateShaderResourceView(composed.Get(), nullptr, &composedView);
+        td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        compositorReady = compositor.init(device.Get());
         td.BindFlags = 0;
         td.Width = kStatsW;
         td.Height = kStatsH;
@@ -217,8 +238,49 @@ struct Renderer::Impl {
         device->CreateSamplerState(&sd, &sampler);
     }
 
+    // Sube la imagen de una hoja a su textura (la crea si no hay o cambió el tamaño).
+    void uploadSheet(SheetTexture& sheet, int w, int h, const uint32_t* pixels)
+    {
+        if (!sheet.texture || sheet.width != w || sheet.height != h) {
+            D3D11_TEXTURE2D_DESC td{};
+            td.Width = UINT(w);
+            td.Height = UINT(h);
+            td.MipLevels = 1;
+            td.ArraySize = 1;
+            td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+            td.SampleDesc.Count = 1;
+            td.Usage = D3D11_USAGE_DEFAULT;
+            td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+            sheet = {};
+            if (FAILED(device->CreateTexture2D(&td, nullptr, &sheet.texture)))
+                return;
+            device->CreateShaderResourceView(sheet.texture.Get(), nullptr, &sheet.view);
+            sheet.width = w;
+            sheet.height = h;
+        }
+        context->UpdateSubresource(sheet.texture.Get(), 0, nullptr, pixels, UINT(w) * 4, 0);
+    }
+
+    // La textura de la hoja `id`, o nullptr si no hay (o es de otro tamaño de hoja).
+    ID3D11ShaderResourceView* sheetView(uint64_t id, int w, int h)
+    {
+        const auto it = sheets.find(id);
+        if (it == sheets.end() || it->second.width != w || it->second.height != h)
+            return nullptr;
+        return it->second.view.Get();
+    }
+
+    ID3D11ShaderResourceView* blankView(int w, int h)
+    {
+        if (!blank.texture || blank.width != w || blank.height != h) {
+            const std::vector<uint32_t> paper(size_t(w) * size_t(h), kPaperColor);
+            uploadSheet(blank, w, h, paper.data());
+        }
+        return blank.view.Get();
+    }
+
     // Dibuja la imagen girada en el back buffer; devuelve false si no hay shaders.
-    bool drawRotated(ID3D11Texture2D* back, const ViewRotation& rotation)
+    bool drawRotated(ID3D11Texture2D* back, const ViewRotation& rotation, ID3D11ShaderResourceView* source)
     {
         if (!rotateVs || !rotatePs)
             return false;
@@ -243,7 +305,7 @@ struct Renderer::Impl {
         context->VSSetShader(rotateVs.Get(), nullptr, 0);
         context->VSSetConstantBuffers(0, 1, viewConstants.GetAddressOf());
         context->PSSetShader(rotatePs.Get(), nullptr, 0);
-        context->PSSetShaderResources(0, 1, displayView.GetAddressOf());
+        context->PSSetShaderResources(0, 1, &source);
         context->PSSetSamplers(0, 1, sampler.GetAddressOf());
         context->Draw(4, 0);
         // Soltar la textura y el destino: el próximo frame se copia y se sube a ellos.
@@ -387,6 +449,7 @@ void Renderer::run()
         //    lo sumo kUploadBudget píxeles por frame: el resto queda para los siguientes.
         FrameRecord frame;
         const Stopwatch latch;
+        std::vector<RetiredSheet> retired;
         {
             std::unique_lock lock(m_image.mutex, std::try_to_lock);
             if (m_timings)
@@ -404,12 +467,30 @@ void Renderer::run()
                 r.top += rows;
                 m_image.hasDirty = r.top < r.bottom;
             }
+            if (lock.owns_lock() && !m_image.retired.empty())
+                retired.swap(m_image.retired); // se suben afuera del candado
             // La muestra más nueva cuenta como mostrada cuando ya no queda nada por subir.
             if (lock.owns_lock() && !m_image.hasDirty && m_image.sampleVersion != lastVersion) {
                 lastVersion = m_image.sampleVersion;
                 frame.newestSampleUs = m_image.newestSampleUs;
             }
         }
+
+        // Pila de hojas (HU-83): las hojas que salieron, a sus texturas; las quitadas, afuera.
+        RECT sheetRect;
+        uint64_t shown;
+        std::vector<SheetLayer> below;
+        {
+            std::lock_guard layersLock(m_layersMutex);
+            sheetRect = m_sheetRect;
+            shown = m_shown;
+            below = m_below;
+            for (const uint64_t id : m_dropped)
+                d.sheets.erase(id);
+            m_dropped.clear();
+        }
+        for (RetiredSheet& r : retired)
+            d.uploadSheet(d.sheets[r.sheet], r.width, r.height, r.pixels.data());
 
         // 3. Componer y presentar.
         const int64_t now = qpcNow();
@@ -424,8 +505,31 @@ void Renderer::run()
             std::lock_guard rotationLock(m_rotationMutex);
             rotation = m_rotation;
         }
-        if (rotation.identity() || !d.drawRotated(back.Get(), rotation))
-            d.context->CopyResource(back.Get(), d.display.Get());
+        // Mesa de luz o flip (HU-83): la hoja que se muestra con las de abajo, compuesta en la
+        // GPU; si no hay ni una cosa ni la otra, la imagen de pantalla tal cual, como siempre.
+        ID3D11Texture2D* source = d.display.Get();
+        ID3D11ShaderResourceView* sourceView = d.displayView.Get();
+        const int sheetW = int(sheetRect.right - sheetRect.left), sheetH = int(sheetRect.bottom - sheetRect.top);
+        if (d.compositorReady && sheetW > 0 && sheetH > 0 && (shown || !below.empty())) {
+            ID3D11ShaderResourceView* base = nullptr;
+            if (shown) {
+                base = d.sheetView(shown, sheetW, sheetH);
+                if (!base)
+                    base = d.blankView(sheetW, sheetH);
+            }
+            std::vector<LightTableLayer> layers;
+            for (const SheetLayer& l : below)
+                if (ID3D11ShaderResourceView* v = d.sheetView(l.sheet, sheetW, sheetH))
+                    layers.push_back({v, l.color, l.opacity});
+            if (base || !layers.empty()) {
+                d.compositor.compose(d.context.Get(), d.display.Get(), d.displayView.Get(), base, sheetRect, layers,
+                                     d.composed.Get());
+                source = d.composed.Get();
+                sourceView = d.composedView.Get();
+            }
+        }
+        if (rotation.identity() || !d.drawRotated(back.Get(), rotation, sourceView))
+            d.context->CopyResource(back.Get(), source);
         if (m_overlay) {
             d.context->CopySubresourceRegion(back.Get(), 0, 16, 16, 0, d.stats.Get(), 0, nullptr);
             overlayShown = true;

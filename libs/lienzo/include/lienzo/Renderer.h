@@ -9,10 +9,18 @@
 #include <functional>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace lienzo {
 
 struct DisplayImage;
+
+// Una hoja que se ve debajo de la que se muestra (mesa de luz, HU-83), por id (SheetOrder).
+struct SheetLayer {
+    uint64_t sheet = 0;
+    uint32_t color = 0; // BGRA
+    float opacity = 1;
+};
 
 // Hilo de render (spike HU-44): swapchain D3D11 FLIP_DISCARD con latencia 1 y waitable,
 // render justo a tiempo con adelanto adaptativo (LeadController). Cada frame sube a la GPU
@@ -42,6 +50,27 @@ public:
     // Mediciones de tiempo para diagnóstico (opcional; llamar antes de start()).
     void setTimings(struct SessionTimings* timings) { m_timings = timings; }
 
+    // Pila de hojas (HU-83). Cada hoja que deja de ser la activa llega en la imagen de
+    // pantalla (DisplayImage::retired) y queda en una textura de la GPU, por id. La hoja que
+    // se muestra es la activa (shown = 0) u otra por id (el flip, HU-90); `below` son las de
+    // abajo, teñidas (la mesa de luz). Sin otra hoja ni capas, el render es el de siempre.
+    void setSheetRect(const RECT& sheet)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_sheetRect = sheet;
+    }
+    void setLayers(uint64_t shown, std::vector<SheetLayer> below)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_shown = shown;
+        m_below = std::move(below);
+    }
+    void dropSheet(uint64_t sheet)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_dropped.push_back(sheet);
+    }
+
     // Resumen de la sesión para el log: latencias, adelanto final, vsyncs perdidos.
     std::string summary() const;
 
@@ -59,6 +88,11 @@ private:
     std::string m_summary;
     std::mutex m_rotationMutex;
     ViewRotation m_rotation;
+    std::mutex m_layersMutex;
+    RECT m_sheetRect{};
+    uint64_t m_shown = 0;
+    std::vector<SheetLayer> m_below;
+    std::vector<uint64_t> m_dropped;
 };
 
 } // namespace lienzo

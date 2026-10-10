@@ -625,6 +625,17 @@ private slots:
         QVERIFY(!o.remove(0)); // con una sola hoja no se quita
         o.activate(5);         // fuera de rango: nada
         QCOMPARE(o.active, 0);
+
+        // HU-83: cada hoja conserva su id al moverla, y los ids no se reusan.
+        SheetOrder p;
+        p.add(1);
+        p.add(2); // ids [1, 2, 3]
+        p.move(0, 2);
+        QCOMPARE(p.ids, (std::vector<uint64_t>{2, 3, 1}));
+        QCOMPARE(p.activeId(), uint64_t(1));
+        p.remove(0);
+        p.add(0);
+        QCOMPARE(p.ids, (std::vector<uint64_t>{4, 3, 1}));
     }
 
     // HU-82: cada hoja guarda su depósito y su deshacer; el papel trabaja con el de la activa.
@@ -723,6 +734,18 @@ private slots:
 
         QCOMPARE(stack.hash(paper, 0), paper.reliefHash());
         QVERIFY(stack.hash(paper, 1) != paper.reliefHash());
+
+        // HU-83: cada hoja que salió dejó su imagen para el render (la 1 al activar la 2, y la
+        // 2, con el trazo, al volver a la 1), del tamaño de la hoja.
+        QCOMPARE(image.retired.size(), size_t(2));
+        QCOMPARE(image.retired[0].sheet, uint64_t(1));
+        QCOMPARE(image.retired[1].sheet, uint64_t(2));
+        QCOMPARE(image.retired[1].width, mapping.sheetWidth);
+        QCOMPARE(image.retired[1].pixels.size(), size_t(mapping.sheetWidth) * size_t(mapping.sheetHeight));
+        const auto& drawn = image.retired[1].pixels;
+        QVERIFY(std::any_of(drawn.begin(), drawn.end(), [](uint32_t px) { return px != kPaperColor; }));
+        const auto& blankSheet = image.retired[0].pixels;
+        QVERIFY(std::all_of(blankSheet.begin(), blankSheet.end(), [](uint32_t px) { return px == kPaperColor; }));
     }
 };
 

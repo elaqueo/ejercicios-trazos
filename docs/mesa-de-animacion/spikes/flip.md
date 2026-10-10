@@ -96,3 +96,11 @@ Estimación con los números medidos (a confirmar en HU-82): una hoja al 26 % pa
 - `lienzo::SheetStack`: la pila (un conjunto de tiles y un deshacer por hoja), junto al papel en el `Lienzo`, así sobrevive a recrear la simulación al calibrar (F9); como efecto lateral, el deshacer ya no se pierde al calibrar. La cambia solo el hilo de simulación, con pedidos que se atienden después de las muestras que llegaron antes.
 - Activar una hoja repinta la hoja entera repartida entre los núcleos: **30,6 ms** en la desktop (4 núcleos; en un hilo, 107 ms). Lo de afuera de la hoja no se repinta.
 - Latencia del trazo sin cambios: muestra → vsync mediana 11,7 ms, p95 15,3 ms, 0 vsyncs perdidos (`cartuchera --bench`).
+
+## Hecho en HU-83
+
+- Cada hoja tiene un id estable (`SheetOrder::ids`): el render guarda la textura de cada hoja por id, no por posición.
+- Al activar otra hoja, la simulación deja la imagen de la que sale (la región de la hoja, desde la CPU) en `DisplayImage::retired`; el render la sube a la textura de esa hoja. Se hace al final del lote, cuando los trazos ya están en la imagen (en el primer intento se hacía antes y, si el trazo y el pedido llegaban juntos, la hoja se guardaba sin su último trazo; lo encontró la prueba en Release).
+- `lienzo::Compositor` arma la mesa de luz en la GPU: la hoja que se muestra (la activa o, para el flip, la textura de otra) con hasta 6 hojas debajo, de las que se toma solo el grafito, teñido y multiplicado. **6 hojas a 1734 × 1080: 0,72 ms de GPU** (GTX 960). Sin capas ni otra hoja, el render es el de siempre.
+- Latencia del trazo sin cambios, medida contra el commit anterior alternando 3 veces: mediana 11,6–11,8 ms en las dos versiones, 0 o 1 vsync perdido por corrida en las dos.
+- Pendiente conocido: al calibrar con F9 cambia el tamaño de la hoja y las texturas de las hojas no activas dejan de servir; cada hoja vuelve a tener la suya la próxima vez que está activa y sale.

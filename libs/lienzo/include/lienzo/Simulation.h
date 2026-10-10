@@ -155,6 +155,7 @@ private:
     void pushSheetCommand(SheetCommand command);
     bool applySheetCommands(const std::vector<SheetCommand>& commands); // true si cambió la hoja del papel
     void renderAllParallel();  // toda la imagen, en varios hilos (hoja nueva activa)
+    void retireActiveSheet();  // deja la imagen de la activa para el render, antes de cambiarla
     void run();
     const uint32_t* guides() const
     {

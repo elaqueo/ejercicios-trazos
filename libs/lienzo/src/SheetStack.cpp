@@ -7,6 +7,7 @@ namespace lienzo {
 void SheetOrder::add(int at)
 {
     at = std::clamp(at, 0, count);
+    ids.insert(ids.begin() + at, nextId++);
     ++count;
     if (at <= active)
         ++active;
@@ -16,6 +17,7 @@ bool SheetOrder::remove(int index)
 {
     if (count <= 1 || !valid(index))
         return false;
+    ids.erase(ids.begin() + index);
     --count;
     if (index < active || active == count) // antes de la activa, o era la activa y la última
         --active;
@@ -26,6 +28,9 @@ void SheetOrder::move(int from, int to)
 {
     if (!valid(from) || !valid(to) || from == to)
         return;
+    const uint64_t id = ids[size_t(from)];
+    ids.erase(ids.begin() + from);
+    ids.insert(ids.begin() + to, id);
     if (active == from)
         active = to;
     else if (from < active && active <= to)

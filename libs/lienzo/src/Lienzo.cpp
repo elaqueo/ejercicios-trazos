@@ -226,6 +226,26 @@ struct Lienzo::Impl {
         sim->renderAll();
     }
 
+    RECT sheetRect() const
+    {
+        return {mapping.sheetX, mapping.sheetY, mapping.sheetX + mapping.sheetWidth, mapping.sheetY + mapping.sheetHeight};
+    }
+
+    // Mesa de luz y flip (HU-83): lo pedido por posición, pasado a ids para el render.
+    std::vector<Lienzo::Underlay> underlays;
+    int shownSheet = -1;
+    void applyLayers()
+    {
+        if (!render)
+            return;
+        std::vector<SheetLayer> below;
+        for (const Lienzo::Underlay& u : underlays)
+            if (order.valid(u.index) && u.index != order.active)
+                below.push_back({order.ids[size_t(u.index)], u.color, u.opacity});
+        const uint64_t shown = order.valid(shownSheet) && shownSheet != order.active ? order.ids[size_t(shownSheet)] : 0;
+        render->setLayers(shown, std::move(below));
+    }
+
     ViewRotation rotation() const
     {
         return {viewDegrees, mapping.sheetX + mapping.sheetWidth / 2.0, mapping.sheetY + mapping.sheetHeight / 2.0};
@@ -324,6 +344,8 @@ struct Lienzo::Impl {
             sim->stop();
         computeMapping();
         createSimulation();
+        render->setSheetRect(sheetRect());
+        applyLayers();
         if (!area)
             render->setOverlay(true);
         if (wasRunning)
@@ -539,6 +561,7 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     d->render = std::make_unique<Renderer>(d->canvas->hwnd(), d->image);
     d->render->setTimings(&d->timings);
     d->render->setRotation(d->rotation()); // el giro guardado (HU-13)
+    d->render->setSheetRect(d->sheetRect());
     d->render->setExtraInfo([impl = d.get()] { return impl->overlayText(); });
     if (!d->area)
         d->render->setOverlay(true); // el aviso tiene que verse sin apretar nada
@@ -800,8 +823,25 @@ void Lienzo::addSheet(int at)
 
 void Lienzo::removeSheet(int index)
 {
-    if (d->order.remove(index))
-        d->sim->requestRemoveSheet(index);
+    if (!d->order.valid(index))
+        return;
+    const uint64_t id = d->order.ids[size_t(index)];
+    if (!d->order.remove(index))
+        return;
+    d->sim->requestRemoveSheet(index);
+    d->render->dropSheet(id);
+}
+
+void Lienzo::setUnderlays(const std::vector<Underlay>& underlays)
+{
+    d->underlays = underlays;
+    d->applyLayers();
+}
+
+void Lienzo::showSheet(int index)
+{
+    d->shownSheet = index;
+    d->applyLayers();
 }
 
 void Lienzo::moveSheet(int from, int to)
