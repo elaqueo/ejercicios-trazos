@@ -19,6 +19,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | `texto` / `texto-2` | `#ECEEF0` / `#A7AEB6` | Texto principal y secundario |
 | `fuera` | `#303338` | Fuera del área útil y esquinas al rotar |
 | `hoja` | `#F5F0E6` | Off-white cálido para descansar la vista (HU-41) |
+| `hojaAnimacion` | `#FAF8F2` | Papel de animación (Mesa de animación, HU-97): casi blanco, liso a la vista |
 | `tinta` | `#111111` | Trazo (siempre negro) |
 | `guia` | `#2563EB` | Puntos a unir, líneas de muestra, ejes |
 | `guia-suave` | `#9DB8F2` | Construcción: horizonte, líneas a PF (punteada) |
@@ -76,7 +77,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | F3 · F9 · F10 · F12 | Latencia · calibrar el área útil · monitor siguiente · captura | Igual |
 | Alt+F4 | Salir | Salir |
 
-**Mesa de animación** (en construcción): las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
+**Mesa de animación** (en construcción): las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), y Ctrl+[ ] (el papel de animación no tiene textura visual, HU-97), más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
 
 | Tecla | Qué hace |
 | --- | --- |

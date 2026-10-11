@@ -27,6 +27,9 @@ struct PaperSpec {
     double widthMm = 297.0;  // A4 apaisado recortado a la altura útil de la tableta
     double heightMm = 203.0; // (decisión del 10 de octubre de 2026)
     int dpi = 600; // resolución de la simulación (HU-112: Mesa de animación, 300)
+    // Profundidad del grano fino, en unidades de relieve (0..2047; HU-97): menos es un diente
+    // más bajo y un trazo más parejo (el papel de animación es liso). La ondulación no cambia.
+    int grain = 2047;
 };
 
 // El depósito de una hoja (HU-82): los tiles tocados, qué planos usa cada uno y el pool del

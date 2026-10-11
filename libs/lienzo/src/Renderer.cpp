@@ -271,10 +271,11 @@ struct Renderer::Impl {
         return it->second.view.Get();
     }
 
+    uint32_t paperColor = kPaperColor;
     ID3D11ShaderResourceView* blankView(int w, int h)
     {
         if (!blank.texture || blank.width != w || blank.height != h) {
-            const std::vector<uint32_t> paper(size_t(w) * size_t(h), kPaperColor);
+            const std::vector<uint32_t> paper(size_t(w) * size_t(h), paperColor);
             uploadSheet(blank, w, h, paper.data());
         }
         return blank.view.Get();
@@ -420,6 +421,8 @@ void Renderer::run()
         m_summary = "Renderer: no se pudo crear el swapchain D3D11";
         return;
     }
+    d.paperColor = m_paperColor;
+    d.compositor.setPaperColor(m_paperColor);
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 
     uint64_t lastVersion = 0;

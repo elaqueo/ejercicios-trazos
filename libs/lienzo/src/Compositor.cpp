@@ -123,7 +123,7 @@ void Compositor::compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, 
         c.baseUv[2] = float(sheet.right - sheet.left) / w;
         c.baseUv[3] = float(sheet.bottom - sheet.top) / h;
     }
-    rgb(kPaperColor, c.paper);
+    rgb(m_paperColor, c.paper);
     rgb(kGraphiteColor, c.graphite);
     ID3D11ShaderResourceView* views[1 + kMaxLayers] = {base ? base : screenView};
     int count = 0;
@@ -158,10 +158,11 @@ void Compositor::compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, 
     context->OMSetRenderTargets(0, nullptr, nullptr);
 }
 
-uint32_t Compositor::reference(uint32_t shown, const uint32_t* below, const LightTableLayer* layers, int count)
+uint32_t Compositor::reference(uint32_t shown, const uint32_t* below, const LightTableLayer* layers, int count,
+                               uint32_t paperColor)
 {
     float paper[4], graphite[4], color[4];
-    rgb(kPaperColor, paper);
+    rgb(paperColor, paper);
     rgb(kGraphiteColor, graphite);
     rgb(shown, color);
     const float range = ((paper[0] - graphite[0]) + (paper[1] - graphite[1]) + (paper[2] - graphite[2])) / 3;

@@ -21,6 +21,7 @@ inline const QColor kSeleccionTexto{0xF0, 0xA5, 0x41}; // texto del ítem elegid
 // Lienzo y guías.
 inline const QColor kFuera{0x30, 0x33, 0x38};      // fuera del área útil y esquinas al rotar
 inline const QColor kHoja{0xF5, 0xF0, 0xE6};       // off-white cálido (HU-41)
+inline const QColor kHojaAnimacion{0xFA, 0xF8, 0xF2}; // papel de animación: casi blanco (HU-97, Mesa de animación)
 inline const QColor kTinta{0x11, 0x11, 0x11};
 inline const QColor kGuia{0x25, 0x63, 0xEB};       // lo que se une o se sigue
 inline const QColor kGuiaSuave{0x9D, 0xB8, 0xF2};  // construcción (horizonte, líneas a PF)

@@ -28,7 +28,7 @@ uint32_t toneOf(uint32_t averageDeposit, uint32_t base = kPaperColor);
 
 // La hoja con la guía encima: `guide` en BGRA premultiplicado (como
 // QImage::Format_ARGB32_Premultiplied en memoria); alfa 0 = solo hoja.
-uint32_t paperWithGuide(uint32_t guide);
+uint32_t paperWithGuide(uint32_t guide, uint32_t paperColor = kPaperColor);
 
 // Textura del papel (HU-75): luz rasante sobre el mismo relieve al que responde el lápiz.
 // Cada píxel promedia las celdas que cubre (~4 por lado) y se muestra solo el detalle (la
@@ -65,7 +65,9 @@ private:
 // clientWidth). Fuera de la hoja pinta kOutsideColor. `guides` (opcional, mismo tamaño y
 // stride que image) es la capa de guías de los ejercicios (HU-64): va bajo el grafito.
 // `shade` (opcional, PaperTexture::shade) aclara u oscurece la hoja antes del grafito.
+// `paperColor`: el color de la hoja (HU-97: el papel de animación es otro).
 void renderTone(const drymedia::Paper& paper, const SheetMapping& mapping, int px0, int py0, int px1, int py1,
-                uint32_t* image, const uint32_t* guides = nullptr, const uint16_t* shade = nullptr);
+                uint32_t* image, const uint32_t* guides = nullptr, const uint16_t* shade = nullptr,
+                uint32_t paperColor = kPaperColor);
 
 } // namespace lienzo

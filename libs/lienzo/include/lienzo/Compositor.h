@@ -5,6 +5,8 @@
 #include <d3d11.h>
 #include <wrl/client.h>
 
+#include "lienzo/Tone.h"
+
 #include <cstdint>
 #include <vector>
 
@@ -39,7 +41,10 @@ public:
                  ID3D11Texture2D* out);
 
     // La misma cuenta en la CPU, píxel por píxel (para las pruebas).
-    static uint32_t reference(uint32_t shown, const uint32_t* below, const LightTableLayer* layers, int count);
+    static uint32_t reference(uint32_t shown, const uint32_t* below, const LightTableLayer* layers, int count,
+                              uint32_t paperColor = kPaperColor);
+    // El color de la hoja (HU-97): el tinte se calcula contra él.
+    void setPaperColor(uint32_t color) { m_paperColor = color; }
 
 private:
     Microsoft::WRL::ComPtr<ID3D11Device> m_device;
@@ -47,6 +52,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D11PixelShader> m_ps;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_constants;
     Microsoft::WRL::ComPtr<ID3D11SamplerState> m_sampler;
+    uint32_t m_paperColor = kPaperColor;
 };
 
 } // namespace lienzo

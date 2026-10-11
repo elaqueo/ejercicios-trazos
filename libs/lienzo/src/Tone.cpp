@@ -43,14 +43,14 @@ uint32_t toneOf(uint32_t averageDeposit, uint32_t base)
     return out;
 }
 
-uint32_t paperWithGuide(uint32_t guide)
+uint32_t paperWithGuide(uint32_t guide, uint32_t paperColor)
 {
     const uint32_t alpha = guide >> 24;
     if (alpha == 0)
-        return kPaperColor;
+        return paperColor;
     uint32_t out = 0xFF000000u;
     for (const int shift : {0, 8, 16}) // guía premultiplicada + hoja · (1 − alfa)
-        out |= ((channel(guide, shift) * 255 + channel(kPaperColor, shift) * (255 - alpha) + 127) / 255) << shift;
+        out |= ((channel(guide, shift) * 255 + channel(paperColor, shift) * (255 - alpha) + 127) / 255) << shift;
     return out;
 }
 
@@ -163,7 +163,7 @@ void PaperTexture::setLight(double lightDegrees, double intensity)
 }
 
 void renderTone(const drymedia::Paper& paper, const SheetMapping& m, int px0, int py0, int px1, int py1, uint32_t* image,
-                const uint32_t* guides, const uint16_t* shade)
+                const uint32_t* guides, const uint16_t* shade, uint32_t paperColor)
 {
     for (int py = py0; py < py1; ++py) {
         uint32_t* row = image + size_t(py) * size_t(m.clientWidth);
@@ -194,7 +194,7 @@ void renderTone(const drymedia::Paper& paper, const SheetMapping& m, int px0, in
                 }
             }
             const uint64_t cells = uint64_t(cx1 - cx0) * uint64_t(cy1 - cy0);
-            uint32_t base = guideRow ? paperWithGuide(guideRow[px]) : kPaperColor;
+            uint32_t base = guideRow ? paperWithGuide(guideRow[px], paperColor) : paperColor;
             if (shadeRow)
                 base = lit(base, shadeRow[px]);
             row[px] = toneOf(uint32_t(sum / cells), base);

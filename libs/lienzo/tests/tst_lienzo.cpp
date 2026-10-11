@@ -1,4 +1,5 @@
 #include <lienzo/LeadController.h>
+#include <lienzo/Compositor.h>
 #include <lienzo/Cursor.h>
 #include <lienzo/LeadPicker.h>
 #include <lienzo/LightTable.h>
@@ -155,6 +156,23 @@ private slots:
         const uint32_t medio = toneOf(32768);
         const auto rojo = [](uint32_t c) { return int((c >> 16) & 0xFF); };
         QVERIFY(rojo(medio) < rojo(kPaperColor) && rojo(medio) > rojo(kGraphiteColor));
+    }
+
+    // HU-97: el color de la hoja es un dato del lienzo: llega a la imagen y la mesa de luz
+    // tiñe contra él (una hoja de abajo sin trazo, del color del papel, no tiñe nada).
+    void colorDelPapel()
+    {
+        constexpr uint32_t animation = bgra(0xFA, 0xF8, 0xF2), gray = bgra(0xE0, 0xE0, 0xE0);
+        drymedia::Paper paper({.seed = 1, .widthMm = 40, .heightMm = 30});
+        const SheetMapping m = SheetMapping::fit(200, 150, paper.width(), paper.height());
+        std::vector<uint32_t> image(size_t(200) * 150, 0);
+        renderTone(paper, m, 0, 0, 200, 150, image.data(), nullptr, nullptr, animation);
+        QCOMPARE(image[size_t(m.sheetY + 10) * 200 + size_t(m.sheetX + 10)], animation);
+        QCOMPARE(paperWithGuide(0, animation), animation);
+
+        const LightTableLayer red{nullptr, bgra(0xC8, 0x35, 0x2E), 1.0f};
+        QCOMPARE(Compositor::reference(gray, &gray, &red, 1, gray), gray); // del color del papel: sin tinte
+        QVERIFY(Compositor::reference(gray, &gray, &red, 1) != gray);      // contra el de Cartuchera, gris es trazo
     }
 
     // Cada píxel promedia las celdas que cubre: una sola celda saturada oscurece apenas

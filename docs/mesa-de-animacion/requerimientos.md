@@ -23,7 +23,7 @@ El flip es el producto; lo demás son restricciones heredadas de Cartuchera.
 | ID | Requerimiento | Criterio de verificación |
 | --- | --- | --- |
 | RNF-01 | Flip instantáneo | Al apretar ← o →, la hoja nueva está en pantalla en el frame siguiente: a 60 Hz, de la tecla al Present va de 0 a 16,7 ms según en qué momento del frame cae, más la composición (< 1 ms), así que menos de 18 ms; queda en el log ("Flip presentado en …"). También manteniendo la tecla apretada (autorepetición) y con el anillo |
-| RNF-02 | Pila en memoria | Una toma de 120 hojas (5 segundos en unos a 24 fps) abierta entera: el estado de simulación de todas las hojas en RAM (≈ 1,1 GB con los lápices de color, por el recorte del medio, ver [spikes/flip.md](spikes/flip.md)) y su imagen en la GPU (≈ 7 MB por hoja), sin que el flip se degrade con el tamaño de la pila |
+| RNF-02 | Pila en memoria | Una toma de 120 hojas (5 segundos en unos a 24 fps) abierta entera: el estado de simulación de todas las hojas en RAM (≈ 2,3 GB a 600 dpi con solo el grafito por hoja; a 300 dpi era ≈ 0,6 GB, pero el grano se veía grueso: decisión del 11 de octubre de 2026, HU-97; ver [spikes/flip.md](spikes/flip.md)) y su imagen en la GPU (≈ 7 MB por hoja), sin que el flip se degrade con el tamaño de la pila |
 | RNF-03 | Mesa de luz sin demora perceptible | Al soltar la tecla, las hojas teñidas aparecen en menos de 50 ms; mientras se flipea no se compone nada |
 | RNF-04 | Dibujar como en Cartuchera | La latencia del trazo sobre la hoja activa es la de Cartuchera (mediana ≈ 12 ms en F3); la pila no suma trabajo al hilo de simulación |
 | RNF-05 | Guardado invisible | El guardado automático nunca frena el trazo ni el flip: se hace fuera de los hilos de simulación y render, por hoja cambiada |
@@ -77,6 +77,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. La resolución es un dato del papel (600 o 300 dpi) en vez de una constante; el relieve se escala para que el grano conserve su tamaño físico, y la punta, el desgaste, el mapeo de pantalla y el selector F5 usan la del papel.
     3. Un perfil "animación" junta lo anterior: 300 dpi y sin bruñido, punta seca, daño de fibra ni desgaste. Cartuchera y Ejercicios siguen en 600 dpi con todo, con los mismos hashes.
     4. Medido con el spike de HU-81 adaptado: una hoja al 26 % de tiles ocupa ≤ 10 MB.
+    5. *Hecho (11 oct 2026): 4,7 MB a 300 dpi. En HU-97 el usuario eligió 600 dpi probando en la app (a 300 el grano se veía grueso): el perfil quedó en 600 dpi y la hoja al 26 % en 18,4 MB.*
 
 ### E2 · Toma y hojas
 
@@ -137,6 +138,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     1. La hoja de Mesa de animación tiene su color (token del tema, más cercano al blanco) y un grano más fino en la simulación; el relieve visual está en 0 y no tiene atajo.
     2. El papel no se trabaja: sin bruñido, sin deformación ni daño de fibra (no hay planos para eso, HU-82). El grano sigue respondiendo al lápiz.
     3. Simulación a 300 dpi: la línea se ve igual que a 600 dpi hasta un zoom de 200 % (verificado con capturas lado a lado).
+    4. *Hecho (11 oct 2026): las capturas (`capturas/papel*.png`, `spikes/mesa-papel`) no alcanzaron para decidir; probando en la app, el usuario eligió 600 dpi y grano 900 (de 2047), color `#FAF8F2`.*
     4. Cartuchera y Ejercicios no cambian: el papel es un parámetro del lienzo.
 98. **HU-98 · Un solo grafito** (Must · 2 pts). Como animador, quiero un único grafito (HB o B) en vez de la escala 2H a 6B, para no elegir dureza.
     1. La app arranca con el grafito; la dureza (HB o B) se decide dibujando en esta historia y queda escrita en idea.md.
@@ -233,4 +235,4 @@ Heredadas de idea.md; cada una se cierra en la historia que la toca.
 4. ~~Qué representación guarda una hoja no activa en RAM y cuál en disco~~: cerrada por HU-81 ([spikes/flip.md](spikes/flip.md)). Para mostrar, cada hoja es una textura en la GPU; para dibujar, todas las hojas tienen su estado en RAM gracias al recorte del medio (punto 7) y la activa es la que simula; en disco, comprimido. El relieve es uno por toma.
 5. ~~Cómo se guardan los colores~~: un plano compartido por los cuatro colores (2 bits de color, 14 de cantidad, gana el último), separado del grafito (decidido después de HU-81). Queda abierto cómo deposita la cera: medio nuevo o perfil de depósito del grafito (HU-99).
 6. Qué pasa con el audio al flipear: por ahora, nada.
-7. ~~Qué funciones del medio necesita la animación~~: decidido después de HU-81. Fuera, solo en esta app: bruñido, punta seca, deformación, daño de fibra, desgaste y afilado. Queda el costado, apagado por defecto. Simulación a 300 dpi.
+7. ~~Qué funciones del medio necesita la animación~~: decidido después de HU-81. Fuera, solo en esta app: bruñido, punta seca, deformación, daño de fibra, desgaste y afilado. Queda el costado, apagado por defecto. Simulación a 300 dpi (después, en HU-97, 600 dpi con grano 900).

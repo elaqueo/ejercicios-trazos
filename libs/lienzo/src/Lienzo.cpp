@@ -154,7 +154,10 @@ QScreen* savedScreen(const appkit::Config& config)
 struct Lienzo::Impl {
     explicit Impl(LienzoOptions o)
         : options(std::move(o))
-        , paper({.widthMm = kTabletWidthMm, .heightMm = kTabletHeightMm, .dpi = profileDpi(options.profile)})
+        , paper({.widthMm = kTabletWidthMm,
+                 .heightMm = kTabletHeightMm,
+                 .dpi = profileDpi(options.profile),
+                 .grain = options.paperGrain})
     {
     }
     LienzoOptions options;
@@ -261,6 +264,7 @@ struct Lienzo::Impl {
         sentRequests = 0;
         sim->setUndo(options.undo);
         sim->setProfile(options.profile);
+        sim->setPaperColor(options.paperColor);
         // Deshacer cambia la pila sin que la interfaz lo pida: la mesa de luz se recalcula al
         // aviso (encolado: si el lienzo ya no está, relay tampoco y el aviso se descarta).
         sim->setOnSheetState([this] { QMetaObject::invokeMethod(&relay, [this] { applyLayers(); }, Qt::QueuedConnection); });
@@ -410,6 +414,8 @@ struct Lienzo::Impl {
         viewDegrees = ViewRotation::normalized(config->value(QStringLiteral("viewRotation"), 0.0).toDouble());
         tilt = config->value(QStringLiteral("tilt"), true).toBool();
         texture = std::clamp(config->value(QStringLiteral("paperTexture"), 20, appkit::Config::Scope::Common).toInt(), 0, 100);
+        if (!options.paperTexture)
+            texture = 0; // papel liso (HU-97): no se lee ni se guarda la de la familia
     }
 
     // Textura del papel (HU-75): de a 10 %, común a las apps de la familia.
@@ -661,7 +667,10 @@ struct Lienzo::Impl {
             swprintf(text, 768, L"   ·   hoja %d de %d", o.active + 1, o.count);
             out += text;
         }
-        swprintf(text, 768, L"   ·   textura %d %% (Ctrl+[ ])%ls", texture, warning);
+        if (options.paperTexture)
+            swprintf(text, 768, L"   ·   textura %d %% (Ctrl+[ ])%ls", texture, warning);
+        else
+            swprintf(text, 768, L"%ls", warning);
         wchar_t version[128];
         swprintf(version, 128, L"escala de Windows %d %%   ·   hoja %d × %d px\n",
                  int(std::lround(screen->devicePixelRatio() * 100)), mapping.sheetWidth, mapping.sheetHeight);
@@ -701,6 +710,7 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     d->createSimulation();
     d->render = std::make_unique<Renderer>(d->canvas->hwnd(), d->image);
     d->render->setTimings(&d->timings);
+    d->render->setPaperColor(d->options.paperColor);
     d->render->setRotation(d->rotation()); // el giro guardado (HU-13)
     d->render->setSheetRect(d->sheetRect());
     d->render->setExtraInfo([impl = d.get()] { return impl->overlayText(); });
@@ -853,9 +863,11 @@ void Lienzo::registerShortcuts()
         keys.add(QStringLiteral("Deshacer"), {{'Z'}}, [impl] { impl->requestUndo(); }); // Z sola (pedido del usuario, 10 de octubre)
         keys.add(QStringLiteral("Rehacer"), {{'Y', true}}, [impl] { impl->requestRedo(); });
     }
-    keys.add(QStringLiteral("Menos textura del papel"), {{VK_OEM_4, true}}, [impl] { impl->stepTexture(false); }); // HU-75
-    keys.add(QStringLiteral("Más textura del papel"), {{VK_OEM_6, true}}, [impl] { impl->stepTexture(true); });
-    keys.joinWithPrevious(QStringLiteral("Textura del papel"));
+    if (d->options.paperTexture) { // el papel de animación es liso, sin atajo (HU-97)
+        keys.add(QStringLiteral("Menos textura del papel"), {{VK_OEM_4, true}}, [impl] { impl->stepTexture(false); }); // HU-75
+        keys.add(QStringLiteral("Más textura del papel"), {{VK_OEM_6, true}}, [impl] { impl->stepTexture(true); });
+        keys.joinWithPrevious(QStringLiteral("Textura del papel"));
+    }
 
     keys.setGroup(kGroupView);
     { // los números son de la vista (HU-40), en las dos apps; la dureza se elige con F5

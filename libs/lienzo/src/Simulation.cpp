@@ -114,7 +114,7 @@ void Simulation::renderAll()
     updateLight();
     std::lock_guard lock(m_image.mutex);
     renderTone(m_paper, m_mapping, 0, 0, m_image.width, m_image.height, m_image.pixels.data(), guides(),
-               m_texture.shade());
+               m_texture.shade(), m_paperColor);
     m_image.markDirty(0, 0, m_image.width, m_image.height);
     m_image.sheet = m_sheets.order().activeId();
 }
@@ -195,7 +195,7 @@ void Simulation::renderAllParallel()
         if (y0 >= y1)
             break;
         pool.emplace_back([this, x0, x1, y0, y1] {
-            renderTone(m_paper, m_mapping, x0, y0, x1, y1, m_image.pixels.data(), guides(), m_texture.shade());
+            renderTone(m_paper, m_mapping, x0, y0, x1, y1, m_image.pixels.data(), guides(), m_texture.shade(), m_paperColor);
         });
     }
     for (std::thread& th : pool)
@@ -213,7 +213,7 @@ void Simulation::repaintAllInStrips()
     for (int y = 0; y < m_image.height; y += kStrip) {
         const int y1 = std::min(y + kStrip, m_image.height);
         std::lock_guard lock(m_image.mutex);
-        renderTone(m_paper, m_mapping, 0, y, m_image.width, y1, m_image.pixels.data(), guides(), m_texture.shade());
+        renderTone(m_paper, m_mapping, 0, y, m_image.width, y1, m_image.pixels.data(), guides(), m_texture.shade(), m_paperColor);
         m_image.markDirty(0, y, m_image.width, y1);
     }
 }
@@ -271,7 +271,7 @@ void Simulation::run()
                 continue;
             std::lock_guard lock(m_image.mutex);
             const Stopwatch held;
-            renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides(), m_texture.shade());
+            renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides(), m_texture.shade(), m_paperColor);
             m_image.markDirty(px0, py0, px1, py1);
             if (m_timings)
                 m_timings->simLockHeld.add(held.ms());
@@ -333,7 +333,7 @@ void Simulation::run()
             std::lock_guard lock(m_image.mutex);
             const Stopwatch held;
             if (any) {
-                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides(), m_texture.shade());
+                renderTone(m_paper, m_mapping, px0, py0, px1, py1, m_image.pixels.data(), guides(), m_texture.shade(), m_paperColor);
                 m_image.markDirty(px0, py0, px1, py1);
             }
             if (newest) {

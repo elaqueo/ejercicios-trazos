@@ -110,6 +110,8 @@ public:
     // Perfil de medio (HU-112): con Animation, la mina y la goma sin bruñido, hundimiento,
     // daño de fibra ni desgaste. Llamar antes de start().
     void setProfile(MediumProfile profile) { m_profile = profile; }
+    // El color de la hoja (HU-97). Llamar antes de renderAll() y start().
+    void setPaperColor(uint32_t color) { m_paperColor = color; }
     // Sin deshacer (Ejercicios) no se guardan copias de los tiles. Llamar antes de start().
     void setUndo(bool enabled) { m_undoEnabled = enabled; }
     // La mina activa (HU-57): cambia al elegir otra dureza o al calibrar en vivo. Si
@@ -216,6 +218,7 @@ private:
     std::FILE* m_recording = nullptr;
     bool m_undoEnabled = true;
     MediumProfile m_profile = MediumProfile::Illustration;
+    uint32_t m_paperColor = kPaperColor;
     std::vector<uint32_t> m_guides; // la que usa el hilo de simulación
     std::mutex m_guidesMutex;
     std::vector<uint32_t> m_pendingGuides; // la que llega de afuera

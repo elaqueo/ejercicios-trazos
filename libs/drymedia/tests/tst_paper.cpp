@@ -3,6 +3,7 @@
 #include <QElapsedTimer>
 #include <QTest>
 
+#include <algorithm>
 #include <cmath>
 
 #include <set>
@@ -168,11 +169,12 @@ private slots:
     }
 
     // HU-112: una hoja que no es la del papel guarda de cada tile solo los planos que usa;
-    // al volver es la misma. La hoja de Mesa de animación (la tableta entera a 300 dpi) con el
-    // 26 % de los tiles dibujado (lo que midió el spike de HU-81) ocupa menos de 10 MB.
+    // al volver es la misma. La hoja de Mesa de animación (la tableta entera, 600 dpi desde
+    // HU-97) con el 26 % de los tiles dibujado (lo que midió el spike de HU-81) ocupa menos de
+    // 20 MB (con los 4 planos, unos 77).
     void hojaGuardadaEmpaquetada()
     {
-        Paper paper({.seed = 2, .widthMm = 325.1, .heightMm = 203.2, .dpi = 300});
+        Paper paper({.seed = 2, .widthMm = 325.1, .heightMm = 203.2});
         const int tilesX = paper.tilesX(), total = paper.tilesX() * paper.tilesY();
         int touched = 0;
         for (int i = 0; i < total; ++i)
@@ -189,13 +191,34 @@ private slots:
         QCOMPARE(guardada.tileCount(), size_t(touched));
         qInfo("Hoja de %d tiles con %d dibujados: %.1f MB guardada (%.1f MB con 4 planos)", total, touched,
               guardada.bytes() / 1048576.0, double(touched) * kTileStride * 2 / 1048576.0);
-        QVERIFY(guardada.bytes() <= size_t(10) * 1024 * 1024);
+        QVERIFY(guardada.bytes() <= size_t(20) * 1024 * 1024);
         QVERIFY(guardada.bytes() < size_t(touched) * kTileStride * 2 / 3);
 
         paper.swapTiles(guardada);
         QCOMPARE(paper.hash(), hoja);
         QCOMPARE(paper.tilePlanes(0, 0), uint8_t(1 << kBurnishPlane));
         QCOMPARE(paper.depositTile(0, 0)[kBurnishPlane * kTileCells + 5], uint16_t(77));
+    }
+
+    // HU-97: la profundidad del grano es un dato del papel. El diente (cresta − relieve) llega
+    // a lo sumo a esa profundidad; la ondulación no cambia. Con la de siempre, el relieve es el
+    // de antes (el hash de referencia de tst_pencil no cambió).
+    void profundidadDelGrano()
+    {
+        const Paper normal({.seed = 3, .widthMm = 30, .heightMm = 20});
+        const Paper liso({.seed = 3, .widthMm = 30, .heightMm = 20, .grain = 900});
+        const auto deepest = [](const Paper& p) {
+            int most = 0;
+            for (size_t i = 0; i < size_t(p.width()) * size_t(p.height()); ++i)
+                most = std::max(most, int(p.crest()[i]) - int(p.relief()[i]));
+            return most;
+        };
+        QVERIFY(deepest(normal) > 2000);
+        QVERIFY(deepest(liso) <= 900);
+        QVERIFY(deepest(liso) > 850);
+        // La ondulación es la misma: donde el grano es 0 en los dos, el relieve coincide.
+        for (size_t i = 0; i < size_t(normal.width()) * size_t(normal.height()); ++i)
+            QCOMPARE(int(normal.crest()[i]) - 2047, int(liso.crest()[i]) - 900);
     }
 
     void cambiarDeConjuntoDeTiles()

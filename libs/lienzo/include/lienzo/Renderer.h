@@ -82,6 +82,8 @@ public:
     }
     // Mediciones de tiempo para diagnóstico (opcional; llamar antes de start()).
     void setTimings(struct SessionTimings* timings) { m_timings = timings; }
+    // El color de la hoja (HU-97): la hoja en blanco y el tinte de la mesa de luz. Antes de start().
+    void setPaperColor(uint32_t color) { m_paperColor = color; }
 
     // Pila de hojas (HU-83). Cada hoja que deja de ser la activa llega en la imagen de
     // pantalla (DisplayImage::retired) y queda en una textura de la GPU, por id. La hoja que
@@ -133,6 +135,7 @@ private:
     std::atomic<bool> m_overlay{false};
     std::function<std::wstring()> m_extra;
     struct SessionTimings* m_timings = nullptr;
+    uint32_t m_paperColor = 0xFFF5F0E6u; // kPaperColor
     std::string m_summary;
     std::mutex m_rotationMutex;
     ViewRotation m_rotation;

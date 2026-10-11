@@ -16,6 +16,14 @@
 #include <QDebug>
 #include <QScreen>
 
+namespace {
+
+// Grano del papel de animación (HU-97), de 2047 en Cartuchera: elegido por el usuario probando
+// en la app el 11 de octubre de 2026 (a 600 dpi; a 300 el grano se veía grueso).
+constexpr int kAnimationGrain = 900;
+
+} // namespace
+
 int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
@@ -35,11 +43,17 @@ int main(int argc, char* argv[])
     shell.setGeometry(screen->geometry());
     shell.show();
 
+    // Papel de animación (HU-97): casi blanco, liso a la vista (sin textura ni su atajo) y con
+    // el diente más bajo en la simulación (kAnimationGrain).
+    const QColor sheetColor = appkit::theme::kHojaAnimacion;
     lienzo::Lienzo canvas(shell, screen, config,
                           {.name = QStringLiteral("mesadeanimacion"),
                            .undo = true,
                            .sheets = true,
-                           .profile = lienzo::MediumProfile::Animation}); // 300 dpi, medio recortado (HU-112)
+                           .profile = lienzo::MediumProfile::Animation, // medio recortado (HU-112)
+                           .paperColor = lienzo::bgra(sheetColor.red(), sheetColor.green(), sheetColor.blue()),
+                           .paperGrain = kAnimationGrain,
+                           .paperTexture = false});
 
     // Hojas (HU-87). Se ve cuál es la activa en F3; las acciones quedan en el log (las verifica
     // la prueba de la app real, scripts/smoke.ps1).

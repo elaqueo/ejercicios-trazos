@@ -125,3 +125,10 @@ Estimación con los números medidos (a confirmar en HU-82): una hoja al 26 % pa
 - Una hoja que no está activa guarda de cada tile solo los planos que usa (el papel la empaqueta al soltarla y la desempaqueta al tomarla; los kernels no cambiaron). **La hoja de Mesa de animación (3840 × 2400 celdas) con el 26 % de los tiles dibujado: 4,7 MB guardada, contra 18,7 MB con los 4 planos** (`tst_paper`, `hojaGuardadaEmpaquetada`).
 - La misma línea a 300 y a 600 dpi: grafito por mm de línea 0,145 / 0,144; ancho 0,51 / 0,42 mm (la celda más grande ensancha el borde; el ajuste fino es de HU-97).
 - Activar una hoja sigue en ~29 ms: el repintado depende de los píxeles de la pantalla, no de las celdas. Latencia del trazo en Mesa de animación: mediana 10,6 ms, 0 vsyncs perdidos; el lápiz, 0,046 ms por lote (en Cartuchera, 11,0 ms).
+
+## Hecho en HU-97
+
+- Papel de animación: color `kHojaAnimacion` (`#FAF8F2`), sin textura visual ni su atajo (no toca la textura guardada de la familia) y con el diente más bajo en la simulación (`PaperSpec::grain` = 900, de 2047). El color del papel es un dato del lienzo: lo usan la imagen, la mesa de luz (el tinte se calcula contra él) y la hoja en blanco del render.
+- **Vuelta a 600 dpi.** Las láminas de comparación (`docs/mesa-de-animacion/capturas/`, `spikes/mesa-papel`) no alcanzaron para decidir; probando en la app, a 300 dpi el grano se veía grueso con cualquier profundidad, y el usuario eligió 600 dpi con grano 900. La resolución sigue siendo un dato del papel; el perfil de animación quedó en 600.
+- Memoria a 600: la hoja de Mesa de animación con el 26 % dibujado, 18,4 MB guardada (73,1 MB con los 4 planos). 120 hojas ≈ 2,3 GB; 24 hojas (la salida de la Fase 1) ≈ 450 MB.
+- Latencia del trazo en Mesa de animación: mediana 11,0 ms, 0 vsyncs perdidos (Cartuchera, 10,9 ms).

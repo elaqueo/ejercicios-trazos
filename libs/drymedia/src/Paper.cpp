@@ -32,20 +32,20 @@ uint32_t cellHash(uint32_t x, uint32_t y, uint32_t seed)
 
 constexpr uint32_t kGrainMax = 2047;
 
-// Relieve en (x, y): grano fino por celda (0..kGrainMax) + ondulación suave interpolada
+// Relieve en (x, y): grano fino por celda (0..depth, a lo sumo kGrainMax) + ondulación suave interpolada
 // en una grilla de `k` celdas (0..2047). Solo enteros: igual en cualquier máquina. `crest`
 // es el nivel de las crestas de la zona (la ondulación + el grano máximo): hasta ahí llena
 // el grafito un valle (Contact).
-uint16_t reliefValue(int x, int y, uint32_t seed, uint32_t k, uint16_t& crest)
+uint16_t reliefValue(int x, int y, uint32_t seed, uint32_t k, uint32_t depth, uint16_t& crest)
 {
-    const uint32_t grain = cellHash(uint32_t(x), uint32_t(y), seed) >> 21;
+    const uint32_t grain = (cellHash(uint32_t(x), uint32_t(y), seed) >> 21) * depth / kGrainMax; // depth = kGrainMax: tal cual
     const uint32_t gx = uint32_t(x) / k, gy = uint32_t(y) / k;
     const uint32_t fx = uint32_t(x) % k, fy = uint32_t(y) % k;
     const uint32_t waveSeed = seed ^ 0x9e3779b9U;
     const uint32_t c00 = cellHash(gx, gy, waveSeed) >> 21, c10 = cellHash(gx + 1, gy, waveSeed) >> 21;
     const uint32_t c01 = cellHash(gx, gy + 1, waveSeed) >> 21, c11 = cellHash(gx + 1, gy + 1, waveSeed) >> 21;
     const uint32_t wave = (c00 * (k - fx) * (k - fy) + c10 * fx * (k - fy) + c01 * (k - fx) * fy + c11 * fx * fy) / (k * k);
-    crest = uint16_t(wave + kGrainMax);
+    crest = uint16_t(wave + depth);
     return uint16_t(grain + wave);
 }
 
@@ -72,14 +72,15 @@ struct Paper::Impl {
         crest.resize(relief.size());
         const unsigned threads = std::max(1u, std::thread::hardware_concurrency());
         const uint32_t wave = uint32_t(std::max(1, kWaveCell * spec.dpi / 600));
+        const uint32_t depth = uint32_t(std::clamp(spec.grain, 0, int(kGrainMax)));
         std::vector<std::thread> pool;
         for (unsigned t = 0; t < threads; ++t) {
-            pool.emplace_back([this, t, threads, wave] {
+            pool.emplace_back([this, t, threads, wave, depth] {
                 for (int y = int(t); y < height; y += int(threads)) {
                     uint16_t* row = relief.data() + size_t(y) * size_t(width);
                     uint16_t* crestRow = crest.data() + size_t(y) * size_t(width);
                     for (int x = 0; x < width; ++x)
-                        row[x] = reliefValue(x, y, spec.seed, wave, crestRow[x]);
+                        row[x] = reliefValue(x, y, spec.seed, wave, depth, crestRow[x]);
                 }
             });
         }
