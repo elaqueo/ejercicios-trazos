@@ -6,7 +6,7 @@
 
 ## Qué se midió
 
-- **La hoja:** la de Mesa de animación, toda la tableta a 600 dpi (7680 × 4800 celdas), con grano 900, HB y el medio recortado. Cada tile guarda solo el depósito: ningún tile usó otros planos.
+- **La hoja:** la de Mesa de animación de ese momento, toda la tableta a 600 dpi (7680 × 4800 celdas), con grano 900, HB y el medio recortado (desde HU-113, 300 dpi: ver más abajo). Cada tile guarda solo el depósito: ningún tile usó otros planos.
 - **Los trazos:** los grabados con `cartuchera --grabar` (6 trazos), repetidos y desplazados hasta tocar el 10, 26 y 50 % de los tiles, como en HU-81.
 - **Qué se guarda de cada hoja:**
   - el estado: índice de tiles más el depósito, u16 por celda;
@@ -70,6 +70,20 @@ La imagen de pantalla de la hoja al 26 %:
 - **lz4 abre más rápido**, pero ocupa un 12 % más. A 0,4 s por toma, abrir no es el cuello de botella.
 - **La imagen se guarda.** Comprimida ocupa 0,3 MB, menos del 10 % de la hoja, y se abre en 3 ms en lugar de 108 ms. PNG no conviene como formato nativo: tarda 5 veces más que zlib en guardar.
 - **Hoja típica en disco:** unos 4,8 MB (estado más imagen), y 120 hojas al 26 % ocupan unos 580 MB.
+
+## A 300 dpi (HU-113)
+
+El 11 de octubre de 2026 Mesa de animación volvió a 300 dpi con grano 300, y el spike quedó con ese papel (3840 × 2400 celdas). Como los tiles son 4 veces menos, los mismos trazos tocan otro porcentaje: 14, 30 y 51 %.
+
+| Hoja | Sin comprimir | zstd 1 | Razón | Guardar | Abrir | 120 hojas en disco |
+| --- | --- | --- | --- | --- | --- | --- |
+| 14 % | 2,5 MB | 0,30 MB | 8,4 : 1 | 4 ms | 1,0 ms | 36 MB |
+| 30 % | 5,4 MB | 0,74 MB | 7,3 : 1 | 8 ms | 2,5 ms | 88 MB |
+| 51 % | 9,0 MB | 1,79 MB | 5,0 : 1 | 17 ms | 5,4 ms | 214 MB |
+
+- La imagen de pantalla al 26 %: 0,23 MB con zstd 1 (6 ms). Redibujarla tarda 97 ms en un hilo.
+- El grano bajo es menos ruido: comprime 7 : 1 en vez de 4 : 1. Con la imagen, una hoja de un rough con construcción ocupa ~1 MB en disco, contra ~4,8 MB a 600 dpi.
+- zstd 1 sigue siendo la elección: los demás algoritmos se ordenan igual.
 
 ## Decisión
 

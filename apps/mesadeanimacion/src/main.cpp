@@ -21,9 +21,9 @@
 
 namespace {
 
-// Grano del papel de animación (HU-97), de 2047 en Cartuchera: elegido por el usuario probando
-// en la app el 11 de octubre de 2026 (a 600 dpi; a 300 el grano se veía grueso).
-constexpr int kAnimationGrain = 900;
+// Grano del papel de animación (HU-97), de 2047 en Cartuchera: 300, el diente bajo, con el
+// papel a 300 dpi (HU-113, decisión del usuario del 11 de octubre de 2026; antes 900 a 600 dpi).
+constexpr int kAnimationGrain = 300;
 
 } // namespace
 

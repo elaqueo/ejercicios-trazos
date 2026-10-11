@@ -72,13 +72,14 @@ struct Eraser {
 // Perfil de medio por app (HU-112). Ilustración (Cartuchera, Ejercicios): todo el medio.
 // Animación (Mesa de animación, un rough que se flipea): sin bruñido, punta seca ni
 // hundimiento, daño de fibra ni desgaste (la línea tiene que ser la misma en la hoja 1 y en
-// la 40; y una hoja que no está activa guarda solo su grafito). Los dos a 600 dpi: a 300 el
-// grano se veía grueso (probado en la app por el usuario el 11 de octubre de 2026, HU-97);
-// la resolución sigue siendo un dato del papel (PaperSpec::dpi).
+// la 40; y una hoja que no está activa guarda solo su grafito), y a 300 dpi: 4 veces menos
+// memoria y disco por hoja. En HU-97 había pasado a 600 dpi porque a 300 el grano se veía
+// grueso; el usuario volvió a 300 el 11 de octubre de 2026 (HU-113): en un rough importan
+// más el rendimiento y el disco que la línea fina.
 enum class MediumProfile { Illustration, Animation };
-inline int profileDpi(MediumProfile)
+inline int profileDpi(MediumProfile profile)
 {
-    return 600;
+    return profile == MediumProfile::Animation ? 300 : 600;
 }
 // La mina o la goma con lo que el perfil no usa apagado.
 inline drymedia::Medium forProfile(drymedia::Medium medium, MediumProfile profile)

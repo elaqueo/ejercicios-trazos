@@ -28,7 +28,7 @@ toma-1/
 {
     "formato": "toma de Mesa de animación",
     "version": 1,
-    "papel": { "semilla": 1, "dpi": 600, "grano": 900, "anchoCeldas": 7680, "altoCeldas": 4800 },
+    "papel": { "semilla": 1, "dpi": 300, "grano": 300, "anchoCeldas": 3840, "altoCeldas": 2400 },
     "hojas": [
         { "id": 1, "archivo": "hoja-1.hoja", "rol": "" },
         { "id": 3, "archivo": "hoja-3.hoja", "rol": "" }
@@ -75,7 +75,7 @@ En Mesa de animación (medio recortado) cada tile lleva solo el depósito.
 
 **La imagen** es la región de la hoja en la pantalla donde se guardó, en BGRA, para no redibujarla al abrir. Al abrir se usa si coincide con el tamaño de la hoja en esa pantalla; si no (otra máquina, otra área útil), la hoja se redibuja desde su depósito.
 
-**Compresión:** zstd nivel 1, con suma de verificación en cada bloque. Se eligió así en el [spike de compresión](spikes/toma.md): unos 4,5 MB por hoja al 26 % de tiles, se guarda en 39 ms y se abre en 13 ms. El código de compresión de la cabecera permite cambiar de algoritmo más adelante sin romper las tomas guardadas.
+**Compresión:** zstd nivel 1, con suma de verificación en cada bloque. Se eligió así en el [spike de compresión](spikes/toma.md), a 600 dpi. A 300 dpi y grano 300 (HU-113), con la hoja al 30 % de tiles: 0,74 MB el depósito y 0,23 MB la imagen; se guarda en 8 ms y se abre en 2,5 ms. El código de compresión de la cabecera permite cambiar de algoritmo más adelante sin romper las tomas guardadas.
 
 ### Guardar y abrir
 

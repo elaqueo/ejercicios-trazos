@@ -142,3 +142,9 @@ Estimación con los números medidos (a confirmar en HU-82): una hoja al 26 % pa
 - La toma en disco: `toma.json` y un archivo por hoja, con el depósito y la imagen de pantalla comprimidos con zstd 1. Formato en [arquitectura.md](../arquitectura.md) y comparación de algoritmos en [toma.md](toma.md).
 - Las imágenes de las hojas que no son la activa se guardan comprimidas en RAM (`SheetImages`, ~0,3 MB cada una): las comprime un hilo propio cuando la hoja sale, sin frenar el cambio de hoja.
 - Arreglado de paso: al recrear la simulación (F9), el destructor de la vieja dejaba a la pila sin el aviso `onLeave`, y desde ahí las hojas que salían no le daban su imagen al render. Ahora la vieja se destruye antes de crear la nueva.
+
+## Vuelta a 300 dpi (HU-113)
+
+- El 11 de octubre de 2026 el usuario volvió a 300 dpi, con grano 300: Mesa de animación es para rough, y el rendimiento y el disco importan más que la línea fina. La decisión de HU-97 (600 dpi y grano 900) queda corregida.
+- Memoria: la hoja con el 30 % de tiles, 5,4 MB; 120 hojas ≈ 650 MB, como estaba planeado en HU-81.
+- Disco: ~1 MB por hoja con la imagen (ver [toma.md](toma.md)).

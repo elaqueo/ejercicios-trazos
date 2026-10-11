@@ -1,7 +1,7 @@
 // Spike HU-85 (Mesa de animación): qué compresión sin pérdida usar para las hojas guardadas en
 // disco. Código descartable.
 //
-// Con la hoja real de Mesa de animación (toda la tableta, 600 dpi, grano 900, medio
+// Con la hoja real de Mesa de animación (toda la tableta, 300 dpi, grano 300 desde HU-113; antes 600 y 900, medio
 // recortado: solo el depósito) y trazos reales grabados con `cartuchera --grabar`, repetidos
 // por la hoja hasta un 10, 26 y 50 % de tiles:
 //   1. el estado de la hoja (índice de tiles + depósito) con zlib (Qt), zstd y lz4, con y sin
@@ -345,9 +345,9 @@ int main(int argc, char** argv)
     if (strokes.empty())
         return 1;
 
-    // La hoja de Mesa de animación: toda la tableta, 600 dpi, grano 900, HB sin funciones de
+    // La hoja de Mesa de animación: toda la tableta, 300 dpi, grano 300 (HU-113), HB sin funciones de
     // ilustración (HU-97, HU-98, HU-112).
-    drymedia::Paper paper({.seed = 1, .widthMm = kTabletWidthMm, .heightMm = kTabletHeightMm, .dpi = 600, .grain = 900});
+    drymedia::Paper paper({.seed = 1, .widthMm = kTabletWidthMm, .heightMm = kTabletHeightMm, .dpi = 300, .grain = 300});
     const drymedia::Medium hb =
         lienzo::forProfile(lienzo::factoryGrades()[lienzo::kHbIndex].medium(), lienzo::MediumProfile::Animation);
     drymedia::Pencil pencil(paper, hb);
