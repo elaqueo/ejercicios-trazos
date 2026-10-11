@@ -11,9 +11,9 @@ Apps de escritorio para dibujar con tableta digitalizadora sobre un lienzo propi
   - **Memoria:** ghosting (la forma se ve unos segundos; G la vuelve a mostrar para comparar).
   - **Presión:** seguir un perfil de presión objetivo.
 
-  F4 abre el menú y F2 el panel con los parámetros de cada ejercicio. La tabla completa de teclas está en [docs/diseno.md](docs/diseno.md#teclas-v100).
+  F4 abre el menú y F2 el panel con los parámetros de cada ejercicio. La tabla completa de teclas está en [docs/diseno.md](docs/diseno.md#teclas-v130).
 - **Cartuchera** (`apps/cartuchera`): hoja libre para dibujar, con deshacer.
-- **Mesa de animación** (idea en estudio, sin código): hojas apiladas, mesa de luz y flip a mano para la etapa de rough animation. [Idea](docs/mesa-de-animacion/idea.md) · [requerimientos y backlog](docs/mesa-de-animacion/requerimientos.md).
+- **Mesa de animación** (`apps/mesadeanimacion`): hojas apiladas para la etapa de rough animation, con un solo grafito (HB) sobre papel de animación. ← → flipean a mano (mantener la flecha muestra la hoja vecina; al soltar queda activa), L prende la mesa de luz (2 hojas atrás en rojo, 1 adelante en verde), Insert agrega una hoja, ↑ ↓ la mueven en la pila, Inicio y Fin saltan a la primera y la última, y Tab muestra el panel de hojas. La toma se guarda sola. Sin reproducción automática ni fps: el timing lo da la mano. [Idea](docs/mesa-de-animacion/idea.md) · [requerimientos y backlog](docs/mesa-de-animacion/requerimientos.md) · [arquitectura y formato de la toma](docs/mesa-de-animacion/arquitectura.md).
 
 - [Alcance de la v1](docs/alcance-v1.md)
 - [Diseño (sistema visual y pantallas)](docs/diseno.md)
@@ -28,6 +28,8 @@ libs/lienzo/       lienzo de baja latencia: ventana nativa con swapchain, hilos 
 libs/appkit/       área útil, calibración, configuración, log, atajos, guías y tema
 apps/ejercicios/   generadores de ejercicios y sesión
 apps/cartuchera/   hoja libre
+apps/mesadeanimacion/  pila de hojas, flip y mesa de luz
+apps/mesadeanimacion/  pila de hojas, flip y mesa de luz
 spikes/            mediciones de la Fase 0 de Cartuchera (se compilan para que no se rompan)
 cmake/             opciones comunes de los targets
 scripts/           build.ps1 (comando único) y vsenv.ps1 (entorno de MSVC)
@@ -42,7 +44,7 @@ No hay otras dependencias: el motor de dibujo es propio. Hasta HU-68 se usaba li
 
 ## Datos
 
-Todas las apps de la familia comparten `%LOCALAPPDATA%\trazos\`: `config.json` (área útil por monitor, monitor elegido), `medios.json` (minas y goma calibradas; se recarga en caliente y Ctrl+S guarda), y un `<app>.log` que se reescribe en cada arranque.
+Todas las apps de la familia comparten `%LOCALAPPDATA%\trazos\`: `config.json` (área útil por monitor, monitor elegido), `medios.json` (minas y goma calibradas; se recarga en caliente y Ctrl+S guarda), y un `<app>.log` que se reescribe en cada arranque. Mesa de animación guarda sus tomas en `tomas\<nombre>` (una carpeta por toma; `--toma <carpeta>` abre otra sin cambiar la última usada).
 
 ## Compilar
 
@@ -51,7 +53,7 @@ pwsh scripts/build.ps1                  # Debug
 pwsh scripts/build.ps1 -Preset release
 ```
 
-El comando configura, compila y corre las pruebas. Los ejecutables quedan en `build/<preset>/` (`ejercicios.exe`, `cartuchera.exe`), con Qt desplegado al lado. Después de cambiar los presets, `-Fresh` reconfigura desde cero.
+El comando configura, compila y corre las pruebas. Los ejecutables quedan en `build/<preset>/` (`ejercicios.exe`, `cartuchera.exe`, `mesadeanimacion.exe`), con Qt desplegado al lado. Después de cambiar los presets, `-Fresh` reconfigura desde cero.
 
 Las apps abren a pantalla completa en el monitor guardado (F10 pasa al siguiente y lo recuerda; Alt+F4 sale). Las teclas están en el registro único de atajos de cada app (`lienzo/Lienzo.h` y el `main.cpp` de cada una).
 
@@ -63,7 +65,7 @@ Las apps abren a pantalla completa en el monitor guardado (F10 pasa al siguiente
 pwsh scripts/package.ps1
 ```
 
-Compila Release y genera `dist/TrazosSetup-<versión>.exe` con [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`). El instalador es por usuario y no pide administrador: instala en `%LOCALAPPDATA%\Programs\Trazos`, agrega "Ejercicios de trazos" y "Cartuchera" al menú Inicio (y, si se elige, al escritorio) y lleva su desinstalador. Incluye Qt y el runtime de Visual C++ junto a los ejecutables, así corre en una máquina sin nada instalado. Los datos (`%LOCALAPPDATA%\trazos`: calibración, minas, configuración) no son del instalador: quedan al desinstalar y al actualizar. La versión es la de `project()` en `CMakeLists.txt`; el script de Inno Setup está en `installer/trazos.iss`.
+Compila Release y genera `dist/TrazosSetup-<versión>.exe` con [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`). El instalador es por usuario y no pide administrador: instala en `%LOCALAPPDATA%\Programs\Trazos`, agrega "Ejercicios de trazos", "Cartuchera" y "Mesa de animación" al menú Inicio (y, si se elige, al escritorio) y lleva su desinstalador. Incluye Qt y el runtime de Visual C++ junto a los ejecutables, así corre en una máquina sin nada instalado. Los datos (`%LOCALAPPDATA%\trazos`: calibración, minas, configuración, tomas) no son del instalador: quedan al desinstalar y al actualizar. La versión es la de `project()` en `CMakeLists.txt`; el script de Inno Setup está en `installer/trazos.iss`.
 
 ## Pruebas
 
@@ -74,7 +76,7 @@ pwsh scripts/build.ps1                  # también corre las pruebas
 ctest --preset debug                    # solo las pruebas (con MSVC cargado)
 ```
 
-**Prueba de la app real** (`pwsh scripts/smoke.ps1`): abre Ejercicios en Release y la maneja con el teclado como lo haría el usuario (→, R, G, menú F4 con el modo mixto, F2), verificando en su log lo que pasó. Encuentra lo que los tests de lógica no ven, como teclas, foco o la navegación de un menú. Toma la pantalla unos 20 s y deja `config.json` como estaba.
+**Prueba de la app real** (`pwsh scripts/smoke.ps1`): abre Ejercicios y Mesa de animación en Release y las maneja con el teclado como lo haría el usuario, verificando en su log lo que pasó. En Ejercicios: →, R, G, menú F4 con el modo mixto, F2. En Mesa de animación, sobre una toma temporal: Insert, flip, mesa de luz, ↑ ↓, Inicio y Fin, Tab, el guardado automático (la cierra a la fuerza y la vuelve a abrir) y cuánto tarda en cerrar. Encuentra lo que los tests de lógica no ven, como teclas, foco o la navegación de un menú. Toma la pantalla menos de un minuto y deja `config.json` como estaba.
 
 ## Licencia
 

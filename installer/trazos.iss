@@ -1,7 +1,7 @@
-; Instalador de Ejercicios de trazos y Cartuchera (HU-70). Lo genera scripts/package.ps1, que
-; pasa AppVersion, SourceDir (build/package) y OutputDir (dist).
+﻿; Instalador de Ejercicios de trazos, Cartuchera (HU-70) y Mesa de animación (HU-110). Lo
+; genera scripts/package.ps1, que pasa AppVersion, SourceDir (build/package) y OutputDir (dist).
 ; Por usuario y sin administrador. Los datos (%LOCALAPPDATA%\trazos: calibración, medios.json,
-; config.json) no son del instalador: quedan al desinstalar y al actualizar.
+; config.json, las tomas) no son del instalador: quedan al desinstalar y al actualizar.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -44,9 +44,11 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 [Icons]
 Name: "{group}\Ejercicios de trazos"; Filename: "{app}\ejercicios.exe"; WorkingDir: "{app}"
 Name: "{group}\Cartuchera"; Filename: "{app}\cartuchera.exe"; WorkingDir: "{app}"
+Name: "{group}\Mesa de animación"; Filename: "{app}\mesadeanimacion.exe"; WorkingDir: "{app}"
 Name: "{group}\Desinstalar Trazos"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\Ejercicios de trazos"; Filename: "{app}\ejercicios.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 Name: "{userdesktop}\Cartuchera"; Filename: "{app}\cartuchera.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userdesktop}\Mesa de animación"; Filename: "{app}\mesadeanimacion.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\ejercicios.exe"; Description: "Abrir Ejercicios de trazos"; Flags: nowait postinstall skipifsilent unchecked

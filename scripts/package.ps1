@@ -1,4 +1,4 @@
-# Instalador de Ejercicios y Cartuchera (HU-70): compila Release, junta lo que hace falta
+# Instalador de Ejercicios, Cartuchera (HU-70) y Mesa de animación (HU-110): compila Release, junta lo que hace falta
 # para correr y genera dist/TrazosSetup-<versión>.exe con Inno Setup.
 #   pwsh scripts/package.ps1
 # Requiere Inno Setup 6 (winget install JRSoftware.InnoSetup).
@@ -13,13 +13,13 @@ if (-not $version) { throw 'No se encontró la versión en CMakeLists.txt' }
 & pwsh (Join-Path $PSScriptRoot 'build.ps1') -Preset release
 if ($LASTEXITCODE) { throw "El build Release falló ($LASTEXITCODE)" }
 
-# Lo que va al instalador, en build/package: los dos exe con el Qt que despliega
+# Lo que va al instalador, en build/package: los tres exe con el Qt que despliega
 # windeployqt, sin spikes, tests ni restos de builds viejos (la carpeta brushes de libmypaint).
 $release = Join-Path $root 'build\release'
 $stage = Join-Path $root 'build\package'
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory $stage | Out-Null
-foreach ($file in 'ejercicios.exe', 'cartuchera.exe', 'Qt6Core.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Network.dll',
+foreach ($file in 'ejercicios.exe', 'cartuchera.exe', 'mesadeanimacion.exe', 'Qt6Core.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Network.dll',
                   'Qt6Svg.dll', 'dxcompiler.dll', 'dxil.dll') {
     Copy-Item (Join-Path $release $file) $stage
 }

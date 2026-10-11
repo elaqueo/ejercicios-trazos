@@ -2,6 +2,16 @@
 
 Mesa de animación corre sobre el lienzo de `libs/lienzo`, como Cartuchera. Lo que necesita la pila de hojas vive en `lienzo` y `drymedia`, no en la app (RNF-07). Las teclas comunes están en `lienzo/Lienzo.h`.
 
+## Decisiones
+
+- **Rough, no clean-up:** el medio es recortado (HU-112): un solo grafito (HB, HU-98), sin punta seca, afilado ni textura visual del papel. Importa más que flipear sea instantáneo y que la toma pese poco que la calidad de la línea.
+- **300 dpi y grano 300** (HU-113, decisión del usuario sobre la de HU-97, 600 dpi y grano 900): una hoja ocupa ~5,4 MB en memoria y ~1 MB en disco al 30 % de tiles; 120 hojas, ~650 MB de RAM.
+- **Toda la pila en memoria, y en la GPU una textura por hoja** (spike HU-81): el flip solo cambia qué textura se muestra, sin tocar el disco ni la simulación (RNF-01, menos de 16 ms).
+- **Sin reproducción automática, fps ni hold:** el timing lo siente la mano al flipear ([idea](idea.md)).
+- **La toma es una carpeta** legible sin la app (RNF-08) y **se guarda sola** en las pausas del lápiz; no hay "Guardar".
+- **Deshacer común** para los trazos y las operaciones con las hojas (HU-87, HU-88); no se guarda en la toma.
+- **Instalador:** el mismo de Trazos (HU-110), con su ícono y su acceso en el menú Inicio. zstd se compila dentro del exe: no agrega DLL.
+
 ## La toma en disco (HU-85)
 
 Una toma es una carpeta que se puede copiar a otra máquina y leer sin la app (RNF-08):

@@ -50,9 +50,11 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Calibración | Pantalla oscura, indicador de pasos, marca ámbar en la esquina pedida | HU-10 |
 | Confirmación | Como la mesa "Confirmación": pregunta, detalle y la tecla que confirma en ámbar; cualquier otra tecla cancela | HU-87 |
 | Atajos (Ctrl+,) | Como la mesa "Atajos": título con el nombre de la app, los grupos en tres columnas (Lápiz · Hoja y papel, Vista · Ejercicios, Pantalla), teclas como chips y los gestos que no son teclas en gris claro. Sale del registro de atajos, así no se desactualiza | HU-78 |
-| Íconos | Fondo gris oscuro redondeado: Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; el instalador, los dos juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70 |
+| Mesa de luz | Como la mesa "Mesa de luz": las hojas anteriores teñidas de rojo y las siguientes de verde, más tenues cuanto más lejos; se apaga mientras se flipea | HU-91 |
+| Panel de hojas (Tab) | Como la mesa "Panel de hojas": angosto (240 px) a la derecha, con la toma y si está guardada, el número grande en ámbar y el total, las miniaturas de la activa (marco ámbar) y de 3 antes y 3 después, el lápiz, la mesa de luz y el giro | HU-114 |
+| Íconos | Como la mesa "Íconos": fondo gris oscuro redondeado; Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; Mesa de animación, tres hojas apiladas con la pelota en grafito y, debajo, la del dibujo anterior en rojo; el instalador, la hoja y el lápiz juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70, HU-110 |
 
-## Teclas (v1.2.4)
+## Teclas (v1.3.0)
 
 Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden la misma tecla, la app avisa al iniciar.
 
@@ -77,7 +79,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | F3 · F9 · F10 · F12 | Latencia · calibrar el área útil · monitor siguiente · captura | Igual |
 | Alt+F4 | Salir | Salir |
 
-**Mesa de animación** (en construcción): las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), Ctrl+[ ] (el papel de animación no tiene textura visual, HU-97), y F5, las de calibración ([ ] , . - =) y Ctrl+S (un solo grafito, la HB, HU-98); el costado (I) arranca apagado, más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
+**Mesa de animación:** las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), Ctrl+[ ] (el papel de animación no tiene textura visual, HU-97), y F5, las de calibración ([ ] , . - =) y Ctrl+S (un solo grafito, la HB, HU-98); el costado (I) arranca apagado, más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
 
 | Tecla | Qué hace |
 | --- | --- |
@@ -87,4 +89,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Ctrl+D | Duplicar la activa: la copia queda después y pasa a ser la activa |
 | Ctrl+N | Limpiar la hoja activa |
 | Supr | Borrar la hoja activa; si tiene trazos, un cartel pide Supr otra vez (mesa "Confirmación") |
-| Z / Ctrl+Y | Deshacer / rehacer lo más reciente: el último trazo de la hoja activa o la última operación con las hojas |
+| ↑ / ↓ | Mover la hoja activa un lugar antes o después en la pila (HU-88) |
+| Inicio / Fin | Ir a la primera o a la última hoja, sin deshacer, como un flip (HU-115) |
+| Tab | Mostrar u ocultar el panel de hojas (queda guardado; HU-114) |
+| Z / Ctrl+Y | Deshacer / rehacer lo más reciente: el último trazo de la hoja activa o la última operación con las hojas (incluido mover) |
