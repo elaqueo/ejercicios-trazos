@@ -86,6 +86,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. Abrir la toma reconstruye la pila idéntica: hash de cada hoja igual al guardado (prueba unitaria con una toma de muestra).
     3. Un archivo corrupto o faltante no impide abrir la toma: la hoja queda en blanco y se avisa en el log y en F3.
     4. Análisis antes de elegir el formato (pedido del usuario, 11 oct 2026): comparar algoritmos de compresión sin pérdida para las hojas guardadas (zlib, zstd, lz4 u otros) con hojas reales a 600 dpi: tamaño en disco, tiempo de guardar y de abrir. El spike de HU-81 midió zlib nivel 1 a 8 : 1.
+    5. *Hecho (11 oct 2026): el análisis está en [spikes/toma.md](spikes/toma.md). El usuario eligió zstd nivel 1, la primera dependencia fuera de Qt, compilada desde la fuente: unos 4,5 MB por hoja al 26 %, que se guarda en 39 ms y se abre en 13 ms. El formato está en [arquitectura.md](arquitectura.md). Cada hoja guarda también su imagen de pantalla, para abrir sin redibujar. Mesa de animación abre la toma al arrancar y la guarda al cerrar; HU-86 la guarda sola.*
 86. **HU-86 · Guardado automático** (Must · 3 pts). Como animador, quiero que la toma se guarde sola, para no pensar en archivos mientras flipeo y dibujo.
     1. Cada hoja cambiada se guarda al soltar el lápiz o al cambiar de hoja, en un hilo aparte; `toma.json` al cambiar el orden, el rol o la vista.
     2. Cerrar la app con Alt+F4 espera a que termine lo pendiente (menos de 2 s con 120 hojas).

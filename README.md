@@ -78,4 +78,4 @@ ctest --preset debug                    # solo las pruebas (con MSVC cargado)
 
 ## Licencia
 
-[MIT](LICENSE). Qt se usa bajo LGPLv3 con enlace dinámico.
+[MIT](LICENSE). Qt se usa bajo LGPLv3 con enlace dinámico. [zstd](https://github.com/facebook/zstd) (BSD) comprime las tomas de Mesa de animación; se compila desde su fuente.

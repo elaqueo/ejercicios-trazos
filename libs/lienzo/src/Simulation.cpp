@@ -2,6 +2,7 @@
 
 #include "lienzo/DisplayImage.h"
 #include "lienzo/SampleQueue.h"
+#include "lienzo/SheetImages.h"
 #include "lienzo/SheetStack.h"
 #include "lienzo/Timing.h"
 #include "lienzo/Tone.h"
@@ -175,6 +176,8 @@ void Simulation::retireSheet(uint64_t id)
     for (int y = 0; y < retired.height; ++y)
         std::copy_n(m_image.pixels.data() + size_t(m_mapping.sheetY + y) * size_t(m_image.width) + size_t(m_mapping.sheetX),
                     retired.width, retired.pixels.data() + size_t(y) * size_t(retired.width));
+    if (m_images) // HU-85: comprimida en su hilo, para guardarla en la toma
+        m_images->put(id, retired.width, retired.height, retired.pixels);
     m_image.retired.push_back(std::move(retired));
 }
 

@@ -7,8 +7,10 @@
 #include "lienzo/Media.h"
 #include "lienzo/Renderer.h"
 #include "lienzo/SampleQueue.h"
+#include "lienzo/SheetImages.h"
 #include "lienzo/SheetStack.h"
 #include "lienzo/Simulation.h"
+#include "lienzo/Take.h"
 #include "lienzo/Timing.h"
 #include "lienzo/ToolPage.h"
 
@@ -182,6 +184,8 @@ struct Lienzo::Impl {
     // Pila de hojas (HU-82): la cambia solo la simulación; acá, junto al papel, sobrevive a
     // recrearla (F9). `order` es lo mismo visto desde la interfaz (sheetCount, activeSheet).
     SheetStack sheets{Simulation::kUndoLimit};
+    SheetImages images; // las de las hojas que no son la activa, para la toma (HU-85)
+    std::wstring takeWarning; // hojas que la toma abrió en blanco (F3)
     SheetOrder order;
     // HU-87: el deshacer cambia la pila en la simulación, así que `order` se corrige con lo que
     // ella publica cuando atendió todo lo que se le pidió (pedidos de pila, deshacer, rehacer).
@@ -259,12 +263,14 @@ struct Lienzo::Impl {
     // dibujado, queda; el historial de deshacer se pierde).
     void createSimulation()
     {
+        sim.reset(); // primero la vieja: su destructor suelta el aviso onLeave de la pila
         sim = std::make_unique<Simulation>(paper, sheets, queue, image, mapping);
         order = sheets.order(); // la simulación nueva todavía no atendió nada
         sentRequests = 0;
         sim->setUndo(options.undo);
         sim->setProfile(options.profile);
         sim->setPaperColor(options.paperColor);
+        sim->setImages(&images);
         // Deshacer cambia la pila sin que la interfaz lo pida: la mesa de luz se recalcula al
         // aviso (encolado: si el lienzo ya no está, relay tampoco y el aviso se descarta).
         sim->setOnSheetState([this] { QMetaObject::invokeMethod(&relay, [this] { applyLayers(); }, Qt::QueuedConnection); });
@@ -279,6 +285,32 @@ struct Lienzo::Impl {
         if (render)
             render->setRotation(rotation());
         sim->renderAll();
+    }
+
+    // La imagen de una hoja que no es la activa, redibujada desde su depósito (HU-85: una toma
+    // guardada sin imagen, o con la hoja de otro tamaño en pantalla). Con la simulación detenida.
+    std::vector<uint32_t> renderSheet(int index)
+    {
+        SheetMapping m = mapping; // la región de la hoja sola, con su esquina en (0, 0)
+        m.originX -= m.sheetX;
+        m.originY -= m.sheetY;
+        m.clientWidth = m.sheetWidth;
+        m.clientHeight = m.sheetHeight;
+        m.sheetX = m.sheetY = 0;
+        std::vector<uint32_t> pixels(size_t(m.sheetWidth) * size_t(m.sheetHeight));
+        sheets.withSheet(paper, index, [&] {
+            const int threads = int(std::max(1u, std::min(8u, std::thread::hardware_concurrency())));
+            std::vector<std::thread> pool;
+            for (int t = 0; t < threads; ++t) {
+                const int y0 = m.sheetHeight * t / threads, y1 = m.sheetHeight * (t + 1) / threads;
+                pool.emplace_back([&, y0, y1] {
+                    renderTone(paper, m, 0, y0, m.sheetWidth, y1, pixels.data(), nullptr, nullptr, options.paperColor);
+                });
+            }
+            for (std::thread& th : pool)
+                th.join();
+        });
+        return pixels;
     }
 
     RECT sheetRect() const
@@ -673,6 +705,7 @@ struct Lienzo::Impl {
             swprintf(text, 768, L"   ·   textura %d %% (Ctrl+[ ])%ls", texture, warning);
         else
             swprintf(text, 768, L"%ls", warning);
+        out += takeWarning;
         wchar_t version[128];
         swprintf(version, 128, L"escala de Windows %d %%   ·   hoja %d × %d px\n",
                  int(std::lround(screen->devicePixelRatio() * 100)), mapping.sheetWidth, mapping.sheetHeight);
@@ -971,6 +1004,105 @@ void Lienzo::stop()
     qInfo().noquote() << QString::fromStdString(
         t.renderLockBusy.describe("render con la imagen ocupada (1 = no la tomó)", "frames"));
     qInfo().noquote() << QString::fromStdString(t.renderUploadPixels.describe("render píxeles subidos", "px"));
+}
+
+bool Lienzo::saveTake(const QString& dir)
+{
+    const bool wasRunning = d->running;
+    if (wasRunning)
+        d->sim->stop();
+    const Stopwatch time;
+    // La imagen de la activa es la de pantalla; las demás, las que dejó cada una al salir.
+    const uint64_t activeId = d->sheets.order().activeId();
+    std::vector<uint32_t> region(size_t(d->mapping.sheetWidth) * size_t(d->mapping.sheetHeight));
+    {
+        std::lock_guard lock(d->image.mutex);
+        for (int y = 0; y < d->mapping.sheetHeight; ++y)
+            std::copy_n(d->image.pixels.data() + size_t(d->mapping.sheetY + y) * size_t(d->image.width) + size_t(d->mapping.sheetX),
+                        d->mapping.sheetWidth, region.data() + size_t(y) * size_t(d->mapping.sheetWidth));
+    }
+    const PackedImage activeImage = PackedImage::pack(d->mapping.sheetWidth, d->mapping.sheetHeight, region.data());
+    const TakeResult result = lienzo::saveTake(dir, d->paper, d->sheets, {d->viewDegrees}, [&](uint64_t id) {
+        return id == activeId ? activeImage : d->images.get(id);
+    });
+    const int count = d->sheets.count(), active = d->sheets.active();
+    if (wasRunning)
+        d->sim->start();
+    if (result.ok)
+        qInfo().noquote() << QStringLiteral("Toma guardada en %1: %2 hojas, activa la %3, en %4 ms")
+                                 .arg(dir)
+                                 .arg(count)
+                                 .arg(active + 1)
+                                 .arg(time.ms(), 0, 'f', 0);
+    else
+        qWarning().noquote() << QStringLiteral("Toma: no se pudo guardar en %1: %2").arg(dir, result.error);
+    return result.ok;
+}
+
+bool Lienzo::openTake(const QString& dir)
+{
+    const bool wasRunning = d->running;
+    if (wasRunning)
+        d->sim->stop();
+    const Stopwatch time;
+    const std::vector<uint64_t> before = d->sheets.order().ids;
+    TakeView view;
+    std::vector<std::pair<uint64_t, PackedImage>> saved;
+    const TakeResult result = lienzo::openTake(dir, d->paper, d->sheets, view, &saved);
+    if (!result.ok) {
+        if (wasRunning)
+            d->sim->start();
+        qInfo().noquote() << QStringLiteral("Toma: no se abrió %1: %2").arg(dir, result.error);
+        return false;
+    }
+    // Las texturas de las hojas de antes ya no sirven (los ids se repiten entre tomas).
+    for (const uint64_t id : before)
+        d->render->dropSheet(id);
+    d->images.clear();
+    // La imagen de cada hoja que no es la activa, para el render y para volver a guardarla:
+    // la guardada si es del tamaño de la hoja en esta pantalla; si no, redibujada.
+    const SheetOrder& order = d->sheets.order();
+    int redrawn = 0;
+    for (int i = 0; i < order.count; ++i) {
+        if (i == order.active)
+            continue;
+        const uint64_t id = order.ids[size_t(i)];
+        RetiredSheet sheet{id, d->mapping.sheetWidth, d->mapping.sheetHeight, {}};
+        const auto it = std::find_if(saved.begin(), saved.end(), [id](const auto& p) { return p.first == id; });
+        if (it != saved.end() && it->second.width == sheet.width && it->second.height == sheet.height &&
+            it->second.unpack(sheet.pixels)) {
+            d->images.putPacked(id, std::move(it->second));
+        } else {
+            sheet.pixels = d->renderSheet(i);
+            d->images.put(id, sheet.width, sheet.height, sheet.pixels);
+            ++redrawn;
+        }
+        std::lock_guard lock(d->image.mutex);
+        d->image.retired.push_back(std::move(sheet));
+    }
+    d->takeWarning.clear();
+    if (!result.blank.empty()) {
+        QStringList numbers;
+        for (const auto& [index, reason] : result.blank)
+            numbers << QString::number(index + 1);
+        d->takeWarning = QStringLiteral("\nToma: %1 %2 en blanco (archivo dañado o faltante; ver el log).")
+                             .arg(numbers.size() == 1 ? QStringLiteral("la hoja") : QStringLiteral("las hojas"),
+                                  numbers.join(QStringLiteral(", ")))
+                             .toStdWString();
+    }
+    d->viewDegrees = ViewRotation::normalized(view.degrees);
+    d->createSimulation(); // con la pila nueva (y la vista); pinta la activa
+    d->applyLayers();
+    if (wasRunning)
+        d->sim->start();
+    qInfo().noquote() << QStringLiteral("Toma abierta de %1: %2 hojas, activa la %3, %4 redibujadas, %5 en blanco, en %6 ms")
+                             .arg(dir)
+                             .arg(order.count)
+                             .arg(order.active + 1)
+                             .arg(redrawn)
+                             .arg(result.blank.size())
+                             .arg(time.ms(), 0, 'f', 0);
+    return true;
 }
 
 void Lienzo::setGuides(const QPicture& guides)

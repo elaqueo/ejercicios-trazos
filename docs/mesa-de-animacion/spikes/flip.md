@@ -136,3 +136,9 @@ Estimación con los números medidos (a confirmar en HU-82): una hoja al 26 % pa
 ## Hecho en HU-98
 
 - Un solo grafito, la HB, elegida dibujando contra la B (con una tecla provisoria que alternaba las dos en vivo, ya sacada). `LienzoOptions::fixedGrade`: la dureza viene de `medios.json` pero Mesa de animación no lo toca (sin F5, sin las teclas de calibración ni Ctrl+S, y la dureza no se guarda en config). `tiltByDefault = false`: el costado arranca apagado.
+
+## Hecho en HU-85
+
+- La toma en disco: `toma.json` y un archivo por hoja, con el depósito y la imagen de pantalla comprimidos con zstd 1. Formato en [arquitectura.md](../arquitectura.md) y comparación de algoritmos en [toma.md](toma.md).
+- Las imágenes de las hojas que no son la activa se guardan comprimidas en RAM (`SheetImages`, ~0,3 MB cada una): las comprime un hilo propio cuando la hoja sale, sin frenar el cambio de hoja.
+- Arreglado de paso: al recrear la simulación (F9), el destructor de la vieja dejaba a la pila sin el aviso `onLeave`, y desde ahí las hojas que salían no le daban su imagen al render. Ahora la vieja se destruye antes de crear la nueva.

@@ -43,6 +43,7 @@ private:
 };
 
 class SampleQueue;
+class SheetImages;
 struct DisplayImage;
 struct SessionTimings;
 
@@ -112,6 +113,9 @@ public:
     void setProfile(MediumProfile profile) { m_profile = profile; }
     // El color de la hoja (HU-97). Llamar antes de renderAll() y start().
     void setPaperColor(uint32_t color) { m_paperColor = color; }
+    // Donde dejar también la imagen de cada hoja que sale (HU-85: se guarda en la toma).
+    // Llamar antes de start().
+    void setImages(SheetImages* images) { m_images = images; }
     // Sin deshacer (Ejercicios) no se guardan copias de los tiles. Llamar antes de start().
     void setUndo(bool enabled) { m_undoEnabled = enabled; }
     // La mina activa (HU-57): cambia al elegir otra dureza o al calibrar en vivo. Si
@@ -219,6 +223,7 @@ private:
     bool m_undoEnabled = true;
     MediumProfile m_profile = MediumProfile::Illustration;
     uint32_t m_paperColor = kPaperColor;
+    SheetImages* m_images = nullptr;
     std::vector<uint32_t> m_guides; // la que usa el hilo de simulación
     std::mutex m_guidesMutex;
     std::vector<uint32_t> m_pendingGuides; // la que llega de afuera

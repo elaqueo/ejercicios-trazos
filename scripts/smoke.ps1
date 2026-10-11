@@ -135,9 +135,12 @@ $state = if ($backup) { Get-Content $config -Raw | ConvertFrom-Json -AsHashtable
 if (-not $state.ContainsKey('mesadeanimacion')) { $state['mesadeanimacion'] = @{} }
 $state['mesadeanimacion']['lightTable'] = $true
 $state | ConvertTo-Json -Depth 32 | Set-Content $config -Encoding utf8
+# La toma de la prueba (HU-85), en una carpeta temporal: la del usuario no se toca.
+$takeDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-toma-$PID"
+Remove-Item $takeDir -Recurse -Force -ErrorAction SilentlyContinue
 $app = $null
 try {
-    $app = Start-Process $mesa -PassThru
+    $app = Start-Process $mesa -ArgumentList '--toma', "`"$takeDir`"" -PassThru
     Start-Sleep 4
     $ws = New-Object -ComObject WScript.Shell
     $null = $ws.AppActivate($app.Id)
@@ -207,13 +210,32 @@ try {
         Write-Host "  FALLA F5, A o E hicieron algo · $($extra -join ' | ')"
         $failures.Add('Un solo grafito')
     }
+
+    # HU-85: al cerrar se guarda la toma (toma.json y una hoja por archivo) y al volver a abrir
+    # la app está la misma pila, con la misma hoja activa, sin redibujar ni hojas en blanco.
+    $null = $app.CloseMainWindow()
+    if (-not $app.WaitForExit(15000)) { $app.Kill() }
+    $saved = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Toma guardada en .*: (\d+) hojas, activa la (\d+)' })
+    $files = @(Get-ChildItem $takeDir -Filter 'hoja-*.hoja' -ErrorAction SilentlyContinue).Count
+    $savedText = $saved -join ' '
+    $app = Start-Process $mesa -ArgumentList '--toma', "`"$takeDir`"" -PassThru
+    Start-Sleep 5
+    $opened = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Toma abierta de' }) -join ' ')
+    $expected = if ($savedText -match ': (\d+) hojas, activa la (\d+)') { "$($Matches[1]) hojas, activa la $($Matches[2]), 0 redibujadas, 0 en blanco" } else { '(no se guardó)' }
+    if ($saved.Count -eq 1 -and $files -eq 3 -and (Test-Path (Join-Path $takeDir 'toma.json')) -and $opened.Contains($expected)) {
+        Write-Host "  ok   la toma se guarda al cerrar y se abre igual ($expected)"
+    } else {
+        Write-Host "  FALLA toma: $savedText · $files archivos de hoja · $opened"
+        $failures.Add('Toma')
+    }
 }
 finally {
     if ($app -and -not $app.HasExited) {
         $null = $app.CloseMainWindow()
-        if (-not $app.WaitForExit(10000)) { $app.Kill() }
+        if (-not $app.WaitForExit(15000)) { $app.Kill() }
     }
     if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
+    Remove-Item $takeDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 if ($failures.Count) { Write-Host "$($failures.Count) falla(s)"; exit 1 }
 Write-Host 'Prueba de la app real: todo bien'

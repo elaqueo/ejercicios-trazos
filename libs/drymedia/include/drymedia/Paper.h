@@ -123,6 +123,16 @@ public:
     void swapTiles(TileSet& other);
     // Una copia del conjunto con el que trabaja el papel (duplicar una hoja, HU-87).
     TileSet copyTiles() const;
+    // La toma en disco (HU-85): el depósito de un conjunto como bytes, sin comprimir, y al
+    // revés. `set` nullptr = el del papel. Formato (little endian; documentado en
+    // docs/mesa-de-animacion/arquitectura.md): tilesX, tilesY y la cantidad de tiles (u32);
+    // el índice de cada tile (u32, creciente); sus planos (u8, como tilePlanes); y los planos
+    // que usa cada tile (el depósito y los marcados, kTileCells u16 cada uno), en ese orden.
+    // Solo lee: varios hilos pueden serializar conjuntos a la vez con el papel quieto.
+    std::vector<uint8_t> serializeTiles(const TileSet* set = nullptr) const;
+    // Un conjunto empaquetado, como el de una hoja que no es la del papel (swapTiles lo
+    // desempaqueta). false si los bytes no son de un papel de este tamaño o están truncados.
+    bool deserializeTiles(const uint8_t* data, size_t size, TileSet& out) const;
 
     // Hash del relieve (se calcula una vez) y del estado completo (relieve + depósito
     // de los tiles tocados, en orden de tile).

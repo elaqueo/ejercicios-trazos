@@ -7,9 +7,11 @@
 #include <lienzo/Renderer.h>
 #include <lienzo/DisplayImage.h>
 #include <lienzo/SampleQueue.h>
+#include <lienzo/SheetImages.h>
 #include <lienzo/SheetStack.h>
 #include <lienzo/SheetMapping.h>
 #include <lienzo/Simulation.h>
+#include <lienzo/Take.h>
 #include <lienzo/Tone.h>
 #include <lienzo/ToolPage.h>
 #include <lienzo/ViewRotation.h>
@@ -21,7 +23,13 @@
 
 #include <appkit/ParamForm.h>
 
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSlider>
+#include <QTemporaryDir>
 #include <QTest>
 
 #include <algorithm>
@@ -1016,6 +1024,160 @@ private slots:
         QVERIFY(std::any_of(drawn.begin(), drawn.end(), [](uint32_t px) { return px != kPaperColor; }));
         const auto& blankSheet = image.retired[0].pixels;
         QVERIFY(std::all_of(blankSheet.begin(), blankSheet.end(), [](uint32_t px) { return px == kPaperColor; }));
+    }
+
+    // HU-85: una toma guardada y abierta es la misma pila: mismo orden, misma activa, el mismo
+    // hash en cada hoja, la vista y las imágenes guardadas. Guardar de nuevo borra los archivos
+    // de las hojas que ya no están; una toma de otro papel no se abre.
+    void tomaGuardadaYAbierta()
+    {
+        const drymedia::PaperSpec spec{.seed = 3, .widthMm = 80, .heightMm = 60};
+        drymedia::Paper paper(spec);
+        SheetStack stack(100);
+        drymedia::Pencil pencil(paper, drymedia::Medium::hb());
+        const auto stroke = [&](double y) {
+            pencil.beginStroke({200, y, 0.6f, 0, 80});
+            for (int i = 1; i <= 30; ++i)
+                pencil.strokeTo({200 + 1000.0 * i / 30, y, 0.6f, 0, 80});
+            pencil.endStroke();
+        };
+        stroke(300);
+        stack.add(paper, 1);
+        stack.add(paper, 2);
+        stack.activate(paper, 2);
+        stroke(800);
+        stack.activate(paper, 1); // la activa queda en el medio, con su trazo
+        stroke(500);
+        std::vector<uint64_t> hashes;
+        for (int i = 0; i < 3; ++i)
+            hashes.push_back(stack.hash(paper, i));
+        const std::vector<uint64_t> ids = stack.order().ids;
+        const std::vector<uint32_t> pixels{1, 2, 3, 4, 5, 6};
+        const PackedImage image = PackedImage::pack(3, 2, pixels.data());
+
+        QTemporaryDir dir;
+        const TakeResult saved = saveTake(dir.path(), paper, stack, {45.0},
+                                          [&](uint64_t id) { return id == ids[0] ? image : PackedImage{}; });
+        QVERIFY2(saved.ok, qPrintable(saved.error));
+        const QDir folder(dir.path());
+        QCOMPARE(folder.entryList({QStringLiteral("hoja-*.hoja")}, QDir::Files).size(), 3);
+        QFile json(folder.filePath(QStringLiteral("toma.json")));
+        QVERIFY(json.open(QIODevice::ReadOnly));
+        const QJsonObject root = QJsonDocument::fromJson(json.readAll()).object();
+        json.close();
+        QCOMPARE(root.value(QStringLiteral("version")).toInt(), kTakeVersion);
+        QCOMPARE(root.value(QStringLiteral("hojas")).toArray().size(), 3);
+        QCOMPARE(root.value(QStringLiteral("activa")).toInt(), 1);
+
+        drymedia::Paper other(spec);
+        SheetStack opened(100);
+        TakeView view;
+        std::vector<std::pair<uint64_t, PackedImage>> images;
+        const TakeResult result = openTake(dir.path(), other, opened, view, &images);
+        QVERIFY2(result.ok, qPrintable(result.error));
+        QVERIFY(result.blank.empty());
+        QCOMPARE(opened.order().ids, ids);
+        QCOMPARE(opened.active(), 1);
+        for (int i = 0; i < 3; ++i)
+            QCOMPARE(opened.hash(other, i), hashes[size_t(i)]);
+        QCOMPARE(view.degrees, 45.0);
+        QCOMPARE(images.size(), size_t(1));
+        QCOMPARE(images[0].first, ids[0]);
+        std::vector<uint32_t> back;
+        QVERIFY(images[0].second.unpack(back));
+        QCOMPARE(back, pixels);
+
+        // Los ids nuevos siguen después de los de la toma; borrar una hoja borra su archivo.
+        opened.add(other, 3);
+        QCOMPARE(opened.order().ids.back(), *std::max_element(ids.begin(), ids.end()) + 1);
+        opened.remove(other, 0);
+        QVERIFY(saveTake(dir.path(), other, opened, {}, [](uint64_t) { return PackedImage{}; }).ok);
+        QVERIFY(!folder.exists(QStringLiteral("hoja-%1.hoja").arg(ids[0])));
+        QCOMPARE(folder.entryList({QStringLiteral("hoja-*.hoja")}, QDir::Files).size(), 3);
+
+        // Otro papel: no abre y la pila queda como estaba.
+        drymedia::Paper rough({.seed = 3, .widthMm = 80, .heightMm = 60, .grain = 900});
+        SheetStack untouched(100);
+        TakeView unused;
+        const TakeResult refused = openTake(dir.path(), rough, untouched, unused);
+        QVERIFY(!refused.ok);
+        QCOMPARE(untouched.count(), 1);
+        QVERIFY(!openTake(folder.filePath(QStringLiteral("no-existe")), other, opened, unused).ok);
+    }
+
+    // HU-85: un archivo de hoja dañado, cortado o que falta no impide abrir la toma: esa hoja
+    // queda en blanco (y se dice cuál y por qué); las demás, intactas.
+    void tomaConHojasDanadas()
+    {
+        const drymedia::PaperSpec spec{.seed = 4, .widthMm = 60, .heightMm = 40};
+        drymedia::Paper paper(spec);
+        SheetStack stack(100);
+        drymedia::Pencil pencil(paper, drymedia::Medium::hb());
+        for (int i = 0; i < 4; ++i) {
+            if (i > 0) {
+                stack.add(paper, i);
+                stack.activate(paper, i);
+            }
+            pencil.beginStroke({100, 100.0 + 150 * i, 0.6f, 0, 80});
+            for (int k = 1; k <= 20; ++k)
+                pencil.strokeTo({100 + 600.0 * k / 20, 100.0 + 150 * i, 0.6f, 0, 80});
+            pencil.endStroke();
+        }
+        const uint64_t last = stack.hash(paper, 3);
+        const std::vector<uint64_t> ids = stack.order().ids;
+        QTemporaryDir dir;
+        QVERIFY(saveTake(dir.path(), paper, stack, {}, [](uint64_t) { return PackedImage{}; }).ok);
+        const QDir folder(dir.path());
+        const auto path = [&](int i) { return folder.filePath(QStringLiteral("hoja-%1.hoja").arg(ids[size_t(i)])); };
+        {
+            QFile damaged(path(0)); // un byte cambiado en el depósito comprimido
+            QVERIFY(damaged.open(QIODevice::ReadWrite));
+            QByteArray bytes = damaged.readAll();
+            bytes[bytes.size() / 2] = char(bytes[bytes.size() / 2] ^ 0x5A);
+            damaged.seek(0);
+            damaged.write(bytes);
+        }
+        {
+            QFile cut(path(1));
+            QVERIFY(cut.resize(cut.size() / 2));
+        }
+        QVERIFY(QFile::remove(path(2)));
+
+        drymedia::Paper other(spec);
+        SheetStack opened(100);
+        TakeView view;
+        const TakeResult result = openTake(dir.path(), other, opened, view);
+        QVERIFY(result.ok);
+        QCOMPARE(opened.count(), 4);
+        QCOMPARE(result.blank.size(), size_t(3));
+        for (int i = 0; i < 3; ++i) {
+            QCOMPARE(result.blank[size_t(i)].first, i);
+            QVERIFY(!result.blank[size_t(i)].second.isEmpty());
+            QCOMPARE(opened.hash(other, i), other.reliefHash()); // en blanco
+        }
+        QCOMPARE(opened.hash(other, 3), last);
+    }
+
+    // HU-85: las imágenes de las hojas se comprimen en su hilo y se recuperan iguales.
+    void imagenesDeLasHojas()
+    {
+        SheetImages images;
+        std::vector<uint32_t> pixels(64 * 48);
+        for (size_t i = 0; i < pixels.size(); ++i)
+            pixels[i] = uint32_t(i * 2654435761u);
+        images.put(7, 64, 48, pixels);
+        const PackedImage packed = images.get(7);
+        QCOMPARE(packed.width, 64);
+        QCOMPARE(packed.height, 48);
+        std::vector<uint32_t> back;
+        QVERIFY(packed.unpack(back));
+        QCOMPARE(back, pixels);
+        QVERIFY(images.get(8).empty());
+        PackedImage broken = packed;
+        broken.bytes.resize(broken.bytes.size() / 2);
+        QVERIFY(!broken.unpack(back));
+        images.clear();
+        QVERIFY(images.get(7).empty());
     }
 };
 

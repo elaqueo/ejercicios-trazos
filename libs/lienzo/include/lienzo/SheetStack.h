@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <utility>
 #include <vector>
 
 namespace lienzo {
@@ -90,6 +91,15 @@ public:
     // Hash de una hoja (pruebas y diagnóstico). Pasa la hoja por el papel y la devuelve:
     // llamar solo desde el hilo que escribe el papel, o con la simulación detenida.
     uint64_t hash(drymedia::Paper& paper, int index);
+    // Pasa la hoja por el papel mientras dura `work` (redibujar su imagen) y la devuelve. Ídem.
+    void withSheet(drymedia::Paper& paper, int index, const std::function<void()>& work);
+
+    // La toma (HU-85): el depósito de una hoja como bytes (Paper::serializeTiles), sin pasarla
+    // por el papel. Solo lee: varias hojas a la vez, con la simulación detenida.
+    std::vector<uint8_t> serialize(const drymedia::Paper& paper, int index) const;
+    // Reemplaza la pila entera (abrir una toma): estas hojas con sus ids, en orden, y la
+    // activa; sin deshacer. No avisa onLeave.
+    void replace(drymedia::Paper& paper, std::vector<std::pair<uint64_t, drymedia::TileSet>> sheets, int active);
 
 private:
     struct Sheet {

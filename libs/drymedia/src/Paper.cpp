@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <thread>
 #include <vector>
 
@@ -340,6 +341,85 @@ TileSet Paper::copyTiles() const
     copy.m_planes = d->set.m_planes;
     copy.m_tileCount = d->set.m_tileCount;
     return copy;
+}
+
+std::vector<uint8_t> Paper::serializeTiles(const TileSet* set) const
+{
+    const TileSet& s = set ? *set : d->set;
+    std::vector<uint8_t> out;
+    if (s.m_tiles.size() != d->set.m_tiles.size()) { // vacío o de otro tamaño: hoja en blanco
+        const TileSet blank = newTileSet();
+        return serializeTiles(&blank);
+    }
+    std::vector<uint32_t> index;
+    size_t cells = 0;
+    for (size_t i = 0; i < s.m_tiles.size(); ++i)
+        if (s.m_tiles[i]) {
+            index.push_back(uint32_t(i));
+            cells += size_t(Impl::packedPlanes(s.m_planes[i])) * kTileCells;
+        }
+    const uint32_t head[3] = {uint32_t(d->tilesX), uint32_t(d->tilesY), uint32_t(index.size())};
+    out.resize(sizeof(head) + index.size() * 5 + cells * sizeof(uint16_t));
+    uint8_t* w = out.data();
+    std::memcpy(w, head, sizeof(head));
+    w += sizeof(head);
+    std::memcpy(w, index.data(), index.size() * 4);
+    w += index.size() * 4;
+    for (const uint32_t i : index)
+        *w++ = s.m_planes[i];
+    for (const uint32_t i : index) {
+        const uint16_t* tile = s.m_tiles[i];
+        const uint8_t planes = s.m_planes[i];
+        for (int pl = 0; pl < kTilePlanes; ++pl) {
+            if (pl != kDepositPlane && !((planes >> pl) & 1))
+                continue;
+            // Empaquetado: los planos que usa, seguidos; si no, cada uno en su lugar del tile.
+            const uint16_t* plane = s.m_isPacked ? tile : tile + size_t(pl) * kTileCells;
+            std::memcpy(w, plane, kTileCells * sizeof(uint16_t));
+            w += kTileCells * sizeof(uint16_t);
+            if (s.m_isPacked)
+                tile += kTileCells;
+        }
+    }
+    return out;
+}
+
+bool Paper::deserializeTiles(const uint8_t* data, size_t size, TileSet& out) const
+{
+    uint32_t head[3];
+    if (size < sizeof(head))
+        return false;
+    std::memcpy(head, data, sizeof(head));
+    const size_t count = head[2];
+    if (head[0] != uint32_t(d->tilesX) || head[1] != uint32_t(d->tilesY) || count > d->set.m_tiles.size() ||
+        size < sizeof(head) + count * 5)
+        return false;
+    const uint8_t* r = data + sizeof(head);
+    std::vector<uint32_t> index(count);
+    std::memcpy(index.data(), r, count * 4);
+    const uint8_t* planes = r + count * 4;
+    size_t cells = 0;
+    for (size_t k = 0; k < count; ++k) {
+        if (index[k] >= d->set.m_tiles.size() || (k > 0 && index[k] <= index[k - 1]) || (planes[k] & ~0x0Eu))
+            return false;
+        cells += size_t(Impl::packedPlanes(planes[k])) * kTileCells;
+    }
+    const uint8_t* body = planes + count;
+    if (size_t(data + size - body) != cells * sizeof(uint16_t))
+        return false;
+    TileSet set = newTileSet();
+    set.m_packed.resize(cells);
+    std::memcpy(set.m_packed.data(), body, cells * sizeof(uint16_t));
+    uint16_t* tile = set.m_packed.data();
+    for (size_t k = 0; k < count; ++k) {
+        set.m_tiles[index[k]] = tile;
+        set.m_planes[index[k]] = planes[k];
+        tile += size_t(Impl::packedPlanes(planes[k])) * kTileCells;
+    }
+    set.m_tileCount = count;
+    set.m_isPacked = true;
+    out = std::move(set);
+    return true;
 }
 
 void Paper::swapTiles(TileSet& other)

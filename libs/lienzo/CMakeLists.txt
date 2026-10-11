@@ -14,9 +14,11 @@ qt_add_library(lienzo STATIC
     include/lienzo/Media.h
     include/lienzo/Renderer.h
     include/lienzo/SampleQueue.h
+    include/lienzo/SheetImages.h
     include/lienzo/SheetMapping.h
     include/lienzo/SheetStack.h
     include/lienzo/Simulation.h
+    include/lienzo/Take.h
     include/lienzo/Timing.h
     include/lienzo/Tone.h
     include/lienzo/ToolPage.h
@@ -29,15 +31,19 @@ qt_add_library(lienzo STATIC
     src/Lienzo.cpp
     src/Media.cpp
     src/Renderer.cpp
+    src/SheetImages.cpp
     src/SheetMapping.cpp
     src/SheetStack.cpp
     src/Simulation.cpp
+    src/Take.cpp
     src/Tone.cpp
     src/ToolPage.cpp
+    src/Zstd.h
 )
 # Imágenes de la interfaz (encabezado del selector de lápices, pedido del usuario).
 qt_add_resources(lienzo lienzo_imagenes PREFIX /lienzo BASE resources FILES resources/grafito.jpg)
 target_include_directories(lienzo PUBLIC include)
+target_link_libraries(lienzo PRIVATE et_zstd)
 target_link_libraries(lienzo PUBLIC drymedia tabletinput appkit d3d11 d3dcompiler dxgi dwmapi user32 gdi32)
 et_target_defaults(lienzo)
 

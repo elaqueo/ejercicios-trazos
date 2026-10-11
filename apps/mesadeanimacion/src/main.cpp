@@ -2,18 +2,20 @@
 // (docs/mesa-de-animacion/idea.md y requerimientos.md). Corre sobre el lienzo de libs/lienzo,
 // como Cartuchera; las teclas comunes están en lienzo/Lienzo.h.
 // HU-84: el armazón. HU-87: Insert, Ctrl+D, Ctrl+N y Supr manejan las hojas, con deshacer.
-// HU-90: ← → flipean. HU-91: L prende y apaga la mesa de luz. El resto de la Fase 1 (papel
-// de animación, grafito único, toma guardada) entra en las historias que siguen.
+// HU-90: ← → flipean. HU-91: L prende y apaga la mesa de luz. HU-85: la toma se abre al
+// arrancar y se guarda al cerrar (HU-86 la guarda sola mientras se trabaja).
 
 #include <appkit/Config.h>
 #include <appkit/ConfirmOverlay.h>
 #include <appkit/Log.h>
+#include <appkit/Paths.h>
 #include <appkit/Theme.h>
 #include <lienzo/Lienzo.h>
 #include <lienzo/Tone.h>
 
 #include <QApplication>
 #include <QDebug>
+#include <QDir>
 #include <QScreen>
 
 namespace {
@@ -130,8 +132,18 @@ int main(int argc, char* argv[])
         qInfo() << "Hojas: confirmar borrado";
     });
 
+    // La toma (HU-85): una carpeta en los datos de la familia, o la de --toma <carpeta> (la usa
+    // la prueba de la app real, para no tocar la del usuario).
+    const QStringList args = QApplication::arguments();
+    const qsizetype takeArg = args.indexOf(QStringLiteral("--toma"));
+    const QString takeDir = takeArg >= 0 && takeArg + 1 < args.size()
+                                ? args[takeArg + 1]
+                                : QDir(appkit::familyDataDirectory()).filePath(QStringLiteral("tomas/toma-1"));
+    canvas.openTake(takeDir);
+
     canvas.start();
     const int result = QApplication::exec();
     canvas.stop();
+    canvas.saveTake(takeDir);
     return result;
 }

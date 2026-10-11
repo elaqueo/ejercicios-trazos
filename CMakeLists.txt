@@ -34,7 +34,9 @@ enable_testing()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(EtTargetDefaults)
 
-# Sin dependencias externas fuera de Qt (HU-68: salieron libmypaint y vcpkg).
+# Fuera de Qt, una sola dependencia: zstd, compilada desde la fuente (HU-85; HU-68 sacó
+# libmypaint y vcpkg).
+include(EtZstd)
 add_subdirectory(libs/appkit)
 add_subdirectory(libs/tabletinput)
 add_subdirectory(libs/drymedia)
@@ -49,3 +51,8 @@ add_subdirectory(spikes/cartuchera-swapchain)
 add_subdirectory(spikes/cartuchera-kernel)
 add_subdirectory(spikes/mesa-flip)
 add_subdirectory(spikes/mesa-papel)
+# Spike HU-85 (compresión de las hojas): baja lz4, por eso es opcional.
+option(ET_SPIKE_TOMA "Compilar el spike de compresión de la toma (baja lz4)" OFF)
+if(ET_SPIKE_TOMA)
+    add_subdirectory(spikes/mesa-toma)
+endif()

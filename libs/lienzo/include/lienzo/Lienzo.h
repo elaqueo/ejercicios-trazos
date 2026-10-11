@@ -142,6 +142,13 @@ public:
     // extremos de la pila se queda. Va en el atajo de la tecla (la app elige cuál).
     void flip(int step);
     bool flipping() const;
+    // La toma (HU-85; formato en lienzo/Take.h): guarda la pila en una carpeta (toma.json y un
+    // archivo por hoja) o la abre en lugar de la que hay, con la vista. Detienen la
+    // simulación mientras tanto (HU-86 guarda solo lo cambiado, en segundo plano). Las hojas
+    // dañadas o faltantes quedan en blanco, con aviso en el log y en F3. false si no se pudo
+    // guardar, o si la carpeta no tiene una toma que abrir.
+    bool saveTake(const QString& dir);
+    bool openTake(const QString& dir);
     // Panel de configuración (HU-12): agrega las pestañas del lienzo ("Lápiz": mina activa y
     // goma; "Pantalla": área útil y monitor) y lo muestra pegado al borde derecho del área
     // útil.

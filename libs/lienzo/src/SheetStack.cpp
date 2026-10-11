@@ -266,13 +266,52 @@ SheetStack::UndoResult SheetStack::redo(drymedia::Paper& paper)
 
 uint64_t SheetStack::hash(drymedia::Paper& paper, int index)
 {
-    if (!m_order.valid(index) || index == m_order.active)
-        return paper.hash();
+    uint64_t h = 0;
+    withSheet(paper, index, [&] { h = paper.hash(); });
+    return h;
+}
+
+void SheetStack::withSheet(drymedia::Paper& paper, int index, const std::function<void()>& work)
+{
+    if (!m_order.valid(index) || index == m_order.active) {
+        work();
+        return;
+    }
     drymedia::TileSet& tiles = m_sheets[size_t(index)].tiles;
     paper.swapTiles(tiles);
-    const uint64_t h = paper.hash();
+    work();
     paper.swapTiles(tiles);
-    return h;
+}
+
+std::vector<uint8_t> SheetStack::serialize(const drymedia::Paper& paper, int index) const
+{
+    if (!m_order.valid(index) || index == m_order.active)
+        return paper.serializeTiles(); // la activa está en el papel
+    return paper.serializeTiles(&m_sheets[size_t(index)].tiles);
+}
+
+void SheetStack::replace(drymedia::Paper& paper, std::vector<std::pair<uint64_t, drymedia::TileSet>> sheets, int active)
+{
+    if (sheets.empty())
+        return;
+    m_sheets.clear();
+    m_undoOps.clear();
+    m_redoOps.clear();
+    m_order = SheetOrder{};
+    m_order.ids.clear();
+    m_order.count = 0;
+    m_order.nextId = 1;
+    for (auto& [id, tiles] : sheets) {
+        m_sheets.push_back({std::move(tiles), drymedia::History(m_undoLimit)});
+        m_order.ids.push_back(id);
+        ++m_order.count;
+        m_order.nextId = std::max(m_order.nextId, id + 1);
+    }
+    m_order.active = std::clamp(active, 0, m_order.count - 1);
+    // La activa entra al papel; lo que había en él se descarta (la de la activa queda vacía).
+    drymedia::TileSet& tiles = m_sheets[size_t(m_order.active)].tiles;
+    paper.swapTiles(tiles);
+    tiles = drymedia::TileSet{};
 }
 
 } // namespace lienzo

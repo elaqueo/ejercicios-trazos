@@ -200,6 +200,41 @@ private slots:
         QCOMPARE(paper.depositTile(0, 0)[kBurnishPlane * kTileCells + 5], uint16_t(77));
     }
 
+    // HU-85: el depósito de una hoja como bytes y de vuelta (la toma en disco): la misma hoja,
+    // con los planos que usa cada tile, salga del papel o de un conjunto empaquetado. Bytes
+    // cortados o de otro papel no se aceptan.
+    void serializarTiles()
+    {
+        Paper paper({.seed = 2, .widthMm = 40, .heightMm = 30});
+        for (int i = 0; i < 12; ++i)
+            paper.depositTile(i % 5, i / 5)[(i * 97) % kTileCells] = uint16_t(500 + i);
+        paper.depositTile(1, 1)[kBurnishPlane * kTileCells + 9] = 33; // un tile con bruñido
+        paper.setTilePlanes(1, 1, 1 << kBurnishPlane);
+        const uint64_t hoja = paper.hash();
+        const std::vector<uint8_t> bytes = paper.serializeTiles();
+        QCOMPARE(bytes.size(), size_t(12 + 12 * 5 + 13 * kTileCells * 2)); // 12 tiles, uno con dos planos
+
+        TileSet guardada = paper.newTileSet();
+        paper.swapTiles(guardada); // empaquetada, fuera del papel
+        QCOMPARE(paper.serializeTiles(&guardada), bytes);
+
+        Paper otro({.seed = 2, .widthMm = 40, .heightMm = 30});
+        TileSet leida;
+        QVERIFY(otro.deserializeTiles(bytes.data(), bytes.size(), leida));
+        QCOMPARE(leida.tileCount(), size_t(12));
+        otro.swapTiles(leida);
+        QCOMPARE(otro.hash(), hoja);
+        QCOMPARE(otro.tilePlanes(1, 1), uint8_t(1 << kBurnishPlane));
+
+        TileSet mala;
+        QVERIFY(!otro.deserializeTiles(bytes.data(), bytes.size() - 1, mala));
+        QVERIFY(!otro.deserializeTiles(bytes.data(), 8, mala));
+        Paper chico({.seed = 2, .widthMm = 20, .heightMm = 30});
+        QVERIFY(!chico.deserializeTiles(bytes.data(), bytes.size(), mala));
+        // Una hoja en blanco son 12 bytes.
+        QCOMPARE(chico.serializeTiles().size(), size_t(12));
+    }
+
     // HU-97: la profundidad del grano es un dato del papel. El diente (cresta − relieve) llega
     // a lo sumo a esa profundidad; la ondulación no cambia. Con la de siempre, el relieve es el
     // de antes (el hash de referencia de tst_pencil no cambió).
