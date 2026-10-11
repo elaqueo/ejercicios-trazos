@@ -20,6 +20,7 @@ CanvasWindow::CanvasWindow(HWND parent, SampleQueue& queue, std::function<void(U
     : m_queue(queue)
     , m_onKey(std::move(onKey))
     , m_cursor(createCrossCursor())
+    , m_panCursor(LoadCursorW(nullptr, IDC_SIZEALL))
 {
     WNDCLASSW wc{};
     wc.lpfnWndProc = proc;
@@ -69,7 +70,7 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         // Con el lápiz el cursor lo pone el procesamiento por defecto de WM_POINTER, que
         // acá no corre (se consume para que Windows no sintetice mouse): sin esto queda el
         // cursor de "programa iniciando" del arranque.
-        SetCursor(m_cursor);
+        SetCursor(cursor());
         std::vector<tabletinput::PenSample> toDraw;
         toDraw.reserve(m_samples.size());
         for (tabletinput::PenSample& s : m_samples) { // pantalla → cliente
@@ -89,6 +90,20 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
             m_barrel = s.barrel;
             // Gesto de rotación: apoyar con Shift empieza; mientras siga apoyado, gira.
             const bool touching = s.inContact && !s.eraser;
+            // Pan (HU-102): apoyar con Espacio empieza; mientras siga apoyado, mueve la vista.
+            if (touching && !m_contact && !m_rotating && m_onPanGesture && (GetKeyState(VK_SPACE) & 0x8000)) {
+                m_panning = true;
+                m_onPanGesture(0, s.x, s.y);
+            } else if (m_panning && touching) {
+                m_onPanGesture(1, s.x, s.y);
+            } else if (m_panning) {
+                m_panning = false;
+                m_onPanGesture(2, s.x, s.y);
+            }
+            if (m_panning) {
+                m_contact = touching;
+                continue;
+            }
             if (touching && !m_contact && m_onRotateGesture && (GetKeyState(VK_SHIFT) & 0x8000)) {
                 m_rotating = true;
                 m_onRotateGesture(0, s.x, s.y);
@@ -120,14 +135,23 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
     }
     switch (msg) {
     case WM_KEYDOWN:
+        if (wParam == VK_SPACE && !m_space) { // HU-102: el cursor avisa que el lápiz va a mover
+            m_space = true;
+            SetCursor(cursor());
+        }
         if (m_onKey)
             m_onKey(UINT(wParam), (GetKeyState(VK_CONTROL) & 0x8000) != 0);
         return 0;
     case WM_KEYUP:
+        if (wParam == VK_SPACE) {
+            m_space = false;
+            SetCursor(cursor());
+        }
         if (m_onKeyUp)
             m_onKeyUp(UINT(wParam));
         return 0;
     case WM_KILLFOCUS:
+        m_space = false;
         if (m_onKeyUp)
             m_onKeyUp(0);
         break;
@@ -144,7 +168,7 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         break;
     case WM_SETCURSOR:
         if (LOWORD(lParam) == HTCLIENT) {
-            SetCursor(m_cursor);
+            SetCursor(cursor());
             return TRUE;
         }
         break;

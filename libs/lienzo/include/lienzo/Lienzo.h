@@ -71,7 +71,8 @@ struct LienzoOptions {
     bool colorPencils = false;
     // Zoom (HU-101, Mesa de animación): + y − acercan y alejan hacia la punta del lápiz (o el
     // centro), de 25 % a 400 %; Ctrl+1 vuelve a 100 %; el modo de zoom de la rueda lo hace
-    // continuo. Se guarda en la toma.
+    // continuo. Se guarda en la toma. Con él, Espacio + arrastrar con el lápiz mueve la vista
+    // (pan, HU-102).
     bool zoom = false;
 };
 

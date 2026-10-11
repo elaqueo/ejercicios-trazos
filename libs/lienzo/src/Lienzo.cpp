@@ -545,7 +545,7 @@ struct Lienzo::Impl {
     // HU-101: la escala `to` con el punto (x, y) del cliente quieto.
     void setViewScale(double to, double x, double y)
     {
-        const ViewRotation v = rotation().zoomedAt(to, x, y);
+        const ViewRotation v = rotation().zoomedAt(to, x, y).clampedPan(canvas->width(), canvas->height());
         viewScale = v.scale;
         viewPanX = v.panX;
         viewPanY = v.panY;
@@ -573,6 +573,28 @@ struct Lienzo::Impl {
         setViewScale(viewScale * factor, x, y);
         qInfo().noquote() << QStringLiteral("Zoom %1 % (%2)").arg(std::lround(viewScale * 100)).arg(QString::fromUtf8(how));
     }
+    // Pan (HU-102): Espacio + arrastrar mueve la vista lo mismo que la punta; se anota al soltar.
+    double panStartX = 0, panStartY = 0, panPointerX = 0, panPointerY = 0;
+    void panGesture(int phase, double x, double y)
+    {
+        if (phase == 0) {
+            panStartX = viewPanX;
+            panStartY = viewPanY;
+            panPointerX = x;
+            panPointerY = y;
+            return;
+        }
+        ViewRotation v = rotation();
+        v.panX = panStartX + x - panPointerX;
+        v.panY = panStartY + y - panPointerY;
+        v = v.clampedPan(canvas->width(), canvas->height());
+        viewPanX = v.panX;
+        viewPanY = v.panY;
+        applyView();
+        if (phase == 2)
+            qInfo().noquote() << QStringLiteral("Vista corrida a (%1, %2) px").arg(std::lround(viewPanX)).arg(std::lround(viewPanY));
+    }
+
     // Ctrl+0 (HU-116): giro a 0°, 100 % y centrada.
     void resetView()
     {
@@ -1021,6 +1043,8 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
 
     d->canvas->setOnRotateGesture(
         [impl = d.get()](int phase, double x, double y) { impl->rotateGesture(phase, x, y); });
+    if (d->options.zoom) // HU-102: con el zoom viene el pan
+        d->canvas->setOnPanGesture([impl = d.get()](int phase, double x, double y) { impl->panGesture(phase, x, y); });
     // Rueda táctil (HU-74): giro libre, sin snap; se guarda al levantar el dedo.
     d->canvas->setOnRing([impl = d.get()](double degrees, bool ended, int mode) {
         if (mode != impl->ringMode) {
@@ -1271,6 +1295,7 @@ void Lienzo::registerShortcuts()
             qInfo() << "Zoom 100 % (Ctrl+1)";
         });
         keys.note(QStringLiteral("Rueda, modo 2"), QStringLiteral("Zoom con la rueda de la tableta"));
+        keys.note(QStringLiteral("Espacio+arrastrar"), QStringLiteral("Mover la vista con el lápiz")); // HU-102
     }
     keys.note(QStringLiteral("Shift+arrastrar"), QStringLiteral("Girar libre con el lápiz")); // HU-79
     keys.note(QStringLiteral("Rueda"), QStringLiteral("Girar con la rueda de la tableta"));   // HU-74

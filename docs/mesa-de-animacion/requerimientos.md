@@ -190,6 +190,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 102. **HU-102 · Pan** (Should · 3 pts). Como animador, quiero desplazar la vista con Espacio + arrastrar, para mirar la parte de la hoja que me quedó fuera al acercar.
     1. Mientras Espacio está apretado, arrastrar con el lápiz mueve la vista y no dibuja.
     2. `Ctrl+0` y `Ctrl+1` también centran.
+    3. *Hecho (11 oct 2026): el gesto va en la ventana del lienzo, como el giro con Shift; solo con la punta apoyada (en el aire no hace nada) y también a 100 %. Mientras Espacio está apretado, el cursor es la flecha de cuatro puntas. El corrimiento se limita para que el centro de la hoja no salga de la pantalla (también al hacer zoom hacia la punta). La prueba de la app real lo hace con el lápiz simulado y verifica que no dibujó.*
 103. **HU-103 · Guía de campo** (Could · 2 pts). Como animador, quiero una guía de campo de 12 campos superpuesta, para encuadrar y mantener el registro entre hojas.
     1. Un atajo la muestra y oculta; va bajo el grafito como las guías de Ejercicios, con los colores de guía del tema.
 

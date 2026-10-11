@@ -32,6 +32,12 @@ public:
     {
         m_onRotateGesture = std::move(callback);
     }
+    // Pan (HU-102): con Espacio apretado, apoyar el lápiz y arrastrar. Como el giro, mientras
+    // dura no dibuja. phase: 0 empieza, 1 sigue, 2 termina; (x, y) en píxeles del cliente.
+    void setOnPanGesture(std::function<void(int phase, double x, double y)> callback)
+    {
+        m_onPanGesture = std::move(callback);
+    }
     // Rueda táctil de la tableta (HU-74): grados que giró el dedo (positivos = sentido de las
     // agujas del reloj) y ended al levantarlo. mode: el modo de la rueda, que cambia el botón del
     // centro (HU-101: uno gira, otro hace zoom). En el hilo de la interfaz.
@@ -74,6 +80,11 @@ private:
     bool m_barrel = false;
     bool m_contact = false;  // el lápiz estaba apoyado en la muestra anterior
     bool m_rotating = false; // gesto de rotación en curso
+    bool m_panning = false;  // gesto de pan en curso (HU-102)
+    bool m_space = false;    // Espacio apretado: el cursor de mover (HU-102)
+    std::function<void(int, double, double)> m_onPanGesture;
+    HCURSOR m_panCursor = nullptr;
+    HCURSOR cursor() const { return (m_space && m_onPanGesture) || m_panning ? m_panCursor : m_cursor; }
     HCURSOR m_cursor = nullptr; // la cruz abierta (HU-38)
     tabletinput::PenReader m_reader;
     tabletinput::TouchRing m_ring; // rueda táctil (HU-74)

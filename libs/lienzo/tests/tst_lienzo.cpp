@@ -613,6 +613,28 @@ private slots:
         QVERIFY((ViewRotation{0, 500, 400}.zoomedAt(2, 700, 100).zoomedAt(1, 700, 100).identity()));
     }
 
+    // HU-102: el corrimiento mueve la hoja lo mismo que la punta, con giro y zoom; el centro de
+    // la hoja no sale del cliente.
+    void panDeLaVista()
+    {
+        ViewRotation v{40, 500, 400, 2.0};
+        double ix = 650, iy = 300; // un punto de la hoja, bajo la punta
+        double sx = ix, sy = iy;
+        v.toScreen(sx, sy);
+        v.panX += 120; // la punta se movió (120, −80)
+        v.panY -= 80;
+        double ax = ix, ay = iy;
+        v.toScreen(ax, ay);
+        QVERIFY(qAbs(ax - (sx + 120)) < 1e-9 && qAbs(ay - (sy - 80)) < 1e-9);
+
+        const ViewRotation lejos = ViewRotation{0, 500, 400, 1, 3000, -900}.clampedPan(2560, 1080);
+        QCOMPARE(lejos.panX, 2560.0 - 500); // el centro, contra el borde derecho
+        QCOMPARE(lejos.panY, -400.0);       // y contra el de arriba
+        const ViewRotation cerca = ViewRotation{0, 500, 400, 1, 30, 20}.clampedPan(2560, 1080);
+        QCOMPARE(cerca.panX, 30.0);
+        QCOMPARE(cerca.panY, 20.0);
+    }
+
     // HU-79: Shift + arrastrar gira lo que recorre la punta, sin saltar de a 15°.
     void arrastreGiraLibre()
     {

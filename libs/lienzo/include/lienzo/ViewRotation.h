@@ -47,6 +47,16 @@ struct ViewRotation {
         y = cy + panY + scale * (s * dx + c * dy);
     }
 
+    // HU-102: la misma vista con el corrimiento limitado para que el centro de la hoja no salga
+    // del cliente (width × height): la hoja nunca se pierde de vista.
+    ViewRotation clampedPan(double width, double height) const
+    {
+        ViewRotation v = *this;
+        v.panX = std::clamp(panX, -cx, width - cx);
+        v.panY = std::clamp(panY, -cy, height - cy);
+        return v;
+    }
+
     // HU-101: la misma vista con escala `to` (dentro de los límites), con el punto de pantalla
     // (x, y) quieto: lo que estaba bajo él sigue ahí (el zoom hacia la punta).
     ViewRotation zoomedAt(double to, double x, double y) const

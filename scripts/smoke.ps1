@@ -316,6 +316,25 @@ try {
         $failures.Add('Zoom')
     }
 
+    # HU-102: con Espacio apretado, el lápiz simulado arrastra (200, 100) px: la vista se corre
+    # eso y no se dibuja (Supr borra la hoja sin preguntar, porque sigue en blanco; Z la devuelve).
+    # Ctrl+1 la vuelve a centrar.
+    [Smoke.Keys]::keybd_event(0x20, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 150
+    Pen $cx $cy; Pen $cx $cy $false 'down' 60
+    foreach ($s in 1..10) { [SynthPen]::Send($cx + 20 * $s, $cy + 10 * $s, $true, $false, 'move'); Start-Sleep -Milliseconds 20 }
+    Pen ($cx + 200) ($cy + 100) $false 'up' 80
+    [Smoke.Keys]::keybd_event(0x20, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 300
+    Key 0x2E; Start-Sleep -Milliseconds 300 # Supr
+    $ws.SendKeys('z'); Start-Sleep -Milliseconds 500
+    Ctrl 0x31
+    $pan = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Vista corrida|Hojas: borrada|Zoom 100 % \(Ctrl\+1\)|Hoja activa' }) | Select-Object -Last 6) -join ' '
+    if ($pan -match 'Vista corrida a \(200, 100\) px.*Hojas: borrada · hoja 2 de 2.*Hoja activa 3 de 3.*Zoom 100 % \(Ctrl\+1\)') {
+        Write-Host '  ok   Espacio + arrastrar corre la vista sin dibujar y Ctrl+1 la centra'
+    } else {
+        Write-Host "  FALLA pan · $pan"
+        $failures.Add('Pan')
+    }
+
     # HU-88: con la activa en la 3 de 3, ↑ ↑ la llevan al principio, otra ↑ no hace nada, ↓ la
     # vuelve a la 2 y Z deshace eso: queda primera, y así se guarda en toma.json.
     foreach ($k in '{UP}', '{UP}', '{UP}', '{DOWN}', 'z') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
