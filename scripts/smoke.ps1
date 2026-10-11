@@ -134,6 +134,7 @@ $backup = if (Test-Path $config) { [IO.File]::ReadAllBytes($config) } else { $nu
 $state = if ($backup) { Get-Content $config -Raw | ConvertFrom-Json -AsHashtable } else { @{} }
 if (-not $state.ContainsKey('mesadeanimacion')) { $state['mesadeanimacion'] = @{} }
 $state['mesadeanimacion']['lightTable'] = $true
+$state['mesadeanimacion']['lightKeysOnly'] = $false # HU-93
 $state['mesadeanimacion']['sheetPanel'] = $true # HU-114: el panel de hojas visible
 $state | ConvertTo-Json -Depth 32 | Set-Content $config -Encoding utf8
 # La toma de la prueba (HU-85), en una carpeta temporal: la del usuario no se toca.
@@ -271,6 +272,29 @@ try {
     } else {
         Write-Host "  FALLA rol: $keyed key en toma.json · $roles"
         $failures.Add('Rol')
+    }
+
+    # HU-93: Ctrl+L sin keys avisa que no hay; Ctrl+L vuelve a todas; con la 1 como key, desde
+    # la 3 Ctrl+L la muestra sola. Después la 1 vuelve a sin rol y la activa a la 3 de 3.
+    # Ctrl con keybd_event, mantenido un momento: el ^ de SendKeys a veces llega suelto.
+    Add-Type -Namespace Smoke -Name Keys -MemberDefinition '[DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, System.UIntPtr extra);'
+    function CtrlL {
+        [Smoke.Keys]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
+        [Smoke.Keys]::keybd_event(0x4C, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
+        [Smoke.Keys]::keybd_event(0x4C, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
+        [Smoke.Keys]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 400
+    }
+    CtrlL; CtrlL
+    foreach ($k in '{HOME}', 'k', '{END}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 450 }
+    CtrlL; CtrlL
+    foreach ($k in '{HOME}', 'k', 'k', '{END}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 450 }
+    $keysOnly = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Mesa de luz: (prendida|apagada|no hay)' }) -join ' ')
+    if ($keysOnly -match 'no hay keys alrededor de la hoja 3.*prendida \(solo keys\).*Mesa de luz: prendida .*Mesa de luz: prendida \(solo keys\) .*Mesa de luz: prendida$' -and
+        ([regex]::Matches($keysOnly, 'no hay keys')).Count -eq 1) {
+        Write-Host '  ok   Ctrl+L muestra solo las keys (sin keys, avisa) y vuelve a todas'
+    } else {
+        Write-Host "  FALLA solo keys · $keysOnly"
+        $failures.Add('Solo keys')
     }
 
     # HU-88: con la activa en la 3 de 3, ↑ ↑ la llevan al principio, otra ↑ no hace nada, ↓ la

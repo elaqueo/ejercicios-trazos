@@ -189,7 +189,9 @@ QImage paintPanel(const PanelInfo& info, const PanelLayout& layout, const QColor
     }
     row(QStringLiteral("Lápiz"), info.lead);
     // Mesa de luz: un cuadrito por capa, con su color, y "sí" o "no".
-    const QString onOff = info.light.empty() ? QStringLiteral("no") : QStringLiteral("sí");
+    const QString onOff = info.light.empty() ? QStringLiteral("no")
+                          : info.keysOnly    ? QStringLiteral("solo keys") // HU-93
+                                             : QStringLiteral("sí");
     const double onOffW = QFontMetricsF(body).horizontalAdvance(onOff);
     text(QRectF(left, y, right - left, px(20)), QStringLiteral("Mesa de luz"), body, theme::kTextoSecundario,
          Qt::AlignLeft | Qt::AlignVCenter);

@@ -90,6 +90,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | --- | --- |
 | ← / → | Flip: mantener la flecha muestra la hoja anterior o la siguiente; al soltarla, esa hoja queda activa. Mientras tanto el lápiz no dibuja y la mesa de luz no se ve |
 | L | Mesa de luz: prende y apaga (queda guardada); 2 hojas atrás en naranja y 1 adelante en turquesa (mesa "Mesa de luz") |
+| Ctrl+L | Mesa de luz solo con keys: las 2 keys anteriores y la siguiente, con los mismos colores, en vez de las vecinas; otra vez, todas las hojas. Apagada, la prende así. Queda guardado; el panel dice "solo keys" (HU-93) |
 | Insert | Hoja nueva en blanco después de la activa, que pasa a ser la activa |
 | K | Rol de la activa: sin rol → key → breakdown → sin rol; no se deshace (K otra vez). La copia de Ctrl+D sale sin rol (HU-104) |
 | Ctrl+D | Duplicar la activa: la copia queda después y pasa a ser la activa |

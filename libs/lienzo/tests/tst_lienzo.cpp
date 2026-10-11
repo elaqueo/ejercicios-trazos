@@ -1063,6 +1063,41 @@ private slots:
         QVERIFY(lightTableLayers(order, LightTable{}).empty()); // apagada
     }
 
+    // HU-93: solo keys: las keys más cercanas a cada lado, con los colores de la más cercana a la
+    // más lejana; la activa no cuenta aunque sea key; sin keys, nada.
+    void mesaDeLuzSoloKeys()
+    {
+        SheetOrder order;
+        for (int i = 1; i < 8; ++i)
+            order.add(i); // ids 1 a 8
+        LightTable table{{{0xA1, 0.6f}, {0xA2, 0.3f}}, {{0xB1, 0.6f}}, true};
+        const auto ids = [&](const std::vector<SheetLayer>& layers) {
+            std::vector<uint64_t> out;
+            for (const SheetLayer& l : layers)
+                out.push_back(l.sheet);
+            return out;
+        };
+        QVERIFY(lightTableLayers(order, table, {}).empty()); // sin keys
+
+        const SheetRoles roles{{1, SheetRole::Key}, {3, SheetRole::Key}, {4, SheetRole::Breakdown}, {5, SheetRole::Key},
+                               {8, SheetRole::Key}};
+        order.activate(5); // la 6, entre la key 5 y la 8; el breakdown 4 no cuenta
+        std::vector<SheetLayer> layers = lightTableLayers(order, table, roles);
+        QCOMPARE(ids(layers), (std::vector<uint64_t>{3, 5, 8}));
+        QCOMPARE(layers[0].color, 0xA2u); // la key más lejana, más tenue
+        QCOMPARE(layers[1].color, 0xA1u);
+        QCOMPARE(layers[2].color, 0xB1u);
+
+        order.activate(4); // la activa es la key 5: cuentan las otras
+        QCOMPARE(ids(lightTableLayers(order, table, roles)), (std::vector<uint64_t>{1, 3, 8}));
+        order.activate(0); // la primera: solo hacia adelante
+        QCOMPARE(ids(lightTableLayers(order, table, roles)), (std::vector<uint64_t>{3}));
+        order.activate(7); // la última (key): la 5 y la 3 hacia atrás
+        QCOMPARE(ids(lightTableLayers(order, table, roles)), (std::vector<uint64_t>{3, 5}));
+        table.keysOnly = false; // sin el modo, las vecinas de siempre
+        QCOMPARE(ids(lightTableLayers(order, table, roles)), (std::vector<uint64_t>{6, 7}));
+    }
+
     // HU-90: la región de la hoja sale de la imagen de pantalla cuando ya tiene entera la
     // hoja pedida; si no (flip, o la imagen a medio subir después de soltar), de la textura
     // de esa hoja, o en blanco si nunca estuvo activa.

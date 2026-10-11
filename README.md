@@ -76,7 +76,7 @@ pwsh scripts/build.ps1                  # también corre las pruebas
 ctest --preset debug                    # solo las pruebas (con MSVC cargado)
 ```
 
-**Prueba de la app real** (`pwsh scripts/smoke.ps1`): abre Ejercicios y Mesa de animación en Release y las maneja con el teclado como lo haría el usuario, verificando en su log lo que pasó. En Ejercicios: →, R, G, menú F4 con el modo mixto, F2. En Mesa de animación, sobre una toma temporal: Insert, flip, mesa de luz, ↑ ↓, Inicio y Fin, Tab, el menú del botón del lápiz (con un lápiz simulado, `scripts/pen.ps1`), K (rol de la hoja), el guardado automático (la cierra a la fuerza y la vuelve a abrir) y cuánto tarda en cerrar. Encuentra lo que los tests de lógica no ven, como teclas, foco o la navegación de un menú. Toma la pantalla menos de un minuto y deja `config.json` como estaba.
+**Prueba de la app real** (`pwsh scripts/smoke.ps1`): abre Ejercicios y Mesa de animación en Release y las maneja con el teclado como lo haría el usuario, verificando en su log lo que pasó. En Ejercicios: →, R, G, menú F4 con el modo mixto, F2. En Mesa de animación, sobre una toma temporal: Insert, flip, mesa de luz, ↑ ↓, Inicio y Fin, Tab, el menú del botón del lápiz (con un lápiz simulado, `scripts/pen.ps1`), K (rol de la hoja), Ctrl+L (mesa de luz solo con keys), el guardado automático (la cierra a la fuerza y la vuelve a abrir) y cuánto tarda en cerrar. Encuentra lo que los tests de lógica no ven, como teclas, foco o la navegación de un menú. Toma la pantalla menos de un minuto y deja `config.json` como estaba.
 
 ## Licencia
 

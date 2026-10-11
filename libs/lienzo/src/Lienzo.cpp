@@ -344,7 +344,7 @@ struct Lienzo::Impl {
         syncOrder();
         std::vector<SheetLayer> below;
         if (!flipping()) // mientras se flipea, la mesa de luz no se ve (HU-90)
-            below = lightTableLayers(order, lightTable);
+            below = lightTableLayers(order, lightTable, roles);
         uint64_t shown = 0;
         bool untilActive = false;
         if (order.valid(shownSheet) && (flipping() || shownSheet != order.active))
@@ -429,6 +429,7 @@ struct Lienzo::Impl {
             info.light.push_back(color(*it));
         for (const Tint& t : lightTable.after)
             info.light.push_back(color(t));
+        info.keysOnly = lightTable.keysOnly && !info.light.empty(); // HU-93
         info.degrees = int(std::lround(viewDegrees)) % 360;
         const PanelLayout layout = panelLayout(canvas->width(), canvas->height(), screen->devicePixelRatio(),
                                                double(mapping.sheetWidth) / std::max(1, mapping.sheetHeight));
@@ -883,6 +884,8 @@ struct Lienzo::Impl {
             const SheetOrder o = sim->sheetState().order;
             swprintf(text, 768, L"   ·   hoja %d de %d", o.active + 1, o.count);
             out += text;
+            if (lightTable.keysOnly && !lightTable.before.empty()) // HU-93
+                out += L"   ·   mesa de luz: solo keys (Ctrl+L)";
         }
         if (options.paperTexture)
             swprintf(text, 768, L"   ·   textura %d %% (Ctrl+[ ])%ls", texture, warning);
@@ -1489,6 +1492,9 @@ void Lienzo::setLightTable(const LightTable& table)
 {
     d->lightTable = table;
     d->applyLayers();
+    const SheetOrder& order = d->syncOrder();
+    if (table.keysOnly && !table.before.empty() && lightTableLayers(order, table, d->roles).empty())
+        qInfo().noquote() << QStringLiteral("Mesa de luz: no hay keys alrededor de la hoja %1").arg(order.active + 1);
 }
 
 void Lienzo::showSheet(int index)

@@ -85,14 +85,25 @@ int main(int argc, char* argv[])
         {tint(theme::kMesaLuzAnterior, theme::kMesaLuzOpacidad[0]), tint(theme::kMesaLuzAnterior, theme::kMesaLuzOpacidad[1])},
         {tint(theme::kMesaLuzSiguiente, theme::kMesaLuzOpacidad[0])}};
     bool lightOn = config.value(QStringLiteral("lightTable"), true).toBool();
+    bool keysOnly = config.value(QStringLiteral("lightKeysOnly"), false).toBool(); // HU-93
     const auto applyLight = [&] {
-        canvas.setLightTable(lightOn ? lightTable : lienzo::LightTable{});
-        qInfo() << "Mesa de luz:" << (lightOn ? "prendida" : "apagada");
+        lienzo::LightTable table = lightOn ? lightTable : lienzo::LightTable{};
+        table.keysOnly = keysOnly;
+        canvas.setLightTable(table);
+        qInfo() << "Mesa de luz:" << (lightOn ? (keysOnly ? "prendida (solo keys)" : "prendida") : "apagada");
     };
     applyLight();
     canvas.shortcuts().add(QStringLiteral("Mesa de luz"), {{'L'}}, [&] {
         lightOn = !lightOn;
         config.setValue(QStringLiteral("lightTable"), lightOn);
+        applyLight();
+    });
+    // Solo keys (HU-93): las keys más cercanas en lugar de las vecinas; apagada, la prende así.
+    canvas.shortcuts().add(QStringLiteral("Mesa de luz: solo keys"), {{'L', true}}, [&] {
+        keysOnly = lightOn ? !keysOnly : true;
+        lightOn = true;
+        config.setValue(QStringLiteral("lightTable"), lightOn);
+        config.setValue(QStringLiteral("lightKeysOnly"), keysOnly);
         applyLight();
     });
     // Panel de hojas (HU-114): Tab lo muestra y lo oculta; queda guardado.

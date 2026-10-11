@@ -130,6 +130,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 93. **HU-93 · Solo keys** (Should · 2 pts). Como animador, quiero que la mesa de luz muestre solo las hojas marcadas como key, para dibujar un breakdown entre dos claves sin el ruido del resto.
     1. Un atajo alterna el modo; con él, los conteos de HU-92 cuentan keys, no hojas.
     2. Depende de HU-104.
+    3. *Hecho (11 oct 2026): Ctrl+L (L es la mesa de luz). Cuentan solo las keys, no los breakdowns; la activa no cuenta aunque sea key. Apagada, Ctrl+L la prende en este modo; queda en config. Sin keys alrededor no se ve nada abajo y lo dice el log. El panel de hojas dice "solo keys" (mesa "Panel de hojas") y F3 también.*
 94. **HU-94 · Pila en círculo** (Should · 1 pt). Como animador, quiero que después de la última hoja venga la primera, para flipear un ciclo de caminata y probar el empalme.
     1. Un atajo lo prende y apaga; se guarda en la toma.
     2. Con el círculo, la mesa de luz también da la vuelta.

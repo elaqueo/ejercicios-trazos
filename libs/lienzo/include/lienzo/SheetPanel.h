@@ -41,6 +41,7 @@ struct PanelInfo {
     QString lead;               // "HB · 0,87 mm", o el nombre del lápiz de color
     QColor leadColor;           // el del lápiz de color (HU-99); inválido: el grafito
     std::vector<QColor> light;  // los colores de la mesa de luz (vacío: apagada)
+    bool keysOnly = false;      // HU-93: la mesa de luz muestra solo las keys
     int degrees = 0;            // giro de la vista
     QString key = QStringLiteral("Tab");
     bool operator==(const PanelInfo&) const = default;
