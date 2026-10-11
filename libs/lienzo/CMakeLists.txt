@@ -19,6 +19,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/SheetStack.h
     include/lienzo/Simulation.h
     include/lienzo/Take.h
+    include/lienzo/TakeSaver.h
     include/lienzo/Timing.h
     include/lienzo/Tone.h
     include/lienzo/ToolPage.h
@@ -36,6 +37,7 @@ qt_add_library(lienzo STATIC
     src/SheetStack.cpp
     src/Simulation.cpp
     src/Take.cpp
+    src/TakeSaver.cpp
     src/Tone.cpp
     src/ToolPage.cpp
     src/Zstd.h

@@ -38,6 +38,21 @@ struct TakeResult {
     std::vector<std::pair<int, QString>> blank;
 };
 
+// Las piezas de guardar, para guardar de a una hoja (HU-86, lienzo/TakeSaver.h). Crean la
+// carpeta si no está y devuelven el error, o vacío.
+// El archivo de una hoja: su depósito (Paper::serializeTiles) y su imagen (vacía: no tiene).
+QString writeSheetFile(const QString& dir, const drymedia::Paper& paper, uint64_t id, const std::vector<uint8_t>& state,
+                       const PackedImage& image);
+// toma.json con estas hojas en orden, la activa (posición) y la vista; después borra los
+// archivos de las hojas que ya no están.
+QString writeTakeIndex(const QString& dir, const drymedia::Paper& paper, const std::vector<uint64_t>& ids, int active,
+                       const TakeView& view);
+
+// En qué carpeta trabajar (HU-86): dir si open(dir) la abre o si no tiene toma. Si tiene una
+// que no se abre (otro papel, más nueva, dañada), no se pisa: la primera de dir-2, dir-3...
+// que open abre, o la primera que no existe (una toma nueva).
+QString takeFolder(const QString& dir, const std::function<bool(const QString&)>& open);
+
 // Guarda toda la pila. image(id) da la imagen de pantalla de cada hoja (vacía si no la tiene:
 // al abrir se redibuja); se llama desde varios hilos. Las hojas se escriben antes que
 // toma.json, cada archivo de una vez (QSaveFile); al final se borran los archivos de las

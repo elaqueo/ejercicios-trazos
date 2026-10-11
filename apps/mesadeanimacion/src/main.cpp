@@ -2,8 +2,8 @@
 // (docs/mesa-de-animacion/idea.md y requerimientos.md). Corre sobre el lienzo de libs/lienzo,
 // como Cartuchera; las teclas comunes están en lienzo/Lienzo.h.
 // HU-84: el armazón. HU-87: Insert, Ctrl+D, Ctrl+N y Supr manejan las hojas, con deshacer.
-// HU-90: ← → flipean. HU-91: L prende y apaga la mesa de luz. HU-85: la toma se abre al
-// arrancar y se guarda al cerrar (HU-86 la guarda sola mientras se trabaja).
+// HU-90: ← → flipean. HU-91: L prende y apaga la mesa de luz. HU-85 y HU-86: la toma se abre
+// al arrancar y se guarda sola mientras se trabaja.
 
 #include <appkit/Config.h>
 #include <appkit/ConfirmOverlay.h>
@@ -16,6 +16,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QDir>
+#include <QFileInfo>
 #include <QScreen>
 
 namespace {
@@ -132,18 +133,24 @@ int main(int argc, char* argv[])
         qInfo() << "Hojas: confirmar borrado";
     });
 
-    // La toma (HU-85): una carpeta en los datos de la familia, o la de --toma <carpeta> (la usa
-    // la prueba de la app real, para no tocar la del usuario).
+    // La toma (HU-85): la última que se usó ("take" en config.json, en <datos>/tomas; la
+    // primera vez toma-1), o la de --toma <carpeta>, que no cambia config.json (la usa la
+    // prueba de la app real, para no tocar la del usuario). Se guarda sola (HU-86).
     const QStringList args = QApplication::arguments();
     const qsizetype takeArg = args.indexOf(QStringLiteral("--toma"));
-    const QString takeDir = takeArg >= 0 && takeArg + 1 < args.size()
-                                ? args[takeArg + 1]
-                                : QDir(appkit::familyDataDirectory()).filePath(QStringLiteral("tomas/toma-1"));
-    canvas.openTake(takeDir);
+    if (takeArg >= 0 && takeArg + 1 < args.size()) {
+        canvas.useTake(args[takeArg + 1]);
+    } else {
+        QString name = QFileInfo(config.value(QStringLiteral("take")).toString()).fileName(); // solo el nombre
+        if (name.isEmpty())
+            name = QStringLiteral("toma-1");
+        // Si la toma no se pudo abrir y se usa otra (la de al lado), esa queda como la última.
+        const QString used = canvas.useTake(QDir(appkit::familyDataDirectory()).filePath(QStringLiteral("tomas/") + name));
+        config.setValue(QStringLiteral("take"), QFileInfo(used).fileName());
+    }
 
     canvas.start();
     const int result = QApplication::exec();
-    canvas.stop();
-    canvas.saveTake(takeDir);
+    canvas.stop(); // espera a que la toma esté escrita
     return result;
 }

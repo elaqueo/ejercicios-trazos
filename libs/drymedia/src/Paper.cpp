@@ -343,7 +343,7 @@ TileSet Paper::copyTiles() const
     return copy;
 }
 
-std::vector<uint8_t> Paper::serializeTiles(const TileSet* set) const
+std::vector<uint8_t> Paper::serializeTiles(const TileSet* set, const std::function<bool()>& keepGoing) const
 {
     const TileSet& s = set ? *set : d->set;
     std::vector<uint8_t> out;
@@ -359,15 +359,22 @@ std::vector<uint8_t> Paper::serializeTiles(const TileSet* set) const
             cells += size_t(Impl::packedPlanes(s.m_planes[i])) * kTileCells;
         }
     const uint32_t head[3] = {uint32_t(d->tilesX), uint32_t(d->tilesY), uint32_t(index.size())};
-    out.resize(sizeof(head) + index.size() * 5 + cells * sizeof(uint16_t));
-    uint8_t* w = out.data();
-    std::memcpy(w, head, sizeof(head));
-    w += sizeof(head);
-    std::memcpy(w, index.data(), index.size() * 4);
-    w += index.size() * 4;
+    // Se agrega de a partes sobre la memoria reservada, sin llenarla antes de ceros: así cada
+    // tramo entre consultas a keepGoing es corto (~0,2 ms).
+    out.reserve(sizeof(head) + index.size() * 5 + cells * sizeof(uint16_t));
+    const auto append = [&out](const void* data, size_t size) {
+        const auto* bytes = static_cast<const uint8_t*>(data);
+        out.insert(out.end(), bytes, bytes + size);
+    };
+    append(head, sizeof(head));
+    append(index.data(), index.size() * 4);
     for (const uint32_t i : index)
-        *w++ = s.m_planes[i];
-    for (const uint32_t i : index) {
+        out.push_back(s.m_planes[i]);
+    constexpr size_t kTilesPerCheck = 128;
+    for (size_t n = 0; n < index.size(); ++n) {
+        if (keepGoing && n % kTilesPerCheck == 0 && !keepGoing())
+            return {};
+        const uint32_t i = index[n];
         const uint16_t* tile = s.m_tiles[i];
         const uint8_t planes = s.m_planes[i];
         for (int pl = 0; pl < kTilePlanes; ++pl) {
@@ -375,8 +382,7 @@ std::vector<uint8_t> Paper::serializeTiles(const TileSet* set) const
                 continue;
             // Empaquetado: los planos que usa, seguidos; si no, cada uno en su lugar del tile.
             const uint16_t* plane = s.m_isPacked ? tile : tile + size_t(pl) * kTileCells;
-            std::memcpy(w, plane, kTileCells * sizeof(uint16_t));
-            w += kTileCells * sizeof(uint16_t);
+            append(plane, kTileCells * sizeof(uint16_t));
             if (s.m_isPacked)
                 tile += kTileCells;
         }

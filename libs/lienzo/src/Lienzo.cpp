@@ -11,6 +11,7 @@
 #include "lienzo/SheetStack.h"
 #include "lienzo/Simulation.h"
 #include "lienzo/Take.h"
+#include "lienzo/TakeSaver.h"
 #include "lienzo/Timing.h"
 #include "lienzo/ToolPage.h"
 
@@ -29,6 +30,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QImage>
 #include <QKeyEvent>
@@ -186,6 +188,7 @@ struct Lienzo::Impl {
     SheetStack sheets{Simulation::kUndoLimit};
     SheetImages images; // las de las hojas que no son la activa, para la toma (HU-85)
     std::wstring takeWarning; // hojas que la toma abrió en blanco (F3)
+    std::unique_ptr<TakeSaver> saver; // guardado automático (HU-86); antes que sim, que lo usa
     SheetOrder order;
     // HU-87: el deshacer cambia la pila en la simulación, así que `order` se corrige con lo que
     // ella publica cuando atendió todo lo que se le pidió (pedidos de pila, deshacer, rehacer).
@@ -271,6 +274,8 @@ struct Lienzo::Impl {
         sim->setProfile(options.profile);
         sim->setPaperColor(options.paperColor);
         sim->setImages(&images);
+        if (saver)
+            sim->setAutosave(saver.get());
         // Deshacer cambia la pila sin que la interfaz lo pida: la mesa de luz se recalcula al
         // aviso (encolado: si el lienzo ya no está, relay tampoco y el aviso se descarta).
         sim->setOnSheetState([this] { QMetaObject::invokeMethod(&relay, [this] { applyLayers(); }, Qt::QueuedConnection); });
@@ -706,6 +711,9 @@ struct Lienzo::Impl {
         else
             swprintf(text, 768, L"%ls", warning);
         out += takeWarning;
+        if (saver) // HU-86
+            if (const QString error = saver->stats().error; !error.isEmpty())
+                out += QStringLiteral("\nToma: no se pudo guardar (%1).").arg(error).toStdWString();
         wchar_t version[128];
         swprintf(version, 128, L"escala de Windows %d %%   ·   hoja %d × %d px\n",
                  int(std::lround(screen->devicePixelRatio() * 100)), mapping.sheetWidth, mapping.sheetHeight);
@@ -987,7 +995,19 @@ void Lienzo::stop()
     d->running = false;
     if (d->bench.joinable())
         d->bench.join();
-    d->sim->stop();
+    d->sim->stop(); // pasa al guardado lo que quedaba (HU-86)
+    if (d->saver) {
+        const Stopwatch time;
+        d->saver->flush();
+        const TakeSaver::Stats s = d->saver->stats();
+        qInfo().noquote() << QStringLiteral("Toma: guardada al cerrar en %1 ms · en la sesión %2 hojas y %3 toma.json · "
+                                            "copia en la simulación de hasta %4 ms (se corta al dibujar)%5")
+                                 .arg(time.ms(), 0, 'f', 0)
+                                 .arg(s.sheets)
+                                 .arg(s.indexes)
+                                 .arg(d->sim->autosaveCopyMaxMs(), 0, 'f', 1)
+                                 .arg(s.error.isEmpty() ? QString() : QStringLiteral(" · error: ") + s.error);
+    }
     d->render->stop();
     if (d->recording) {
         std::fclose(d->recording);
@@ -1044,6 +1064,8 @@ bool Lienzo::openTake(const QString& dir)
     const bool wasRunning = d->running;
     if (wasRunning)
         d->sim->stop();
+    if (d->saver)
+        d->saver->flush(); // lo de la toma anterior, escrito antes de reemplazarla
     const Stopwatch time;
     const std::vector<uint64_t> before = d->sheets.order().ids;
     TakeView view;
@@ -1103,6 +1125,21 @@ bool Lienzo::openTake(const QString& dir)
                              .arg(result.blank.size())
                              .arg(time.ms(), 0, 'f', 0);
     return true;
+}
+
+QString Lienzo::useTake(const QString& dir)
+{
+    const QString target = takeFolder(dir, [this](const QString& folder) { return openTake(folder); });
+    if (target != dir) {
+        qWarning().noquote() << QStringLiteral("Toma: la de %1 no se pudo abrir; se usa %2").arg(dir, target);
+        d->takeWarning += QStringLiteral("\nToma: la de %1 no se pudo abrir (ver el log); se usa %2.")
+                              .arg(dir, target)
+                              .toStdWString();
+    }
+    d->saver = std::make_unique<TakeSaver>(target, d->paper, &d->images);
+    d->sim->setAutosave(d->saver.get());
+    qInfo().noquote() << QStringLiteral("Toma: guardado automático en %1").arg(target);
+    return target;
 }
 
 void Lienzo::setGuides(const QPicture& guides)

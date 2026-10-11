@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -129,7 +130,9 @@ public:
     // el índice de cada tile (u32, creciente); sus planos (u8, como tilePlanes); y los planos
     // que usa cada tile (el depósito y los marcados, kTileCells u16 cada uno), en ese orden.
     // Solo lee: varios hilos pueden serializar conjuntos a la vez con el papel quieto.
-    std::vector<uint8_t> serializeTiles(const TileSet* set = nullptr) const;
+    // keepGoing (HU-86, guardado automático en el hilo que dibuja): se consulta cada tanto
+    // durante la copia; si da false, se corta y devuelve vacío.
+    std::vector<uint8_t> serializeTiles(const TileSet* set = nullptr, const std::function<bool()>& keepGoing = {}) const;
     // Un conjunto empaquetado, como el de una hoja que no es la del papel (swapTiles lo
     // desempaqueta). false si los bytes no son de un papel de este tamaño o están truncados.
     bool deserializeTiles(const uint8_t* data, size_t size, TileSet& out) const;

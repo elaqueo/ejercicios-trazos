@@ -151,30 +151,24 @@ QString readSheet(const QString& path, const drymedia::Paper& paper, drymedia::T
 
 } // namespace
 
-TakeResult saveTake(const QString& dir, const drymedia::Paper& paper, const SheetStack& sheets, const TakeView& view,
-                    const std::function<PackedImage(uint64_t sheet)>& image)
+QString writeSheetFile(const QString& dir, const drymedia::Paper& paper, uint64_t id, const std::vector<uint8_t>& state,
+                       const PackedImage& image)
 {
-    TakeResult result;
     QDir folder(dir);
-    if (!folder.mkpath(QStringLiteral("."))) {
-        result.error = QStringLiteral("no se pudo crear la carpeta %1").arg(dir);
-        return result;
-    }
-    const SheetOrder& order = sheets.order();
-    std::vector<QString> errors(size_t(order.count));
-    parallelFor(order.count, [&](int i) {
-        const uint64_t id = order.ids[size_t(i)];
-        errors[size_t(i)] = writeSheet(folder.filePath(sheetFileName(id)), paper, sheets.serialize(paper, i), image(id));
-    });
-    for (int i = 0; i < order.count; ++i)
-        if (!errors[size_t(i)].isEmpty()) {
-            result.error = QStringLiteral("hoja %1: %2").arg(i + 1).arg(errors[size_t(i)]);
-            return result;
-        }
+    if (!folder.mkpath(QStringLiteral(".")))
+        return QStringLiteral("no se pudo crear la carpeta %1").arg(dir);
+    return writeSheet(folder.filePath(sheetFileName(id)), paper, state, image);
+}
 
+QString writeTakeIndex(const QString& dir, const drymedia::Paper& paper, const std::vector<uint64_t>& ids, int active,
+                       const TakeView& view)
+{
+    QDir folder(dir);
+    if (!folder.mkpath(QStringLiteral(".")))
+        return QStringLiteral("no se pudo crear la carpeta %1").arg(dir);
     QJsonArray list;
     std::set<QString> files;
-    for (const uint64_t id : order.ids) {
+    for (const uint64_t id : ids) {
         files.insert(sheetFileName(id));
         list.append(QJsonObject{{QStringLiteral("id"), qint64(id)},
                                 {QStringLiteral("archivo"), sheetFileName(id)},
@@ -185,22 +179,54 @@ TakeResult saveTake(const QString& dir, const drymedia::Paper& paper, const Shee
         {QStringLiteral("version"), kTakeVersion},
         {QStringLiteral("papel"), paperJson(paper)},
         {QStringLiteral("hojas"), list},
-        {QStringLiteral("activa"), order.active},
+        {QStringLiteral("activa"), active},
         {QStringLiteral("vista"), QJsonObject{{QStringLiteral("giro"), view.degrees}}},
         // HU-106 a HU-108.
         {QStringLiteral("audio"),
          QJsonObject{{QStringLiteral("archivo"), QString()}, {QStringLiteral("marcas"), QJsonArray()}}},
     };
     QSaveFile file(folder.filePath(kTakeFile));
-    if (!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(root).toJson()) < 0 || !file.commit()) {
-        result.error = QStringLiteral("toma.json: %1").arg(file.errorString());
-        return result;
-    }
+    if (!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(root).toJson()) < 0 || !file.commit())
+        return QStringLiteral("toma.json: %1").arg(file.errorString());
     // Las hojas borradas.
     for (const QString& name : folder.entryList({QStringLiteral("hoja-*.hoja")}, QDir::Files))
         if (!files.count(name))
             folder.remove(name);
-    result.ok = true;
+    return {};
+}
+
+QString takeFolder(const QString& dir, const std::function<bool(const QString&)>& open)
+{
+    if (open(dir) || !QFileInfo::exists(QDir(dir).filePath(kTakeFile)))
+        return dir;
+    for (int n = 2;; ++n) {
+        const QString candidate = QStringLiteral("%1-%2").arg(dir).arg(n);
+        if (!QFileInfo::exists(candidate) || open(candidate))
+            return candidate;
+    }
+}
+
+TakeResult saveTake(const QString& dir, const drymedia::Paper& paper, const SheetStack& sheets, const TakeView& view,
+                    const std::function<PackedImage(uint64_t sheet)>& image)
+{
+    TakeResult result;
+    if (!QDir(dir).mkpath(QStringLiteral("."))) {
+        result.error = QStringLiteral("no se pudo crear la carpeta %1").arg(dir);
+        return result;
+    }
+    const SheetOrder& order = sheets.order();
+    std::vector<QString> errors(size_t(order.count));
+    parallelFor(order.count, [&](int i) {
+        const uint64_t id = order.ids[size_t(i)];
+        errors[size_t(i)] = writeSheetFile(dir, paper, id, sheets.serialize(paper, i), image(id));
+    });
+    for (int i = 0; i < order.count; ++i)
+        if (!errors[size_t(i)].isEmpty()) {
+            result.error = QStringLiteral("hoja %1: %2").arg(i + 1).arg(errors[size_t(i)]);
+            return result;
+        }
+    result.error = writeTakeIndex(dir, paper, order.ids, order.active, view);
+    result.ok = result.error.isEmpty();
     return result;
 }
 

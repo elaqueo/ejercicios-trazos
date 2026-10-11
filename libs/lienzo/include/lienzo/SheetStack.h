@@ -95,16 +95,27 @@ public:
     void withSheet(drymedia::Paper& paper, int index, const std::function<void()>& work);
 
     // La toma (HU-85): el depósito de una hoja como bytes (Paper::serializeTiles), sin pasarla
-    // por el papel. Solo lee: varias hojas a la vez, con la simulación detenida.
-    std::vector<uint8_t> serialize(const drymedia::Paper& paper, int index) const;
+    // por el papel. Solo lee: varias hojas a la vez, con la simulación detenida (o desde ella,
+    // con keepGoing: ver Paper::serializeTiles).
+    std::vector<uint8_t> serialize(const drymedia::Paper& paper, int index,
+                                   const std::function<bool()>& keepGoing = {}) const;
     // Reemplaza la pila entera (abrir una toma): estas hojas con sus ids, en orden, y la
-    // activa; sin deshacer. No avisa onLeave.
+    // activa; sin deshacer. No avisa onLeave. Quedan como guardadas.
     void replace(drymedia::Paper& paper, std::vector<std::pair<uint64_t, drymedia::TileSet>> sheets, int active);
+
+    // Guardado automático (HU-86): cada hoja lleva una versión que cambia con cada trazo,
+    // deshacer, rehacer o limpieza, y la última guardada. Una hoja nueva, o una que vuelve a
+    // la pila (deshacer un borrado, rehacer un insertar), no está guardada: su archivo se
+    // borró o nunca existió.
+    void touchActive() { ++m_sheets[size_t(m_order.active)].version; } // la activa cambió (un trazo)
+    std::vector<int> unsaved() const; // por posición
+    void markSaved(int index) { m_sheets[size_t(index)].savedVersion = m_sheets[size_t(index)].version; }
 
 private:
     struct Sheet {
         drymedia::TileSet tiles; // de la activa: un conjunto vacío (el suyo está en el papel)
         drymedia::History history;
+        uint64_t version = 1, savedVersion = 0; // HU-86
     };
     // Una operación de la pila, para deshacerla. Insert: la hoja quedó en `index`; deshacer la
     // quita (y la guarda en `sheet` para rehacer). Remove: se quitó de `index`; `sheet` es la

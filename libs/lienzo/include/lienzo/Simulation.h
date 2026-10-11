@@ -3,14 +3,17 @@
 #include "lienzo/Media.h"
 #include "lienzo/SheetStack.h"
 #include "lienzo/SheetMapping.h"
+#include "lienzo/TakeSaver.h"
 #include "lienzo/Tone.h"
 #include "lienzo/ViewRotation.h"
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <vector>
 #include <thread>
 
@@ -116,6 +119,20 @@ public:
     // Donde dejar también la imagen de cada hoja que sale (HU-85: se guarda en la toma).
     // Llamar antes de start().
     void setImages(SheetImages* images) { m_images = images; }
+    // Guardado automático (HU-86): cuando el lápiz lleva delayMs sin dibujar ni hay pedidos de
+    // la pila, copia las hojas que cambiaron (el depósito y, la activa, su imagen) y se las
+    // pasa a saver, que las escribe en su hilo; y toma.json si cambió el orden, la activa o la
+    // vista. Al detenerse, lo que quedó sin pasar. La copia se corta si el lápiz toca el papel
+    // (o llega un pedido) y se reintenta en la pausa siguiente: el trazo no la espera. Llamar
+    // antes de start().
+    static constexpr double kAutosaveDelayMs = 300;
+    void setAutosave(TakeSaver* saver, double delayMs = kAutosaveDelayMs)
+    {
+        m_saver = saver;
+        m_autosaveDelay = std::chrono::microseconds(int64_t(delayMs * 1000));
+    }
+    // Lo más que tardó una copia para guardar, en el hilo de simulación (diagnóstico).
+    double autosaveCopyMaxMs() const { return m_autosaveCopyMaxMs; }
     // Sin deshacer (Ejercicios) no se guardan copias de los tiles. Llamar antes de start().
     void setUndo(bool enabled) { m_undoEnabled = enabled; }
     // La mina activa (HU-57): cambia al elegir otra dureza o al calibrar en vivo. Si
@@ -189,6 +206,9 @@ private:
     void publishSheetState(); // para la interfaz
     void renderAllParallel();  // toda la imagen, en varios hilos (hoja nueva activa)
     void retireSheet(uint64_t id); // deja la imagen de la activa para el render, antes de cambiarla
+    // La imagen de la hoja activa, sin lo de afuera; vacía si keepGoing lo cortó.
+    std::vector<uint32_t> activeRegion(const std::function<bool()>& keepGoing = {});
+    void autosave(bool interruptible); // HU-86: copia lo que cambió y se lo pasa a m_saver
     void run();
     const uint32_t* guides() const
     {
@@ -224,6 +244,11 @@ private:
     MediumProfile m_profile = MediumProfile::Illustration;
     uint32_t m_paperColor = kPaperColor;
     SheetImages* m_images = nullptr;
+    TakeSaver* m_saver = nullptr;
+    std::chrono::microseconds m_autosaveDelay{0};
+    std::chrono::steady_clock::time_point m_lastActivity = std::chrono::steady_clock::now();
+    std::optional<TakeIndex> m_savedIndex; // el último toma.json pasado a m_saver
+    std::atomic<double> m_autosaveCopyMaxMs{0};
     std::vector<uint32_t> m_guides; // la que usa el hilo de simulación
     std::mutex m_guidesMutex;
     std::vector<uint32_t> m_pendingGuides; // la que llega de afuera

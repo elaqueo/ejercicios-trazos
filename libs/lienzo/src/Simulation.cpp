@@ -171,14 +171,72 @@ void Simulation::retireSheet(uint64_t id)
     retired.sheet = id;
     retired.width = m_mapping.sheetWidth;
     retired.height = m_mapping.sheetHeight;
-    retired.pixels.resize(size_t(retired.width) * size_t(retired.height));
-    std::lock_guard lock(m_image.mutex);
-    for (int y = 0; y < retired.height; ++y)
-        std::copy_n(m_image.pixels.data() + size_t(m_mapping.sheetY + y) * size_t(m_image.width) + size_t(m_mapping.sheetX),
-                    retired.width, retired.pixels.data() + size_t(y) * size_t(retired.width));
+    retired.pixels = activeRegion();
     if (m_images) // HU-85: comprimida en su hilo, para guardarla en la toma
         m_images->put(id, retired.width, retired.height, retired.pixels);
+    std::lock_guard lock(m_image.mutex);
     m_image.retired.push_back(std::move(retired));
+}
+
+std::vector<uint32_t> Simulation::activeRegion(const std::function<bool()>& keepGoing)
+{
+    const int width = m_mapping.sheetWidth, height = m_mapping.sheetHeight;
+    std::vector<uint32_t> pixels;
+    pixels.reserve(size_t(width) * size_t(height));
+    constexpr int kRowsPerCheck = 64;
+    for (int y0 = 0; y0 < height; y0 += kRowsPerCheck) {
+        if (keepGoing && !keepGoing())
+            return {};
+        std::lock_guard lock(m_image.mutex); // de a tramos, como repaintAllInStrips: el render no espera
+        for (int y = y0; y < std::min(height, y0 + kRowsPerCheck); ++y) {
+            const uint32_t* row =
+                m_image.pixels.data() + size_t(m_mapping.sheetY + y) * size_t(m_image.width) + size_t(m_mapping.sheetX);
+            pixels.insert(pixels.end(), row, row + width);
+        }
+    }
+    return pixels;
+}
+
+// HU-86: las hojas que cambiaron, copiadas acá (el depósito y la imagen de la activa; la de
+// las demás ya está en SheetImages), y toma.json si cambió. Comprimir y escribir es del hilo
+// de m_saver. interruptible: la copia se corta si el lápiz toca el papel o llega un pedido
+// (la hoja queda sin guardar y se copia en la pausa siguiente).
+void Simulation::autosave(bool interruptible)
+{
+    const Stopwatch time;
+    std::function<bool()> keepGoing;
+    if (interruptible)
+        keepGoing = [this] {
+            if (m_undoRequests || m_redoRequests || m_queue.hasContact())
+                return false;
+            std::lock_guard lock(m_sheetMutex);
+            return m_sheetCommands.empty();
+        };
+    const SheetOrder& order = m_sheets.order();
+    const std::vector<int> unsaved = m_sheets.unsaved();
+    for (const int i : unsaved) {
+        std::vector<uint32_t> pixels;
+        if (i == order.active && (pixels = activeRegion(keepGoing)).empty())
+            return;
+        std::vector<uint8_t> state = m_sheets.serialize(m_paper, i, keepGoing);
+        if (state.empty())
+            return;
+        m_saver->saveSheet(order.ids[size_t(i)], std::move(state), m_mapping.sheetWidth, m_mapping.sheetHeight,
+                           std::move(pixels));
+        m_sheets.markSaved(i);
+    }
+    double degrees;
+    {
+        std::lock_guard rotationLock(m_rotationMutex);
+        degrees = m_rotation.degrees;
+    }
+    TakeIndex index{order.ids, order.active, degrees};
+    if (index != m_savedIndex) {
+        m_savedIndex = index;
+        m_saver->saveIndex(std::move(index));
+    }
+    if (!unsaved.empty())
+        m_autosaveCopyMaxMs = std::max(m_autosaveCopyMaxMs.load(), time.ms());
 }
 
 // Hoja nueva activa (HU-82): la hoja entera de una vez, repartida en filas entre los
@@ -258,6 +316,7 @@ void Simulation::run()
             return;
         active->endStroke();
         active = nullptr;
+        m_sheets.touchActive(); // HU-86: hay que guardarla
         if (m_undoEnabled)
             m_sheets.history().endStroke(m_paper);
     };
@@ -294,6 +353,7 @@ void Simulation::run()
         if (m_clearRequested.exchange(false)) {
             endStroke();
             m_paper.clear();
+            m_sheets.touchActive();
             m_sheets.history().clear(); // la hoja nueva no se deshace
             renderAll();
         }
@@ -357,6 +417,7 @@ void Simulation::run()
             ++m_applied;
         };
         size_t nextCommand = 0;
+        bool drew = !sheetCommands.empty(); // HU-86: el guardado espera a que se deje de dibujar
         for (size_t i = 0; i < samples.size(); ++i) {
             // Los pedidos hechos antes de esta muestra, con lo anterior ya en la imagen (así la
             // hoja que sale deja su imagen con todos sus trazos, HU-83).
@@ -383,6 +444,7 @@ void Simulation::run()
             m_erasing = s.eraser;
             drymedia::Pencil& tool = s.eraser ? eraser : m_stylus ? stylus : pencil;
             if (s.inContact) {
+                drew = true;
                 newest = s.timeUs;
                 if (active != &tool) {
                     endStroke(); // dar vuelta el lápiz sin levantarlo: otro trazo
@@ -406,6 +468,7 @@ void Simulation::run()
         // cierra el trazo y deshacer lo borra entero) y los pedidos que llegaron después de la
         // última muestra.
         const int undos = m_undoRequests.exchange(0), redos = m_redoRequests.exchange(0);
+        drew = drew || undos || redos;
         if (undos || redos) {
             const Stopwatch undoTime;
             const auto apply = [&](const SheetStack::UndoResult& r) {
@@ -434,7 +497,18 @@ void Simulation::run()
             if (m_onSheetState)
                 m_onSheetState();
         }
+        if (m_saver) {
+            const auto now = std::chrono::steady_clock::now();
+            if (drew)
+                m_lastActivity = now;
+            else if (!active && now - m_lastActivity >= m_autosaveDelay)
+                autosave(true);
+        }
     }
+    // Al detenerse (cerrar la app, F9, abrir una toma): lo que quedó sin pasar al guardado.
+    endStroke();
+    if (m_saver)
+        autosave(false);
 }
 
 } // namespace lienzo

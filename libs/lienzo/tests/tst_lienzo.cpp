@@ -12,6 +12,7 @@
 #include <lienzo/SheetMapping.h>
 #include <lienzo/Simulation.h>
 #include <lienzo/Take.h>
+#include <lienzo/TakeSaver.h>
 #include <lienzo/Tone.h>
 #include <lienzo/ToolPage.h>
 #include <lienzo/ViewRotation.h>
@@ -1178,6 +1179,175 @@ private slots:
         QVERIFY(!broken.unpack(back));
         images.clear();
         QVERIFY(images.get(7).empty());
+    }
+
+    // HU-86: una toma que no se abre no se pisa: se usa la de al lado que abre, o una nueva;
+    // arrancar otra vez vuelve a la misma (no crea una carpeta por arranque).
+    void carpetaDeLaToma()
+    {
+        QTemporaryDir root;
+        const QString dir = QDir(root.path()).filePath(QStringLiteral("toma-1"));
+        const auto takeIn = [](const QString& folder) {
+            QDir().mkpath(folder);
+            QFile file(QDir(folder).filePath(QStringLiteral("toma.json")));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        };
+        QStringList openable;
+        const auto open = [&](const QString& folder) { return openable.contains(folder); };
+        QCOMPARE(takeFolder(dir, open), dir); // no hay toma: una nueva ahí
+        takeIn(dir);
+        openable << dir;
+        QCOMPARE(takeFolder(dir, open), dir); // abre
+        openable.clear();
+        QCOMPARE(takeFolder(dir, open), dir + QStringLiteral("-2")); // no abre: la de al lado, nueva
+        takeIn(dir + QStringLiteral("-2"));
+        openable << dir + QStringLiteral("-2");
+        QCOMPARE(takeFolder(dir, open), dir + QStringLiteral("-2")); // la de al lado ya existe y abre
+        openable.clear();
+        QCOMPARE(takeFolder(dir, open), dir + QStringLiteral("-3"));
+    }
+
+    // HU-86: un trazo en la simulación, de y a la hoja de 400 × 300 px de las pruebas.
+    static std::vector<tabletinput::PenSample> penStroke(const SheetMapping& mapping, int y)
+    {
+        std::vector<tabletinput::PenSample> samples;
+        for (int i = 0; i <= 20; ++i) {
+            tabletinput::PenSample s;
+            s.x = mapping.sheetX + 50 + 10 * i;
+            s.y = mapping.sheetY + y;
+            s.pressure = 0.6f;
+            s.altitude = 80;
+            s.inContact = true;
+            s.timeUs = 1000 * (i + 1);
+            samples.push_back(s);
+        }
+        samples.push_back(samples.back());
+        samples.back().inContact = false;
+        return samples;
+    }
+
+    // HU-86: con la simulación andando, la toma se guarda sola: una toma nueva aparece sin
+    // dibujar nada; una hoja insertada tiene su archivo enseguida; borrar una hoja borra el suyo
+    // y deshacerlo lo vuelve a escribir; activar otra hoja reescribe toma.json pero ninguna
+    // hoja. Lo guardado se abre igual a la pila.
+    void guardadoAutomatico()
+    {
+        const drymedia::PaperSpec spec{.seed = 5, .widthMm = 80, .heightMm = 60};
+        drymedia::Paper paper(spec);
+        SheetStack stack(Simulation::kUndoLimit);
+        SampleQueue queue;
+        DisplayImage image;
+        image.width = 400;
+        image.height = 300;
+        image.pixels.resize(size_t(image.width) * size_t(image.height));
+        const SheetMapping mapping = SheetMapping::fit(image.width, image.height, paper.width(), paper.height());
+        QTemporaryDir dir;
+        const QDir folder(dir.path());
+        SheetImages images;
+        TakeSaver saver(dir.path(), paper, &images);
+        const auto files = [&] {
+            saver.flush();
+            return folder.entryList({QStringLiteral("hoja-*.hoja")}, QDir::Files);
+        };
+        auto sim = std::make_unique<Simulation>(paper, stack, queue, image, mapping);
+        sim->setImages(&images);
+        sim->setAutosave(&saver, 0);
+        sim->renderAll();
+        sim->start();
+
+        QTRY_COMPARE(files().size(), 1); // la hoja en blanco de la toma nueva
+        QTRY_VERIFY(folder.exists(QStringLiteral("toma.json")));
+        queue.push(penStroke(mapping, 100));
+        sim->requestInsertSheet();
+        QTRY_COMPARE(files().size(), 2);
+        queue.push(penStroke(mapping, 150)); // en la 2
+        sim->requestRemoveSheet(0);
+        QTRY_COMPARE(files(), QStringList{QStringLiteral("hoja-2.hoja")});
+        sim->requestUndo();
+        QTRY_COMPARE(files().size(), 2);
+        QTRY_COMPARE(sim->sheetState().applied, uint64_t(3));
+        sim->stop();
+        saver.flush();
+
+        const auto opened = [&](SheetStack& into, drymedia::Paper& other) {
+            TakeView view;
+            QVERIFY(openTake(dir.path(), other, into, view).ok);
+        };
+        {
+            drymedia::Paper other(spec);
+            SheetStack back(100);
+            opened(back, other);
+            QCOMPARE(back.order().ids, stack.order().ids);
+            QCOMPARE(back.active(), stack.active());
+            for (int i = 0; i < 2; ++i) {
+                QCOMPARE(back.hash(other, i), stack.hash(paper, i));
+                QVERIFY(back.hash(other, i) != other.reliefHash());
+            }
+        }
+
+        // Activar otra hoja: toma.json sí, las hojas no (no cambiaron).
+        const TakeSaver::Stats before = saver.stats();
+        sim = std::make_unique<Simulation>(paper, stack, queue, image, mapping);
+        sim->setImages(&images);
+        sim->setAutosave(&saver, 0);
+        sim->renderAll();
+        sim->start();
+        sim->requestActivateSheet(0);
+        QTRY_COMPARE(sim->sheetState().applied, uint64_t(1));
+        QTRY_VERIFY(saver.stats().indexes > before.indexes);
+        sim->stop();
+        saver.flush();
+        QCOMPARE(saver.stats().sheets, before.sheets);
+        QVERIFY(saver.stats().error.isEmpty());
+        drymedia::Paper other(spec);
+        SheetStack back(100);
+        opened(back, other);
+        QCOMPARE(back.active(), 0);
+    }
+
+    // HU-86: con una espera larga no se guarda mientras se dibuja; al detener la simulación
+    // (cerrar la app) se guarda lo pendiente. Dos copias de una hoja que no llegó a escribirse:
+    // queda la última.
+    void guardadoAlDetenerse()
+    {
+        const drymedia::PaperSpec spec{.seed = 6, .widthMm = 60, .heightMm = 40};
+        drymedia::Paper paper(spec);
+        SheetStack stack(Simulation::kUndoLimit);
+        SampleQueue queue;
+        DisplayImage image;
+        image.width = 400;
+        image.height = 300;
+        image.pixels.resize(size_t(image.width) * size_t(image.height));
+        const SheetMapping mapping = SheetMapping::fit(image.width, image.height, paper.width(), paper.height());
+        QTemporaryDir dir;
+        const QDir folder(dir.path());
+        TakeSaver saver(dir.path(), paper, nullptr);
+        Simulation sim(paper, stack, queue, image, mapping);
+        sim.setAutosave(&saver, 60000);
+        sim.renderAll();
+        sim.start();
+        queue.push(penStroke(mapping, 100));
+        QTRY_VERIFY(sim.sheetState().activeTiles > 0);
+        QTest::qWait(200);
+        saver.flush();
+        QVERIFY(!folder.exists(QStringLiteral("toma.json")));
+        sim.stop();
+        saver.flush();
+        QVERIFY(folder.exists(QStringLiteral("hoja-1.hoja")));
+        drymedia::Paper other(spec);
+        SheetStack back(100);
+        TakeView view;
+        QVERIFY(openTake(dir.path(), other, back, view).ok);
+        QCOMPARE(back.hash(other, 0), stack.hash(paper, 0));
+
+        // La última copia gana: la hoja dibujada y después en blanco.
+        const drymedia::TileSet empty = paper.newTileSet();
+        saver.saveSheet(1, paper.serializeTiles(), 0, 0, {});
+        saver.saveSheet(1, paper.serializeTiles(&empty), 0, 0, {});
+        saver.flush();
+        SheetStack again(100);
+        QVERIFY(openTake(dir.path(), other, again, view).ok);
+        QCOMPARE(again.hash(other, 0), other.reliefHash());
     }
 };
 

@@ -144,11 +144,18 @@ public:
     bool flipping() const;
     // La toma (HU-85; formato en lienzo/Take.h): guarda la pila en una carpeta (toma.json y un
     // archivo por hoja) o la abre en lugar de la que hay, con la vista. Detienen la
-    // simulación mientras tanto (HU-86 guarda solo lo cambiado, en segundo plano). Las hojas
+    // simulación mientras tanto (useTake, más abajo, guarda solo lo cambiado). Las hojas
     // dañadas o faltantes quedan en blanco, con aviso en el log y en F3. false si no se pudo
     // guardar, o si la carpeta no tiene una toma que abrir.
     bool saveTake(const QString& dir);
     bool openTake(const QString& dir);
+    // Guardado automático (HU-86): abre la toma de la carpeta (o, si no hay, empieza una nueva
+    // ahí) y desde ese momento la guarda sola, lo que cambió, en segundo plano: la hoja después
+    // de dejar de dibujar un momento, y toma.json al cambiar la pila o la vista. stop() espera
+    // a que esté todo escrito. Si la carpeta tiene una toma que no se pudo abrir, no se pisa:
+    // se usa la de al lado (<carpeta>-2, -3...) que abra, o una nueva (ver takeFolder en
+    // lienzo/Take.h). Devuelve la carpeta que usa. Llamar antes de start().
+    QString useTake(const QString& dir);
     // Panel de configuración (HU-12): agrega las pestañas del lienzo ("Lápiz": mina activa y
     // goma; "Pantalla": área útil y monitor) y lo muestra pegado al borde derecho del área
     // útil.

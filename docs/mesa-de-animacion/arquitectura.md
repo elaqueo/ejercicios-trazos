@@ -14,10 +14,11 @@ toma-1/
   ...
 ```
 
-- **Dónde está la carpeta:** `%LOCALAPPDATA%\trazos\tomas\toma-1`, o la que se pase con `--toma <carpeta>` (la prueba de la app real usa una temporal).
-- **Cuándo se abre y se guarda:** se abre al arrancar y se guarda al cerrar. A partir de HU-86 se guarda sola, mientras se trabaja.
+- **Dónde está la carpeta:** `%LOCALAPPDATA%\trazos\tomas\<nombre>`, con el nombre de la última toma usada (`take` en config.json, `toma-1` la primera vez). O la que se pase con `--toma <carpeta>`, que no cambia config.json (la prueba de la app real usa una temporal).
+- **Cuándo se abre y se guarda:** se abre al arrancar y se guarda sola mientras se trabaja (HU-86, más abajo).
 - **El código:**
-  - `lienzo/Take.h`: `saveTake` y `openTake`.
+  - `lienzo/Take.h`: `saveTake` y `openTake`, y las piezas `writeSheetFile` y `writeTakeIndex`.
+  - `lienzo/TakeSaver.h`: el guardado automático.
   - `drymedia::Paper`: `serializeTiles` y `deserializeTiles`, el depósito como bytes.
   - `lienzo/SheetImages.h`: las imágenes de las hojas, comprimidas.
 
@@ -87,5 +88,30 @@ En Mesa de animación (medio recortado) cada tile lleva solo el depósito.
   - Reemplaza la pila, sin deshacer.
   - Una hoja cuyo archivo falta o está dañado (cortado, con otra marca, otro papel, o con una suma de verificación que no coincide) queda en blanco. Se avisa en el log y en F3: "Toma: la hoja N en blanco".
   - Sin `toma.json` no abre, y la app arranca con una hoja en blanco.
-- **La simulación:** guardar y abrir la detienen mientras dura. HU-86 guardará solo lo que cambió, en segundo plano.
+- **La simulación:** `saveTake` y `openTake` la detienen mientras duran. La app usa `saveTake` solo en las pruebas; guarda con el guardado automático.
 - **El deshacer** no se guarda.
+
+### Guardado automático (HU-86)
+
+`Lienzo::useTake(carpeta)` abre la toma, o empieza una nueva ahí, y desde ese momento la guarda sola.
+
+- **Qué cambió:**
+  - Cada hoja de `SheetStack` lleva una versión, que cambia con cada trazo, deshacer, rehacer o limpieza, y la última versión guardada.
+  - Una hoja nueva no está guardada. Tampoco una que vuelve a la pila (deshacer un borrado, rehacer un insertar), porque su archivo se borró.
+  - Las hojas abiertas de la toma quedan como guardadas.
+- **Cuándo:** cuando el lápiz lleva 300 ms sin dibujar y no hay pedidos de la pila (`Simulation::kAutosaveDelayMs`). El lápiz en el aire no cuenta como dibujar.
+- **Qué hace la simulación en esa pausa:**
+  - Copia el depósito de cada hoja que cambió y, de la activa, la imagen de pantalla. La imagen de las demás ya está en `SheetImages`.
+  - Pasa `toma.json` si cambió el orden, la activa o la vista.
+  - La copia va de a tramos de ~0,2 ms. Se corta si el lápiz toca el papel o llega un pedido: la hoja queda sin guardar y se copia en la pausa siguiente.
+- **`TakeSaver`:**
+  - Comprime y escribe en su hilo, con prioridad baja para no competir con el render.
+  - Escribe primero las hojas y después `toma.json`, así `toma.json` nunca nombra un archivo que todavía no existe.
+  - Si llegan dos copias de la misma hoja antes de escribirla, se queda con la última. Lo mismo con `toma.json`.
+  - Al escribir `toma.json` borra los archivos de las hojas que ya no están.
+- **Al cerrar:**
+  - La simulación pasa lo pendiente sin esperar la pausa, y `Lienzo::stop` espera a que esté escrito.
+  - Es solo lo cambiado desde la última pausa (casi siempre nada), así que no depende de cuántas hojas hay. El log dice cuánto tardó, cuántas hojas se escribieron en la sesión y lo más que tardó una copia.
+- **Si la app muere:** se pierde a lo sumo lo de los últimos 300 ms. Cada archivo se escribe de una vez, así que la toma en disco siempre está entera.
+- **Una toma que no se puede abrir** (otro papel, de una versión más nueva, `toma.json` dañado) no se pisa: se usa la primera de al lado (`<carpeta>-2`, `-3`...) que abre, o una nueva (`takeFolder`). Se avisa en el log y en F3, y esa queda como la última toma en config.json, así el arranque siguiente la abre sin avisar.
+- **Errores al escribir:** van al log y a F3 ("Toma: no se pudo guardar").

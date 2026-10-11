@@ -42,6 +42,17 @@ public:
         return m_pushed;
     }
 
+    // Si entre lo encolado (lo que todavía no se llevó el consumidor) el lápiz toca el papel
+    // (HU-86: el guardado automático se corta para dibujar).
+    bool hasContact() const
+    {
+        std::lock_guard lock(m_mutex);
+        for (const tabletinput::PenSample& s : m_samples)
+            if (s.inContact)
+                return true;
+        return false;
+    }
+
     // Deja en out todo lo encolado (y vacía la cola). Devuelve el número de orden de out[0].
     uint64_t takeAll(std::vector<tabletinput::PenSample>& out)
     {

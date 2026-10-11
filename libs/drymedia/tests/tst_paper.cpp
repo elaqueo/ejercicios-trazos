@@ -213,6 +213,9 @@ private slots:
         const uint64_t hoja = paper.hash();
         const std::vector<uint8_t> bytes = paper.serializeTiles();
         QCOMPARE(bytes.size(), size_t(12 + 12 * 5 + 13 * kTileCells * 2)); // 12 tiles, uno con dos planos
+        // HU-86: la copia se puede cortar (vacía) o dejar seguir (la misma).
+        QVERIFY(paper.serializeTiles(nullptr, [] { return false; }).empty());
+        QCOMPARE(paper.serializeTiles(nullptr, [] { return true; }), bytes);
 
         TileSet guardada = paper.newTileSet();
         paper.swapTiles(guardada); // empaquetada, fuera del papel

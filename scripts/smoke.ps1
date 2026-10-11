@@ -211,22 +211,43 @@ try {
         $failures.Add('Un solo grafito')
     }
 
-    # HU-85: al cerrar se guarda la toma (toma.json y una hoja por archivo) y al volver a abrir
-    # la app está la misma pila, con la misma hoja activa, sin redibujar ni hojas en blanco.
-    $null = $app.CloseMainWindow()
-    if (-not $app.WaitForExit(15000)) { $app.Kill() }
-    $saved = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Toma guardada en .*: (\d+) hojas, activa la (\d+)' })
-    $files = @(Get-ChildItem $takeDir -Filter 'hoja-*.hoja' -ErrorAction SilentlyContinue).Count
-    $savedText = $saved -join ' '
+    # HU-85 y HU-86: la toma (toma.json y una hoja por archivo) se guarda sola, sin cerrar: las 3
+    # hojas ya están en disco, e Insert agrega el archivo de la nueva enseguida. Con la app
+    # matada (sin cerrar), al volver a abrir está la misma pila, con la misma hoja activa, sin
+    # redibujar ni hojas en blanco.
+    $sheetFiles = { @(Get-ChildItem $takeDir -Filter 'hoja-*.hoja' -ErrorAction SilentlyContinue).Count }
+    Start-Sleep -Milliseconds 1000
+    $before = & $sheetFiles
+    $ws.SendKeys('{INSERT}')
+    Start-Sleep -Milliseconds 1500
+    $after = & $sheetFiles
+    $inserted = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'insertada · hoja (\d+) de 4' }) -join ' ')
+    $expected = if ($inserted -match 'hoja (\d+) de 4') { "4 hojas, activa la $($Matches[1]), 0 redibujadas, 0 en blanco" } else { '(no se insertó)' }
+    $app.Kill()
+    $null = $app.WaitForExit(5000)
     $app = Start-Process $mesa -ArgumentList '--toma', "`"$takeDir`"" -PassThru
     Start-Sleep 5
     $opened = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Toma abierta de' }) -join ' ')
-    $expected = if ($savedText -match ': (\d+) hojas, activa la (\d+)') { "$($Matches[1]) hojas, activa la $($Matches[2]), 0 redibujadas, 0 en blanco" } else { '(no se guardó)' }
-    if ($saved.Count -eq 1 -and $files -eq 3 -and (Test-Path (Join-Path $takeDir 'toma.json')) -and $opened.Contains($expected)) {
-        Write-Host "  ok   la toma se guarda al cerrar y se abre igual ($expected)"
+    if ($before -eq 3 -and $after -eq 4 -and (Test-Path (Join-Path $takeDir 'toma.json')) -and $opened.Contains($expected)) {
+        Write-Host "  ok   la toma se guarda sola (3 hojas, Insert: 4) y abre igual después de matar la app ($expected)"
     } else {
-        Write-Host "  FALLA toma: $savedText · $files archivos de hoja · $opened"
+        Write-Host "  FALLA toma: $before y $after archivos de hoja · esperaba $expected · $opened"
         $failures.Add('Toma')
+    }
+
+    # HU-86: cerrar espera solo lo pendiente (menos de 2 s, RNF) y la toma vuelve a abrir igual.
+    $null = $app.CloseMainWindow()
+    if (-not $app.WaitForExit(15000)) { $app.Kill() }
+    $closed = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Toma: guardada al cerrar en' }) -join ' ')
+    $closeMs = if ($closed -match 'en (\d+) ms') { [int]$Matches[1] } else { -1 }
+    $app = Start-Process $mesa -ArgumentList '--toma', "`"$takeDir`"" -PassThru
+    Start-Sleep 5
+    $opened = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Toma abierta de' }) -join ' ')
+    if ($closeMs -ge 0 -and $closeMs -lt 2000 -and $opened.Contains($expected)) {
+        Write-Host "  ok   al cerrar espera $closeMs ms y la toma abre igual"
+    } else {
+        Write-Host "  FALLA cierre: $closed · $opened"
+        $failures.Add('Cierre')
     }
 }
 finally {
