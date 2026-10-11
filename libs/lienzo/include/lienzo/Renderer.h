@@ -152,6 +152,21 @@ public:
         m_panelVisible = false;
     }
 
+    // La marca de la esquina de la hoja que se muestra (HU-104, rol y número): una imagen de
+    // size × size (BGRA; se usa el alfa) en (x, y) desde la esquina de la hoja, pintada de
+    // `color` encima del grafito y antes del giro. pixels vacío: sin marca. Llamarla junto con
+    // setLayers, así cambia en el mismo frame que el flip.
+    void setMark(int x, int y, int size, std::vector<uint32_t> pixels, uint32_t color)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_markX = x;
+        m_markY = y;
+        m_markSize = size;
+        m_markPixels = std::move(pixels);
+        m_markColor = color;
+        m_markChanged = true;
+    }
+
     // Resumen de la sesión para el log: latencias, adelanto final, vsyncs perdidos.
     std::string summary() const;
 
@@ -184,6 +199,10 @@ private:
     int m_panelX = 0, m_panelY = 0, m_panelW = 0, m_panelH = 0;
     std::vector<uint32_t> m_panelPixels;
     std::vector<PanelThumb> m_panelThumbs;
+    bool m_markChanged = false;
+    int m_markX = 0, m_markY = 0, m_markSize = 0;
+    std::vector<uint32_t> m_markPixels;
+    uint32_t m_markColor = 0;
 };
 
 } // namespace lienzo

@@ -16,6 +16,7 @@
 #include "lienzo/Timing.h"
 #include "lienzo/ToolPage.h"
 
+#include <cstring>
 #include <appkit/CalibrationOverlay.h>
 #include <appkit/Config.h>
 #include <appkit/Paths.h>
@@ -293,6 +294,7 @@ struct Lienzo::Impl {
         sim->setTilt(tilt);
         sim->setTexture(texture);
         sim->setGuides(guideLayer());
+        sim->setRoles(roles);
         sim->setRotation(rotation());
         if (render)
             render->setRotation(rotation());
@@ -351,8 +353,36 @@ struct Lienzo::Impl {
             shown = releasedTo;
             untilActive = true;
         }
+        applyMark();
         render->setLayers(shown, std::move(below), untilActive);
         refreshSheetPanel();
+    }
+
+    // Rol y número (HU-104): la marca de la hoja que se ve (al flipear, la de delante), en la
+    // esquina superior derecha; se vuelve a pintar solo si cambió el número o el rol.
+    SheetRoles roles;
+    int markNumber = 0;
+    SheetRole markRole = SheetRole::None;
+    void applyMark()
+    {
+        if (!options.sheets)
+            return;
+        const int index = flipping() && order.valid(shownSheet) ? shownSheet : order.active;
+        const int number = index + 1;
+        const SheetRole role = roleOf(roles, order.ids[size_t(index)]);
+        if (number == markNumber && role == markRole)
+            return;
+        markNumber = number;
+        markRole = role;
+        const double scale = screen->devicePixelRatio();
+        const int size = int(std::lround(64 * scale)), margin = int(std::lround(20 * scale));
+        const QImage mark = paintSheetMark(number, role, size);
+        std::vector<uint32_t> pixels(size_t(size) * size_t(size));
+        for (int y = 0; y < size; ++y)
+            std::memcpy(pixels.data() + size_t(y) * size_t(size), mark.constScanLine(y), size_t(size) * 4);
+        const QColor ink = appkit::theme::kMarcaHoja;
+        render->setMark(mapping.sheetWidth - margin - size, margin, size, std::move(pixels),
+                        bgra(ink.red(), ink.green(), ink.blue()));
     }
 
     // Panel de hojas (HU-114): se vuelve a pintar solo si cambió algo (la imagen la pinta Qt
@@ -379,8 +409,9 @@ struct Lienzo::Impl {
         info.take = saver ? QFileInfo(saver->dir()).fileName() : QString();
         info.saved = !saver || (!saver->pending() && sim->unsavedSheets() == 0);
         info.number = center + 1;
+        info.role = roleOf(roles, order.ids[size_t(center)]);
         info.total = order.count;
-        info.strip = panelSlots(order, center);
+        info.strip = panelSlots(order, center, 3, roles);
         if (colorPencil >= 0) {
             info.lead = QString::fromUtf8(kColorPencilNames[size_t(colorPencil)].name);
             info.leadColor = QColor::fromRgb(QRgb(kColorPencilColors[size_t(colorPencil)]));
@@ -602,6 +633,7 @@ struct Lienzo::Impl {
         computeMapping();
         createSimulation();
         render->setSheetRect(sheetRect());
+        markNumber = 0; // la marca va en la esquina de la hoja nueva
         applyLayers();
         if (!area)
             render->setOverlay(true);
@@ -1323,6 +1355,7 @@ bool Lienzo::openTake(const QString& dir)
                              .toStdWString();
     }
     d->viewDegrees = ViewRotation::normalized(view.degrees);
+    d->roles = view.roles;
     d->createSimulation(); // con la pila nueva (y la vista); pinta la activa
     d->applyLayers();
     if (wasRunning)
@@ -1371,6 +1404,30 @@ int Lienzo::sheetCount() const
 int Lienzo::activeSheet() const
 {
     return d->syncOrder().active;
+}
+
+SheetRole Lienzo::cycleActiveRole()
+{
+    const SheetOrder& order = d->syncOrder();
+    const uint64_t id = order.activeId();
+    const SheetRole role = nextRole(roleOf(d->roles, id));
+    if (role == SheetRole::None)
+        d->roles.erase(id);
+    else
+        d->roles[id] = role;
+    d->sim->setRoles(d->roles);
+    d->applyLayers();
+    qInfo().noquote() << QStringLiteral("Rol: %1 · hoja %2 de %3")
+                             .arg(role == SheetRole::None ? QStringLiteral("sin rol") : roleName(role))
+                             .arg(order.active + 1)
+                             .arg(order.count);
+    return role;
+}
+
+SheetRole Lienzo::activeRole() const
+{
+    const SheetOrder& order = d->syncOrder();
+    return roleOf(d->roles, order.activeId());
 }
 
 bool Lienzo::activeSheetBlank() const

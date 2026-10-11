@@ -190,6 +190,16 @@ public:
         wake(); // la luz de la textura (HU-75) se recalcula con el giro
     }
 
+    // Roles de las hojas (HU-104), para toma.json: se guardan con la vista, en la pausa siguiente.
+    void setRoles(SheetRoles roles)
+    {
+        {
+            std::lock_guard lock(m_rotationMutex);
+            m_roles = std::move(roles);
+        }
+        wake();
+    }
+
     // Capa de guías (HU-64): BGRA premultiplicado del tamaño de la imagen, o vacía para
     // sacarla. Se puede llamar en cualquier momento: el hilo de simulación la toma y repinta
     // todo una vez.
@@ -262,6 +272,7 @@ private:
     std::atomic<bool> m_guidesChanged{false};
     std::mutex m_rotationMutex;
     ViewRotation m_rotation;
+    SheetRoles m_roles; // con m_rotationMutex
     std::atomic<uint64_t> m_lead;
     std::atomic<uint64_t> m_eraser;
     std::atomic<bool> m_erasing{false};

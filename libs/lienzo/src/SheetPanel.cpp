@@ -41,7 +41,7 @@ QFont font(bool mono, double px, int weight = QFont::Normal)
 
 } // namespace
 
-std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int around)
+std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int around, const SheetRoles& roles)
 {
     std::vector<PanelSlot> strip;
     for (int i = center - around; i <= center + around; ++i) {
@@ -49,6 +49,7 @@ std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int aroun
         if (order.valid(i)) {
             s.id = order.ids[size_t(i)];
             s.number = i + 1;
+            s.role = roleOf(roles, s.id);
         }
         s.center = i == center;
         strip.push_back(s);
@@ -124,8 +125,14 @@ QImage paintPanel(const PanelInfo& info, const PanelLayout& layout, const QColor
     y = px(kPad + kHeader + kGap);
     const QFont big = font(true, px(40), QFont::Medium);
     const QString number = QString::number(info.number);
-    const double numberW = QFontMetricsF(big).horizontalAdvance(number);
-    text(QRectF(left, y, numberW + 1, px(40)), number, big, accent, Qt::AlignLeft | Qt::AlignBottom);
+    double numberW = QFontMetricsF(big).horizontalAdvance(number);
+    if (info.role == SheetRole::None) {
+        text(QRectF(left, y, numberW + 1, px(40)), number, big, accent, Qt::AlignLeft | Qt::AlignBottom);
+    } else { // HU-104: con su marca, como en la hoja (círculo de la altura del número y su aire)
+        numberW = px(kNumber - 6);
+        drawRoleMark(p, QRectF(left, y, numberW, numberW), info.number, info.role, font(true, px(26), QFont::Medium), accent,
+                     px(2));
+    }
     text(QRectF(left + numberW + px(10), y, right - left - numberW - px(10), px(40) - px(4)),
          QStringLiteral("de %1 hojas").arg(info.total), font(false, px(14)), theme::kTextoSecundario,
          Qt::AlignLeft | Qt::AlignBottom);
@@ -150,8 +157,15 @@ QImage paintPanel(const PanelInfo& info, const PanelLayout& layout, const QColor
         if (!slot.center) // 1 px de marco y 1 de fondo
             p.fillRect(box.adjusted(1, 1, -1, -1), theme::kPanel);
         p.fillRect(inner, paper); // hasta que el render ponga la miniatura
-        text(QRectF(left, box.top(), px(kNumberColumn), box.height()), QString::number(slot.number), mono,
-             slot.center ? accent : theme::kTextoSecundario, Qt::AlignRight | Qt::AlignVCenter);
+        const QColor numberColor = slot.center ? accent : theme::kTextoSecundario;
+        if (slot.role == SheetRole::None) {
+            text(QRectF(left, box.top(), px(kNumberColumn), box.height()), QString::number(slot.number), mono, numberColor,
+                 Qt::AlignRight | Qt::AlignVCenter);
+        } else { // HU-104: con su marca, contra el borde derecho de la columna
+            const double d = std::min(px(kNumberColumn), box.height());
+            drawRoleMark(p, QRectF(left + px(kNumberColumn) - d, box.center().y() - d / 2, d, d), slot.number, slot.role,
+                         font(true, px(12)), numberColor, px(1.5));
+        }
     }
 
     // Lápiz, mesa de luz y vista.

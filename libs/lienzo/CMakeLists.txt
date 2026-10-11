@@ -18,6 +18,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/SheetImages.h
     include/lienzo/SheetMapping.h
     include/lienzo/SheetPanel.h
+    include/lienzo/SheetRole.h
     include/lienzo/SheetStack.h
     include/lienzo/Simulation.h
     include/lienzo/Take.h
@@ -38,6 +39,7 @@ qt_add_library(lienzo STATIC
     src/SheetImages.cpp
     src/SheetMapping.cpp
     src/SheetPanel.cpp
+    src/SheetRole.cpp
     src/SheetStack.cpp
     src/Simulation.cpp
     src/Take.cpp

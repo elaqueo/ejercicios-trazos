@@ -259,6 +259,20 @@ try {
         $failures.Add('Menú del lápiz')
     }
 
+    # HU-104: K marca la activa como key y queda en toma.json (en la pausa siguiente); K K la
+    # pasan a breakdown y otra vez a sin rol.
+    $ws.SendKeys('k'); Start-Sleep -Milliseconds 2500
+    $json = Get-Content (Join-Path $takeDir 'toma.json') -Raw -Encoding utf8 | ConvertFrom-Json
+    $keyed = @($json.hojas | Where-Object { $_.rol -eq 'key' }).Count
+    foreach ($k in 'k', 'k') { $ws.SendKeys($k); Start-Sleep -Milliseconds 400 }
+    $roles = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Rol: ' }) -join ' ')
+    if ($keyed -eq 1 -and $roles -match 'Rol: key.*Rol: breakdown.*Rol: sin rol') {
+        Write-Host '  ok   K marca key (guardado en toma.json), breakdown y sin rol'
+    } else {
+        Write-Host "  FALLA rol: $keyed key en toma.json · $roles"
+        $failures.Add('Rol')
+    }
+
     # HU-88: con la activa en la 3 de 3, ↑ ↑ la llevan al principio, otra ↑ no hace nada, ↓ la
     # vuelve a la 2 y Z deshace eso: queda primera, y así se guarda en toma.json.
     foreach ($k in '{UP}', '{UP}', '{UP}', '{DOWN}', 'z') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }

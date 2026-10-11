@@ -161,6 +161,11 @@ struct Renderer::Impl {
     ComPtr<ID3D11Texture2D> panel;
     int panelW = 0, panelH = 0;
     std::unordered_map<uint64_t, Thumbnail> thumbs;
+    // La marca de la esquina (HU-104).
+    ComPtr<ID3D11Texture2D> mark;
+    ComPtr<ID3D11ShaderResourceView> markView;
+    int markSize = 0;
+    SheetMarkLayer markLayer;
     ComPtr<ID3D11VertexShader> thumbVs;
     ComPtr<ID3D11PixelShader> thumbPs;
     ComPtr<ID3D11Buffer> thumbConstants;
@@ -696,6 +701,32 @@ void Renderer::run()
                 if (d.panel && m_panelPixels.size() == size_t(m_panelW) * size_t(m_panelH))
                     d.context->UpdateSubresource(d.panel.Get(), 0, nullptr, m_panelPixels.data(), UINT(m_panelW) * 4, 0);
             }
+            if (m_markChanged) { // la marca (HU-104), a su textura
+                m_markChanged = false;
+                const int size = m_markSize;
+                if (m_markPixels.size() != size_t(size) * size_t(size) || size <= 0) {
+                    d.markLayer.view = nullptr;
+                } else {
+                    if (!d.mark || d.markSize != size) {
+                        D3D11_TEXTURE2D_DESC td{};
+                        td.Width = td.Height = UINT(size);
+                        td.MipLevels = 1;
+                        td.ArraySize = 1;
+                        td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+                        td.SampleDesc.Count = 1;
+                        td.Usage = D3D11_USAGE_DEFAULT;
+                        td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+                        d.mark.Reset();
+                        d.markView.Reset();
+                        if (SUCCEEDED(d.device->CreateTexture2D(&td, nullptr, &d.mark)))
+                            d.device->CreateShaderResourceView(d.mark.Get(), nullptr, &d.markView);
+                        d.markSize = size;
+                    }
+                    if (d.mark)
+                        d.context->UpdateSubresource(d.mark.Get(), 0, nullptr, m_markPixels.data(), UINT(size) * 4, 0);
+                    d.markLayer = {d.markView.Get(), {m_markX, m_markY, m_markX + size, m_markY + size}, m_markColor};
+                }
+            }
             sheetRect = m_sheetRect;
             shown = m_shown;
             untilActive = m_untilActive;
@@ -756,15 +787,20 @@ void Renderer::run()
             for (const SheetLayer& l : below)
                 if (ID3D11ShaderResourceView* v = d.sheetView(l.sheet, sheetW, sheetH))
                     layers.push_back({v, l.color, l.opacity});
-            if (base || !layers.empty()) {
+            // La marca sola (HU-104), con la vista sin girar, va después sobre su recuadro (drawMark).
+            const SheetMarkLayer* mark = d.markLayer.view ? &d.markLayer : nullptr;
+            if (base || !layers.empty() || (mark && !rotation.identity())) {
                 d.compositor.compose(d.context.Get(), d.display.Get(), d.displayView.Get(), base, sheetRect, layers,
-                                     d.composed.Get());
+                                     d.composed.Get(), mark);
                 source = d.composed.Get();
                 sourceView = d.composedView.Get();
             }
         }
-        if (rotation.identity() || !d.drawRotated(back.Get(), rotation, sourceView))
+        if (rotation.identity() || !d.drawRotated(back.Get(), rotation, sourceView)) {
             d.context->CopyResource(back.Get(), source);
+            if (source == d.display.Get() && d.markLayer.view && d.compositorReady)
+                d.compositor.drawMark(d.context.Get(), d.displayView.Get(), sheetRect, d.markLayer, back.Get());
+        }
         if (panelVisible)
             d.drawPanel(back.Get(), panelX, panelY, panelThumbs, sheetRect, now);
         if (m_overlay) {

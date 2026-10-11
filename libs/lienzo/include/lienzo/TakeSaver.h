@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lienzo/SheetImages.h"
+#include "lienzo/SheetRole.h"
 
 #include <QString>
 
@@ -18,11 +19,13 @@ class Paper;
 
 namespace lienzo {
 
-// Lo que guarda toma.json de la pila (HU-86): el orden de las hojas, la activa y la vista.
+// Lo que guarda toma.json de la pila (HU-86): el orden de las hojas, la activa, la vista y los
+// roles (HU-104, solo de las hojas que están).
 struct TakeIndex {
     std::vector<uint64_t> ids;
     int active = 0;
     double degrees = 0;
+    SheetRoles roles;
     bool operator==(const TakeIndex&) const = default;
 };
 

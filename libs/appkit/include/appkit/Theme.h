@@ -32,6 +32,7 @@ inline const QColor kTinta{0x11, 0x11, 0x11};
 inline const QColor kGuia{0x25, 0x63, 0xEB};       // lo que se une o se sigue
 inline const QColor kGuiaSuave{0x9D, 0xB8, 0xF2};  // construcción (horizonte, líneas a PF)
 inline const QColor kEnfasis{0xE0, 0x8A, 0x1E};    // dirección, PF, objetivos
+inline const QColor kMarcaHoja{0x6B, 0x71, 0x78};  // gris tinta: el número y el rol de la hoja (HU-104; el azul se confundía con el lápiz azul)
 
 // Mesa de luz (HU-91, Mesa de animación; mesa "Mesa de luz" del canvas): las hojas anteriores
 // y las siguientes, teñidas como lápices de color; la opacidad según la distancia a la

@@ -204,6 +204,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     1. Un atajo alterna sin rol → key → breakdown; la marca (número con círculo para key, con una raya para breakdown) se dibuja en la esquina superior derecha, fuera del área de dibujo, con el estilo de las guías.
     2. El número es la posición en la pila (la fija no cuenta) y se actualiza al reordenar.
     3. Se guarda en `toma.json`.
+    4. *Hecho (11 oct 2026): K alterna el rol de la activa (sin deshacer; la copia de Ctrl+D sale sin rol). La marca va en gris tinta y no en el azul de las guías, que se confundía con el lápiz azul (mesa "Rol y número"); también en el panel de hojas. La pinta el render encima de la hoja, solo en su recuadro cuando no hay que componer (benchmark igual que Cartuchera). Detalle en [arquitectura.md](arquitectura.md).*
 105. **HU-105 · Carta de timing** (Could · 2 pts). Como animador, quiero un rincón reservado en la hoja key para dibujar el chart a mano, para que viva con la clave.
     1. En las keys se ve un rectángulo tenue en la esquina superior izquierda; es solo una guía: ahí se dibuja con el lápiz como en el resto de la hoja.
     2. Un atajo lo muestra y oculta.

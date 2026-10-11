@@ -19,7 +19,7 @@ Una toma es una carpeta que se puede copiar a otra máquina y leer sin la app (R
 
 ```text
 toma-1/
-  toma.json        el papel, el orden de las hojas, la activa, la vista; lugar para roles y audio
+  toma.json        el papel, el orden de las hojas con su rol, la activa, la vista; lugar para el audio
   hoja-1.hoja      una hoja: su depósito y su imagen de pantalla, comprimidos con zstd
   hoja-2.hoja
   ...
@@ -41,7 +41,7 @@ toma-1/
     "version": 1,
     "papel": { "semilla": 1, "dpi": 300, "grano": 300, "anchoCeldas": 3840, "altoCeldas": 2400 },
     "hojas": [
-        { "id": 1, "archivo": "hoja-1.hoja", "rol": "" },
+        { "id": 1, "archivo": "hoja-1.hoja", "rol": "key" },
         { "id": 3, "archivo": "hoja-3.hoja", "rol": "" }
     ],
     "activa": 0,
@@ -52,7 +52,8 @@ toma-1/
 
 - **`hojas`:** las hojas en orden.
   - `id` no cambia al mover ni al agregar otras hojas (es el de `SheetOrder`).
-  - `rol` queda vacío hasta HU-104 (key o breakdown).
+  - `rol`: `key`, `breakdown` o vacío (HU-104). Va por hoja, así sigue a su hoja al reordenar; una toma sin roles abre igual.
+  - La marca de la esquina (el número y el rol de la hoja que se ve) no es grafito: la pinta Qt en una textura chica (lienzo/SheetRole.h) y el render la tiñe de gris tinta encima de la hoja. Con la vista sin girar y sin mesa de luz ni flip se pinta solo su recuadro sobre la copia de siempre (`Compositor::drawMark`); si no, va dentro de la composición, antes del giro, y gira con la hoja. Benchmark igual que Cartuchera (11,3 a 11,6 ms de mediana; la composición entera en cada frame costaba 0,5 ms).
 - **`activa`:** la posición de la hoja activa en `hojas`.
 - **`papel`:** tiene que ser igual al del papel de la app. Una toma de otro papel no se abre.
 - **`audio`:** queda vacío hasta HU-106 a HU-108.

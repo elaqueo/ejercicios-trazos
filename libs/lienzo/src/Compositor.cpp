@@ -25,10 +25,14 @@ cbuffer LightTable : register(b0)
     float4 graphite;  // grafito saturado (rgb)
     float4 tint[6];   // rgb: color de la capa; a: opacidad
     uint count;
-    uint3 pad;
+    uint hasMark;
+    uint2 pad;
+    float4 markRect;  // la marca (HU-104) en uv de la hoja: x0, y0, x1, y1
+    float4 markColor; // rgb
 };
 Texture2D shown : register(t0);
 Texture2D below[6] : register(t1);
+Texture2D mark : register(t7);
 SamplerState pointClamp : register(s0);
 struct V { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 V vs(uint id : SV_VertexID)
@@ -51,7 +55,19 @@ float4 ps(V v) : SV_Target
             factor *= lerp(float3(1, 1, 1), tint[i].rgb, amount * tint[i].a);
         }
     }
-    return float4(color * factor, 1);
+    color *= factor;
+    if (hasMark != 0) {
+        float2 m = (v.uv - markRect.xy) / (markRect.zw - markRect.xy);
+        if (all(m >= 0) && all(m < 1))
+            color = lerp(color, markColor.rgb, mark.Sample(pointClamp, m).a);
+    }
+    return float4(color, 1);
+}
+// Solo la marca: rect es su recuadro, baseUv su región en la imagen de pantalla.
+float4 psMark(V v) : SV_Target
+{
+    float3 color = shown.Sample(pointClamp, baseUv.xy + v.uv * baseUv.zw).rgb;
+    return float4(lerp(color, markColor.rgb, mark.Sample(pointClamp, v.uv).a), 1);
 }
 )";
 
@@ -62,7 +78,10 @@ struct Constants {
     float graphite[4];
     float tint[Compositor::kMaxLayers][4];
     uint32_t count;
-    uint32_t pad[3];
+    uint32_t hasMark;
+    uint32_t pad[2];
+    float markRect[4];
+    float markColor[4];
 };
 
 void rgb(uint32_t c, float out[4])
@@ -78,14 +97,17 @@ void rgb(uint32_t c, float out[4])
 bool Compositor::init(ID3D11Device* device)
 {
     m_device = device;
-    ComPtr<ID3DBlob> vsCode, psCode, errors;
+    ComPtr<ID3DBlob> vsCode, psCode, markCode, errors;
     if (FAILED(D3DCompile(kLightTableShader, sizeof(kLightTableShader) - 1, "lighttable", nullptr, nullptr, "vs", "vs_5_0",
                           0, 0, &vsCode, &errors)) ||
         FAILED(D3DCompile(kLightTableShader, sizeof(kLightTableShader) - 1, "lighttable", nullptr, nullptr, "ps", "ps_5_0",
-                          0, 0, &psCode, &errors)))
+                          0, 0, &psCode, &errors)) ||
+        FAILED(D3DCompile(kLightTableShader, sizeof(kLightTableShader) - 1, "lighttable", nullptr, nullptr, "psMark",
+                          "ps_5_0", 0, 0, &markCode, &errors)))
         return false;
     device->CreateVertexShader(vsCode->GetBufferPointer(), vsCode->GetBufferSize(), nullptr, &m_vs);
     device->CreatePixelShader(psCode->GetBufferPointer(), psCode->GetBufferSize(), nullptr, &m_ps);
+    device->CreatePixelShader(markCode->GetBufferPointer(), markCode->GetBufferSize(), nullptr, &m_markPs);
     D3D11_BUFFER_DESC bd{};
     bd.ByteWidth = sizeof(Constants);
     bd.Usage = D3D11_USAGE_DEFAULT;
@@ -97,12 +119,12 @@ bool Compositor::init(ID3D11Device* device)
     sd.AddressU = sd.AddressV = sd.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
     sd.MaxLOD = D3D11_FLOAT32_MAX;
     device->CreateSamplerState(&sd, &m_sampler);
-    return m_vs && m_ps && m_constants && m_sampler;
+    return m_vs && m_ps && m_markPs && m_constants && m_sampler;
 }
 
 void Compositor::compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, ID3D11ShaderResourceView* screenView,
                          ID3D11ShaderResourceView* base, const RECT& sheet, const std::vector<LightTableLayer>& layers,
-                         ID3D11Texture2D* out)
+                         ID3D11Texture2D* out, const SheetMarkLayer* mark)
 {
     D3D11_TEXTURE2D_DESC desc;
     out->GetDesc(&desc);
@@ -125,7 +147,7 @@ void Compositor::compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, 
     }
     rgb(m_paperColor, c.paper);
     rgb(kGraphiteColor, c.graphite);
-    ID3D11ShaderResourceView* views[1 + kMaxLayers] = {base ? base : screenView};
+    ID3D11ShaderResourceView* views[2 + kMaxLayers] = {base ? base : screenView};
     int count = 0;
     for (const LightTableLayer& layer : layers) {
         if (count == kMaxLayers || !layer.sheet)
@@ -136,6 +158,16 @@ void Compositor::compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, 
         ++count;
     }
     c.count = uint32_t(count);
+    const float sheetW = float(sheet.right - sheet.left), sheetH = float(sheet.bottom - sheet.top);
+    if (mark && mark->view && sheetW > 0 && sheetH > 0) {
+        c.hasMark = 1;
+        c.markRect[0] = float(mark->rect.left) / sheetW;
+        c.markRect[1] = float(mark->rect.top) / sheetH;
+        c.markRect[2] = float(mark->rect.right) / sheetW;
+        c.markRect[3] = float(mark->rect.bottom) / sheetH;
+        rgb(mark->color, c.markColor);
+        views[1 + kMaxLayers] = mark->view;
+    }
     context->UpdateSubresource(m_constants.Get(), 0, nullptr, &c, 0, 0);
 
     ComPtr<ID3D11RenderTargetView> target;
@@ -150,11 +182,55 @@ void Compositor::compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, 
     context->VSSetConstantBuffers(0, 1, m_constants.GetAddressOf());
     context->PSSetShader(m_ps.Get(), nullptr, 0);
     context->PSSetConstantBuffers(0, 1, m_constants.GetAddressOf());
-    context->PSSetShaderResources(0, 1 + kMaxLayers, views);
+    context->PSSetShaderResources(0, 2 + kMaxLayers, views);
     context->PSSetSamplers(0, 1, m_sampler.GetAddressOf());
     context->Draw(4, 0);
-    ID3D11ShaderResourceView* none[1 + kMaxLayers] = {};
-    context->PSSetShaderResources(0, 1 + kMaxLayers, none);
+    ID3D11ShaderResourceView* none[2 + kMaxLayers] = {};
+    context->PSSetShaderResources(0, 2 + kMaxLayers, none);
+    context->OMSetRenderTargets(0, nullptr, nullptr);
+}
+
+void Compositor::drawMark(ID3D11DeviceContext* context, ID3D11ShaderResourceView* screenView, const RECT& sheet,
+                          const SheetMarkLayer& mark, ID3D11Texture2D* out)
+{
+    if (!mark.view)
+        return;
+    D3D11_TEXTURE2D_DESC desc;
+    out->GetDesc(&desc);
+    const float w = float(desc.Width), h = float(desc.Height);
+    const float left = float(sheet.left + mark.rect.left), top = float(sheet.top + mark.rect.top);
+    const float right = float(sheet.left + mark.rect.right), bottom = float(sheet.top + mark.rect.bottom);
+    Constants c{};
+    c.rect[0] = left / w * 2 - 1;
+    c.rect[1] = 1 - top / h * 2;
+    c.rect[2] = right / w * 2 - 1;
+    c.rect[3] = 1 - bottom / h * 2;
+    c.baseUv[0] = left / w;
+    c.baseUv[1] = top / h;
+    c.baseUv[2] = (right - left) / w;
+    c.baseUv[3] = (bottom - top) / h;
+    rgb(mark.color, c.markColor);
+    context->UpdateSubresource(m_constants.Get(), 0, nullptr, &c, 0, 0);
+
+    ComPtr<ID3D11RenderTargetView> target;
+    if (FAILED(m_device->CreateRenderTargetView(out, nullptr, &target)))
+        return;
+    const D3D11_VIEWPORT viewport{0, 0, w, h, 0, 1};
+    context->RSSetViewports(1, &viewport);
+    context->OMSetRenderTargets(1, target.GetAddressOf(), nullptr);
+    context->IASetInputLayout(nullptr);
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    context->VSSetShader(m_vs.Get(), nullptr, 0);
+    context->VSSetConstantBuffers(0, 1, m_constants.GetAddressOf());
+    context->PSSetShader(m_markPs.Get(), nullptr, 0);
+    context->PSSetConstantBuffers(0, 1, m_constants.GetAddressOf());
+    ID3D11ShaderResourceView* views[2 + kMaxLayers] = {screenView};
+    views[1 + kMaxLayers] = mark.view;
+    context->PSSetShaderResources(0, 2 + kMaxLayers, views);
+    context->PSSetSamplers(0, 1, m_sampler.GetAddressOf());
+    context->Draw(4, 0);
+    ID3D11ShaderResourceView* none[2 + kMaxLayers] = {};
+    context->PSSetShaderResources(0, 2 + kMaxLayers, none);
     context->OMSetRenderTargets(0, nullptr, nullptr);
 }
 

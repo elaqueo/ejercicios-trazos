@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lienzo/SheetRole.h"
 #include "lienzo/SheetStack.h"
 
 #include <QColor>
@@ -23,16 +24,18 @@ struct PanelSlot {
     uint64_t id = 0;
     int number = 0;      // desde 1
     bool center = false; // la activa (o la que se ve al flipear)
+    SheetRole role = SheetRole::None; // HU-104: el número va con su marca
     bool operator==(const PanelSlot&) const = default;
 };
 // La hoja `center` y `around` antes y después, en orden; los lugares fuera de la pila quedan
 // con id 0.
-std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int around = 3);
+std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int around = 3, const SheetRoles& roles = {});
 
 struct PanelInfo {
     QString take;       // el nombre de la toma (vacío: sin toma)
     bool saved = true;  // todo lo cambiado está escrito
     int number = 1;     // la hoja del centro, desde 1
+    SheetRole role = SheetRole::None;
     int total = 1;
     std::vector<PanelSlot> strip;
     QString lead;               // "HB · 0,87 mm", o el nombre del lápiz de color

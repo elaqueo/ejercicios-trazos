@@ -114,6 +114,8 @@ int main(int argc, char* argv[])
         canvas.insertSheet();
         logSheet("insertada");
     });
+    // Rol y número (HU-104): K alterna sin rol → key → breakdown (mesa "Rol y número").
+    canvas.shortcuts().add(QStringLiteral("Key, breakdown o sin rol"), {{'K'}}, [&canvas] { canvas.cycleActiveRole(); });
     canvas.shortcuts().add(QStringLiteral("Duplicar la hoja"), {{'D', true}}, [&] {
         canvas.duplicateSheet();
         logSheet("duplicada");

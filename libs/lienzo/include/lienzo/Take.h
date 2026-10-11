@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lienzo/SheetImages.h"
+#include "lienzo/SheetRole.h"
 
 #include <QString>
 
@@ -28,6 +29,7 @@ constexpr int kTakeVersion = 1;
 
 struct TakeView {
     double degrees = 0; // giro de la vista
+    SheetRoles roles;   // HU-104: key o breakdown, por id (solo las que tienen)
 };
 
 struct TakeResult {

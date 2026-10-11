@@ -172,7 +172,7 @@ QString writeTakeIndex(const QString& dir, const drymedia::Paper& paper, const s
         files.insert(sheetFileName(id));
         list.append(QJsonObject{{QStringLiteral("id"), qint64(id)},
                                 {QStringLiteral("archivo"), sheetFileName(id)},
-                                {QStringLiteral("rol"), QString()}}); // key / breakdown (HU-104)
+                                {QStringLiteral("rol"), roleName(roleOf(view.roles, id))}}); // HU-104
     }
     const QJsonObject root{
         {QStringLiteral("formato"), QStringLiteral("toma de Mesa de animación")},
@@ -264,6 +264,7 @@ TakeResult openTake(const QString& dir, drymedia::Paper& paper, SheetStack& shee
     };
     std::vector<Entry> entries;
     std::set<uint64_t> seen;
+    view.roles.clear();
     for (const QJsonValue v : root.value(QStringLiteral("hojas")).toArray()) {
         const QJsonObject o = v.toObject();
         const qint64 id = o.value(QStringLiteral("id")).toInteger();
@@ -271,6 +272,8 @@ TakeResult openTake(const QString& dir, drymedia::Paper& paper, SheetStack& shee
             continue; // id inválido o repetido: esa hoja no existe
         Entry e;
         e.id = uint64_t(id);
+        if (const SheetRole role = parseRole(o.value(QStringLiteral("rol")).toString()); role != SheetRole::None)
+            view.roles[e.id] = role;
         // Solo el nombre: los archivos de la toma están en su carpeta.
         e.file = QFileInfo(o.value(QStringLiteral("archivo")).toString()).fileName();
         entries.push_back(std::move(e));

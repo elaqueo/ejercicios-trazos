@@ -1176,7 +1176,8 @@ private slots:
         const PackedImage image = PackedImage::pack(3, 2, pixels.data());
 
         QTemporaryDir dir;
-        const TakeResult saved = saveTake(dir.path(), paper, stack, {45.0},
+        const TakeView roles{45.0, {{ids[0], SheetRole::Key}, {ids[2], SheetRole::Breakdown}}}; // HU-104
+        const TakeResult saved = saveTake(dir.path(), paper, stack, roles,
                                           [&](uint64_t id) { return id == ids[0] ? image : PackedImage{}; });
         QVERIFY2(saved.ok, qPrintable(saved.error));
         const QDir folder(dir.path());
@@ -1188,6 +1189,9 @@ private slots:
         QCOMPARE(root.value(QStringLiteral("version")).toInt(), kTakeVersion);
         QCOMPARE(root.value(QStringLiteral("hojas")).toArray().size(), 3);
         QCOMPARE(root.value(QStringLiteral("activa")).toInt(), 1);
+        QCOMPARE(root.value(QStringLiteral("hojas")).toArray()[0].toObject().value(QStringLiteral("rol")).toString(),
+                 QStringLiteral("key"));
+        QCOMPARE(root.value(QStringLiteral("hojas")).toArray()[1].toObject().value(QStringLiteral("rol")).toString(), QString());
 
         drymedia::Paper other(spec);
         SheetStack opened(100);
@@ -1201,6 +1205,7 @@ private slots:
         for (int i = 0; i < 3; ++i)
             QCOMPARE(opened.hash(other, i), hashes[size_t(i)]);
         QCOMPARE(view.degrees, 45.0);
+        QVERIFY(view.roles == roles.roles);
         QCOMPARE(images.size(), size_t(1));
         QCOMPARE(images[0].first, ids[0]);
         std::vector<uint32_t> back;
@@ -1318,6 +1323,51 @@ private slots:
         strip = panelSlots(o, 5);
         QCOMPARE(strip[3].number, 6);
         QCOMPARE(strip[4].id, uint64_t(0)); // después de la última
+    }
+
+    // HU-104: K da la vuelta sin rol → key → breakdown; el rol sigue a su hoja al reordenar y
+    // el número es la posición.
+    void rolesDeLaHoja()
+    {
+        QCOMPARE(nextRole(SheetRole::None), SheetRole::Key);
+        QCOMPARE(nextRole(SheetRole::Key), SheetRole::Breakdown);
+        QCOMPARE(nextRole(SheetRole::Breakdown), SheetRole::None);
+        for (SheetRole r : {SheetRole::None, SheetRole::Key, SheetRole::Breakdown})
+            QCOMPARE(parseRole(roleName(r)), r);
+        QCOMPARE(parseRole(QStringLiteral("otra cosa")), SheetRole::None);
+
+        SheetOrder o;
+        o.add(1);
+        o.add(2); // ids 1, 2, 3
+        const SheetRoles roles{{1, SheetRole::Key}, {3, SheetRole::Breakdown}};
+        QCOMPARE(roleOf(roles, 2), SheetRole::None);
+        o.move(0, 2); // la key pasa al final: 2, 3, 1
+        const std::vector<PanelSlot> strip = panelSlots(o, 2, 1, roles);
+        QCOMPARE(strip[1].id, uint64_t(1));
+        QCOMPARE(strip[1].number, 3);
+        QCOMPARE(strip[1].role, SheetRole::Key);
+        QCOMPARE(strip[0].role, SheetRole::Breakdown);
+        QCOMPARE(strip[0].number, 2);
+    }
+
+    // HU-104: la marca de la esquina: el círculo solo en la key, la raya solo en el breakdown.
+    void marcaDeLaHoja()
+    {
+        const QImage none = paintSheetMark(12, SheetRole::None, 64);
+        const QImage key = paintSheetMark(12, SheetRole::Key, 64);
+        const QImage breakdown = paintSheetMark(12, SheetRole::Breakdown, 64);
+        QCOMPARE(key.size(), QSize(64, 64));
+        const auto ink = [](const QImage& im, int x, int y) { return qAlpha(im.pixel(x, y)) > 64; };
+        QVERIFY(ink(key, 9, 32));   // el borde izquierdo del círculo
+        QVERIFY(!ink(none, 9, 32));
+        QVERIFY(!ink(breakdown, 9, 32));
+        bool line = false, lineNone = false;
+        for (int y = 44; y < 56; ++y) { // debajo de los números
+            line = line || ink(breakdown, 32, y);
+            lineNone = lineNone || ink(none, 32, y);
+        }
+        QVERIFY(line);
+        QVERIFY(!lineNone);
     }
 
     // HU-114: el panel va pegado a la derecha, de 240 px a escala 1; las miniaturas tienen la

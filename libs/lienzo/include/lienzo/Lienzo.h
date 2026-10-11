@@ -4,6 +4,7 @@
 #include "lienzo/Media.h"
 #include "lienzo/PenMenu.h"
 #include "lienzo/SheetMapping.h"
+#include "lienzo/SheetRole.h"
 #include "lienzo/Tone.h"
 
 #include <appkit/Shortcuts.h>
@@ -129,6 +130,11 @@ public:
     // su lugar, mover conserva cuál es. Se atiende en la simulación, entre trazos.
     int sheetCount() const;
     int activeSheet() const;
+    // Rol de la hoja (HU-104, mesa "Rol y número"): K pasa la activa de sin rol a key, a
+    // breakdown y otra vez a sin rol (sin deshacer). El número de la hoja y su marca se ven en la
+    // esquina superior derecha y en el panel; se guarda en toma.json.
+    SheetRole cycleActiveRole();
+    SheetRole activeRole() const;
     // La activa no tiene ningún trazo (para no pedir confirmación al borrarla). false si
     // todavía no se sabe (hay pedidos en camino).
     bool activeSheetBlank() const;

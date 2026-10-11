@@ -159,6 +159,53 @@ private slots:
                 QCOMPARE(got[size_t(sheet.top + sy) * W + sheet.left + sx], other[size_t(sy) * SW + sx]);
     }
 
+    // HU-104: la marca se pinta de su color según su cobertura, en su lugar de la hoja; el resto
+    // queda igual.
+    void marcaEncima()
+    {
+        const std::vector<uint32_t> screen(size_t(W) * H, kPaperColor);
+        std::vector<uint32_t> cover(8 * 8, 0x00FFFFFFu);
+        for (int y = 0; y < 8; ++y)
+            for (int x = 0; x < 4; ++x)
+                cover[size_t(y) * 8 + x] = 0xFFFFFFFFu; // la mitad izquierda, tinta llena
+        const Texture in = makeTexture(device.Get(), W, H, screen);
+        const Texture mark = makeTexture(device.Get(), 8, 8, cover);
+        const Texture out = makeTexture(device.Get(), W, H, std::vector<uint32_t>(size_t(W) * H), true);
+        const SheetMarkLayer layer{mark.view.Get(), {10, 5, 18, 13}, kRed};
+        compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), nullptr, sheet, {}, out.texture.Get(), &layer);
+        const std::vector<uint32_t> got = readBack(device.Get(), context.Get(), out.texture.Get());
+        for (int sy = 0; sy < SH; ++sy)
+            for (int sx = 0; sx < SW; ++sx) {
+                const bool inked = sx >= 10 && sx < 14 && sy >= 5 && sy < 13;
+                const uint32_t px = got[size_t(sheet.top + sy) * W + sheet.left + sx];
+                QVERIFY2(similar(px, inked ? kRed : kPaperColor), qPrintable(QStringLiteral("(%1, %2): %3").arg(sx).arg(sy).arg(px, 8, 16)));
+            }
+    }
+
+    // HU-104: drawMark pinta lo mismo que compose con la marca, pero solo en su recuadro.
+    void marcaSola()
+    {
+        std::vector<uint32_t> screen(size_t(W) * H, kPaperColor);
+        screen[size_t(sheet.top + 7) * W + sheet.left + 12] = kGraphiteColor; // grafito bajo la marca, sin tinta
+        std::vector<uint32_t> cover(8 * 8, 0x00FFFFFFu);
+        for (int y = 0; y < 8; ++y)
+            for (int x = 0; x < 4; ++x)
+                cover[size_t(y) * 8 + x] = 0xFFFFFFFFu;
+        const Texture in = makeTexture(device.Get(), W, H, screen);
+        const Texture mark = makeTexture(device.Get(), 8, 8, cover);
+        const Texture viaCompose = makeTexture(device.Get(), W, H, std::vector<uint32_t>(size_t(W) * H), true);
+        const Texture viaMark = makeTexture(device.Get(), W, H, screen, true);
+        const SheetMarkLayer layer{mark.view.Get(), {10, 5, 18, 13}, kRed};
+        compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), nullptr, sheet, {}, viaCompose.texture.Get(), &layer);
+        compositor.drawMark(context.Get(), in.view.Get(), sheet, layer, viaMark.texture.Get());
+        const std::vector<uint32_t> a = readBack(device.Get(), context.Get(), viaCompose.texture.Get());
+        const std::vector<uint32_t> b = readBack(device.Get(), context.Get(), viaMark.texture.Get());
+        for (size_t i = 0; i < a.size(); ++i)
+            QVERIFY2(similar(a[i], b[i]), qPrintable(QStringLiteral("%1: %2 y %3").arg(i).arg(a[i], 8, 16).arg(b[i], 8, 16)));
+        QCOMPARE(b[size_t(sheet.top + 7) * W + sheet.left + 12], kRed); // tinta encima del grafito
+        QCOMPARE(b[size_t(sheet.top + 7) * W + sheet.left + 16], kPaperColor);
+    }
+
     // Seis hojas de abajo a tamaño real (1734 × 1080) en menos de 8 ms de GPU.
     void seisCapasATamanoReal()
     {
