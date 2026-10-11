@@ -85,7 +85,7 @@ public:
     // muestras que ya habían llegado y las que llegan después (HU-90; el trazo en curso se
     // cierra). Cambiar la hoja del papel
     // repinta la imagen entera. Insertar, duplicar, limpiar y quitar se deshacen con Z
-    // (HU-87, si hay deshacer).
+    // (HU-87, si hay deshacer); mover también (HU-88).
     void requestAddSheet(int at) { pushSheetCommand({SheetCommand::Add, at, 0}); }
     void requestInsertSheet() { pushSheetCommand({SheetCommand::Insert, 0, 0}); }       // después de la activa, y activa
     void requestDuplicateSheet() { pushSheetCommand({SheetCommand::Duplicate, 0, 0}); } // ídem, una copia

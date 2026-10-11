@@ -803,6 +803,52 @@ private slots:
         QCOMPARE(stack.count(), 2);
     }
 
+    // HU-88: mover una hoja se deshace y se rehace, en orden con los trazos, sin cambiar la
+    // hoja del papel ni el contenido de ninguna.
+    void pilaMoverSeDeshace()
+    {
+        drymedia::Paper paper({.seed = 3, .widthMm = 80, .heightMm = 60});
+        SheetStack stack(100);
+        drymedia::Pencil pencil(paper, drymedia::Medium::hb());
+        pencil.setTileObserver([&stack](int i, const uint16_t* before, uint8_t planes) {
+            stack.history().beforeTileWrite(i, before, planes);
+        });
+        uint64_t tag = 0;
+        const auto stroke = [&](double y) {
+            stack.history().beginStroke(++tag);
+            stack.clearRedo();
+            pencil.beginStroke({200, y, 0.6f, 0, 80});
+            for (int i = 1; i <= 30; ++i)
+                pencil.strokeTo({200 + 1000.0 * i / 30, y, 0.6f, 0, 80});
+            pencil.endStroke();
+            stack.history().endStroke(paper);
+        };
+        stack.add(paper, 1, ++tag);
+        stack.add(paper, 2, ++tag); // [1*, 2, 3]
+        stack.activate(paper, 1);   // [1, 2*, 3]
+        stroke(300);
+        const uint64_t drawn = paper.hash();
+        QVERIFY(!stack.move(1, 0, ++tag)); // [2*, 1, 3]: la activa sigue en el papel
+        QCOMPARE(stack.order().ids, (std::vector<uint64_t>{2, 1, 3}));
+        QCOMPARE(stack.active(), 0);
+        QVERIFY(!stack.move(0, 0, ++tag)); // mismo lugar: nada, y no se guarda
+        stroke(500);                       // después del movimiento
+        const uint64_t twice = paper.hash();
+
+        SheetStack::UndoResult r = stack.undo(paper); // el trazo
+        QVERIFY(!r.sheetChanged && !r.tiles.empty());
+        r = stack.undo(paper); // el movimiento: sin repintar
+        QVERIFY(!r.sheetChanged && r.tiles.empty());
+        QCOMPARE(stack.order().ids, (std::vector<uint64_t>{1, 2, 3}));
+        QCOMPARE(stack.active(), 1);
+        QCOMPARE(paper.hash(), drawn);
+        QVERIFY(!stack.redo(paper).sheetChanged); // el movimiento otra vez
+        QCOMPARE(stack.order().ids, (std::vector<uint64_t>{2, 1, 3}));
+        QCOMPARE(stack.active(), 0);
+        stack.redo(paper); // y el trazo
+        QCOMPARE(paper.hash(), twice);
+    }
+
     // HU-87: en la simulación, Insert + un trazo + Z dos veces deja la pila como estaba; lo
     // publicado cuenta los pedidos atendidos.
     void simulacionDeshaceLaPila()
@@ -845,6 +891,17 @@ private slots:
         sim.requestUndo(); // la hoja insertada
         QTRY_COMPARE(sim.sheetState().applied, uint64_t(3));
         QCOMPARE(sim.sheetCount(), 1);
+        QCOMPARE(sim.activeSheet(), 0);
+
+        // HU-88: mover la activa y Z la devuelve.
+        sim.requestAddSheet(1);
+        sim.requestMoveSheet(0, 1);
+        QTRY_COMPARE(sim.sheetState().applied, uint64_t(5));
+        QCOMPARE(sim.sheetState().order.ids, (std::vector<uint64_t>{3, 1}));
+        QCOMPARE(sim.activeSheet(), 1);
+        sim.requestUndo();
+        QTRY_COMPARE(sim.sheetState().applied, uint64_t(6));
+        QCOMPARE(sim.sheetState().order.ids, (std::vector<uint64_t>{1, 3}));
         QCOMPARE(sim.activeSheet(), 0);
         sim.stop();
         QCOMPARE(paper.hash(), paper.reliefHash());

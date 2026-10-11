@@ -45,7 +45,7 @@ struct SheetOrder {
 // hilo de simulación, entre trazos. Con una hoja (Cartuchera, Ejercicios) es lo de siempre.
 //
 // Deshacer (HU-87): los trazos van al deshacer de su hoja y las operaciones de la pila
-// (insertar, duplicar, borrar) a uno de la pila; limpiar una hoja es como un trazo. Cada
+// (insertar, duplicar, borrar, mover) a uno de la pila; limpiar una hoja es como un trazo. Cada
 // cosa lleva un número de orden (tag, creciente) y Z deshace la más reciente entre el último
 // trazo de la hoja activa y la última operación de la pila; Ctrl+Y rehace en el orden
 // inverso. Con tag 0 la operación no se guarda (sin deshacer, como en Ejercicios).
@@ -73,11 +73,11 @@ public:
     bool duplicateActive(drymedia::Paper& paper, uint64_t tag);   // una copia después, y la activa
     bool clearActive(drymedia::Paper& paper, uint64_t tag);
     bool remove(drymedia::Paper& paper, int index, uint64_t tag = 0);
-    bool move(int from, int to);
+    bool move(int from, int to, uint64_t tag = 0); // HU-88: con tag, se deshace
     bool activate(drymedia::Paper& paper, int index);
 
     // Deshacer y rehacer (Z, Ctrl+Y): lo de un trazo devuelve los tiles a repintar; lo de la
-    // pila, sheetChanged.
+    // pila, sheetChanged (salvo mover, que no cambia la hoja del papel).
     struct UndoResult {
         bool sheetChanged = false;
         std::vector<int> tiles;
@@ -119,10 +119,11 @@ private:
     };
     // Una operación de la pila, para deshacerla. Insert: la hoja quedó en `index`; deshacer la
     // quita (y la guarda en `sheet` para rehacer). Remove: se quitó de `index`; `sheet` es la
-    // hoja quitada, y deshacer la vuelve a poner.
+    // hoja quitada, y deshacer la vuelve a poner. Move (HU-88): pasó de `index` a `to`.
     struct Op {
-        enum Kind { Insert, Remove } kind = Insert;
+        enum Kind { Insert, Remove, Move } kind = Insert;
         int index = 0;
+        int to = 0;
         uint64_t id = 0;       // la hoja insertada o quitada
         uint64_t activeId = 0; // la activa antes de la operación
         bool activated = false; // la hoja insertada (o la quitada) era la activa después (o antes)
@@ -132,6 +133,7 @@ private:
 
     void leave(); // avisa que la activa deja su lugar (onLeave)
     void switchTo(drymedia::Paper& paper, int index); // activa sin avisar
+    void moveSheet(int from, int to); // sin deshacer
     void insertSheet(drymedia::Paper& paper, int at, uint64_t id, Sheet sheet, bool activateIt);
     Sheet takeSheet(drymedia::Paper& paper, int index); // la quita de la pila, con sus tiles
     static Op makeOp(Op::Kind kind, int index, uint64_t id, uint64_t activeId, bool activated, uint64_t tag);

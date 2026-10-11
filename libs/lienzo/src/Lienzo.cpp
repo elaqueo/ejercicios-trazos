@@ -1241,6 +1241,17 @@ void Lienzo::moveSheet(int from, int to)
     d->applyLayers();
 }
 
+bool Lienzo::moveActiveSheet(int step)
+{
+    d->beforeSheetChange();
+    const SheetOrder& order = d->syncOrder();
+    const int to = order.active + step;
+    if (!order.valid(to) || to == order.active)
+        return false;
+    moveSheet(order.active, to);
+    return true;
+}
+
 void Lienzo::activateSheet(int index)
 {
     d->beforeSheetChange();

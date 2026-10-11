@@ -127,7 +127,10 @@ public:
     void insertSheet();
     void duplicateSheet();
     void removeSheet(int index);
-    void moveSheet(int from, int to);
+    void moveSheet(int from, int to); // HU-88: con deshacer
+    // HU-88: la activa un lugar hacia el principio (step = -1) o el final (+1). false en los
+    // extremos (no hace nada).
+    bool moveActiveSheet(int step);
     void activateSheet(int index);
 
     // Mesa de luz (HU-91): las hojas que se ven debajo de la activa, contadas desde ella (ver

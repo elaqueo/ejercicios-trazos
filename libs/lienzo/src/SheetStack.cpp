@@ -172,15 +172,26 @@ bool SheetStack::remove(drymedia::Paper& paper, int index, uint64_t tag)
     return wasActive;
 }
 
-bool SheetStack::move(int from, int to)
+bool SheetStack::move(int from, int to, uint64_t tag)
 {
     if (!m_order.valid(from) || !m_order.valid(to) || from == to)
         return false;
+    const uint64_t id = m_order.ids[size_t(from)];
+    moveSheet(from, to);
+    Op op = makeOp(Op::Move, from, id, m_order.activeId(), false, tag);
+    op.to = to;
+    record(std::move(op));
+    return false; // la activa sigue en el papel
+}
+
+void SheetStack::moveSheet(int from, int to)
+{
+    if (!m_order.valid(from) || !m_order.valid(to) || from == to)
+        return;
     Sheet sheet = std::move(m_sheets[size_t(from)]);
     m_sheets.erase(m_sheets.begin() + from);
     m_sheets.insert(m_sheets.begin() + to, std::move(sheet));
     m_order.move(from, to);
-    return false; // la activa sigue en el papel
 }
 
 bool SheetStack::activate(drymedia::Paper& paper, int index)
@@ -203,7 +214,9 @@ void SheetStack::switchTo(drymedia::Paper& paper, int index)
 
 void SheetStack::undoOp(drymedia::Paper& paper, Op& op)
 {
-    if (op.kind == Op::Insert) {
+    if (op.kind == Op::Move) { // de vuelta a su lugar
+        moveSheet(m_order.indexOf(op.id), op.index);
+    } else if (op.kind == Op::Insert) {
         // Quitar la hoja insertada (se guarda para rehacer) y volver a la activa de antes.
         const int index = m_order.indexOf(op.id);
         if (index < 0 || m_order.count <= 1)
@@ -221,7 +234,9 @@ void SheetStack::undoOp(drymedia::Paper& paper, Op& op)
 
 void SheetStack::redoOp(drymedia::Paper& paper, Op& op)
 {
-    if (op.kind == Op::Insert) {
+    if (op.kind == Op::Move) {
+        moveSheet(m_order.indexOf(op.id), op.to);
+    } else if (op.kind == Op::Insert) {
         insertSheet(paper, op.index, op.id, std::move(op.sheet), op.activated);
     } else {
         const int index = m_order.indexOf(op.id);
@@ -241,8 +256,8 @@ SheetStack::UndoResult SheetStack::undo(drymedia::Paper& paper)
         Op op = std::move(m_undoOps.back());
         m_undoOps.pop_back();
         undoOp(paper, op);
+        result.sheetChanged = op.kind != Op::Move;
         m_redoOps.push_back(std::move(op));
-        result.sheetChanged = true;
     } else if (h.canUndo()) {
         result.tiles = h.undo(paper);
         touchActive();
@@ -259,8 +274,8 @@ SheetStack::UndoResult SheetStack::redo(drymedia::Paper& paper)
         Op op = std::move(m_redoOps.back());
         m_redoOps.pop_back();
         redoOp(paper, op);
+        result.sheetChanged = op.kind != Op::Move;
         m_undoOps.push_back(std::move(op));
-        result.sheetChanged = true;
     } else if (h.canRedo()) {
         result.tiles = h.redo(paper);
         touchActive();

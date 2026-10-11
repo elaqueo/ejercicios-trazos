@@ -211,6 +211,19 @@ try {
         $failures.Add('Un solo grafito')
     }
 
+    # HU-88: con la activa en la 3 de 3, ↑ ↑ la llevan al principio, otra ↑ no hace nada, ↓ la
+    # vuelve a la 2 y Z deshace eso: queda primera, y así se guarda en toma.json.
+    foreach ($k in '{UP}', '{UP}', '{UP}', '{DOWN}', 'z') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    Start-Sleep -Milliseconds 700
+    $moves = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'movida|extremo' }) -join ' ')
+    $json = Get-Content (Join-Path $takeDir 'toma.json') -Raw -Encoding utf8 | ConvertFrom-Json
+    if ($moves -match 'principio · hoja 2 de 3.*principio · hoja 1 de 3.*extremo.*final · hoja 2 de 3' -and $json.activa -eq 0) {
+        Write-Host '  ok   ↑ ↓ mueven la hoja, en el extremo se queda y Z lo deshace (guardado en toma.json)'
+    } else {
+        Write-Host "  FALLA ↑ ↓: $moves · activa en toma.json: $($json.activa)"
+        $failures.Add('Reordenar')
+    }
+
     # HU-85 y HU-86: la toma (toma.json y una hoja por archivo) se guarda sola, sin cerrar: las 3
     # hojas ya están en disco, e Insert agrega el archivo de la nueva enseguida. Con la app
     # matada (sin cerrar), al volver a abrir está la misma pila, con la misma hoja activa, sin

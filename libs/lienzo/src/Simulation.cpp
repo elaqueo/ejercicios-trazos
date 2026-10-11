@@ -139,7 +139,7 @@ bool Simulation::applySheetCommand(const SheetCommand& c)
     case SheetCommand::Duplicate: return m_sheets.duplicateActive(m_paper, tag);
     case SheetCommand::Clear: return m_sheets.clearActive(m_paper, tag);
     case SheetCommand::Remove: return m_sheets.remove(m_paper, c.a, tag);
-    case SheetCommand::Move: return m_sheets.move(c.a, c.b);
+    case SheetCommand::Move: return m_sheets.move(c.a, c.b, tag);
     case SheetCommand::Activate: return m_sheets.activate(m_paper, c.a);
     }
     return false;

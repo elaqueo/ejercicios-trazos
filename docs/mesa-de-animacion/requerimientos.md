@@ -102,6 +102,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     1. ↑ la acerca al principio y ↓ al final; en los extremos se queda.
     2. El número de la esquina se actualiza en todas las hojas afectadas.
     3. Se puede deshacer.
+    4. *Hecho (11 oct 2026): ↑ y ↓ en el grupo "Hojas"; mover es una operación más del deshacer de la pila (Z la devuelve, Ctrl+Y la rehace, en orden con los trazos) y no repinta, porque la hoja del papel no cambia. El número de la esquina llega con HU-104; hasta entonces se ve en F3. El guardado automático reescribe solo `toma.json`.*
 89. **HU-89 · Hoja fija** (Should · 3 pts). Como animador, quiero una hoja debajo de todas que no participe del flip, para tener el layout o la model sheet siempre a la vista.
     1. Un atajo marca la activa como fija: pasa al fondo, sin tinte, visible con la mesa de luz prendida o apagada.
     2. ← → la saltean; ↑ ↓ no la mueven; solo puede haber una (marcar otra desmarca la anterior).
