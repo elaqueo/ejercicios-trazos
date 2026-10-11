@@ -40,7 +40,7 @@ Nueve épicas, 31 historias. Las dos primeras son plataforma; el MVP es la Fase 
 | E1 | Pila en el lienzo | Varias hojas en `lienzo`, una activa en simulación y las demás listas para mostrar; tinte en el render; perfil de medio por app | HU-81 a HU-84, HU-112 | 0–1 |
 | E2 | Toma y hojas | Formato de toma, guardado automático, agregar, duplicar, borrar, reordenar, hoja fija | HU-85 a HU-89 | 1–2 |
 | E3 | Flip y mesa de luz | ← →, mesa de luz rojo/verde, cuántas hojas, solo keys, círculo, anillo, roll | HU-90 a HU-96 | 1–2 |
-| E4 | Lápices y papel | Papel de animación, grafito único, lápices de color, F5 | HU-97 a HU-100 | 1–2 |
+| E4 | Lápices y papel | Papel de animación, grafito único, lápices de color, F5, menú del botón del lápiz | HU-97 a HU-100, HU-116 | 1–2 |
 | E5 | Vista | Zoom, pan, guía de campo | HU-101 a HU-103 | 2 |
 | E6 | Rol y chart | Key / breakdown, número en la esquina, carta de timing | HU-104 a HU-105 | 2 |
 | E7 | Audio | Onda, play/pausa, marcas | HU-106 a HU-108 | 3 |
@@ -171,6 +171,11 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     1. F5 abre el selector con los cinco lápices (muestra real de cada uno); 1 a 5 eligen directo (hecho en HU-99: en esta app 4/6/5 no giran la vista, el anillo y Shift + arrastrar sí).
     2. El lápiz activo se ve en F3 y queda en config.
     3. *Hecho (11 oct 2026): `PencilPicker` (lienzo/LeadPicker.h), centrado sobre la hoja por pedido del usuario (tiene que quedar al alcance del lápiz: la hoja es el área útil de la tableta); las muestras van con tres pasadas y más presión, porque a 300 dpi un repaso liviano no dejaba ver el color.*
+116. **HU-116 · Menú radial en el botón del lápiz** (Should · 3 pts). Como animador, quiero que el botón lateral del lápiz abra un menú alrededor de la punta, al estilo de la paleta emergente de Krita, para cambiar de lápiz y hacer lo más usado sin soltar el lápiz ni ir al teclado (pedido del usuario del 11 de octubre de 2026).
+    1. Al apretar el botón lateral aparece un anillo centrado en la punta, dentro de la hoja (al alcance del lápiz): los cinco lápices con su color y, alrededor, mesa de luz sí o no, hoja anterior y siguiente, deshacer y rehacer.
+    2. Se elige tocando una opción con la punta (o soltando el botón sobre ella); tocar fuera, el botón otra vez o Esc lo cierran sin hacer nada.
+    3. Lo que hace cada opción es lo mismo que su tecla (pasa por el registro de atajos) y queda en el log.
+    4. Diseño primero en el canvas (mesa "Menú del lápiz"); qué va en el anillo se decide ahí con el usuario.
 
 ### E5 · Vista
 
@@ -236,8 +241,8 @@ Primero se mide el flip con hojas reales; recién después se construye la pila.
 2. **Fase 1 — MVP: flipear** (HU-82 a HU-88, HU-90, HU-91, HU-97, HU-98, HU-110, HU-112 a HU-115; 51 pts)
     1. Pila en el lienzo, perfil de medio, tinte en el render, app, formato y guardado automático, hojas, flip, mesa de luz, papel de animación, grafito único, instalador.
     2. Salida: una toma de 24 hojas animada de punta a punta con flip y mesa de luz, guardada sola y reabierta igual.
-3. **Fase 2 — Mano de animador** (HU-89, HU-92 a HU-95, HU-99 a HU-105; 33 pts)
-    1. Hoja fija, cuántas hojas, solo keys, círculo, anillo con tres funciones, lápices de color, F5, zoom, pan, guía de campo, rol y número, chart.
+3. **Fase 2 — Mano de animador** (HU-89, HU-92 a HU-95, HU-99 a HU-105, HU-116; 36 pts)
+    1. Hoja fija, cuántas hojas, solo keys, círculo, anillo con tres funciones, lápices de color, F5, menú del botón del lápiz, zoom, pan, guía de campo, rol y número, chart.
     2. Salida: un ciclo de caminata con keys y breakdowns, construcción en azul y sombras marcadas.
 4. **Fase 3 — Audio y salida** (HU-96, HU-106 a HU-109; 15 pts)
     1. Audio con onda, play/pausa y marcas; exportación PNG; el roll, si sumó.
