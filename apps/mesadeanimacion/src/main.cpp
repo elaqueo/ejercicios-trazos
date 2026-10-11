@@ -3,7 +3,7 @@
 // como Cartuchera; las teclas comunes están en lienzo/Lienzo.h.
 // HU-84: el armazón. HU-87: Insert, Ctrl+D, Ctrl+N y Supr manejan las hojas, con deshacer.
 // HU-88: ↑ ↓ mueven la hoja activa en la pila. HU-115: Inicio y Fin saltan a la primera y la
-// última hoja.
+// última hoja. HU-114: Tab muestra y oculta el panel de hojas.
 // HU-90: ← → flipean. HU-91: L prende y apaga la mesa de luz. HU-85 y HU-86: la toma se abre
 // al arrancar y se guarda sola mientras se trabaja.
 
@@ -93,6 +93,15 @@ int main(int argc, char* argv[])
         lightOn = !lightOn;
         config.setValue(QStringLiteral("lightTable"), lightOn);
         applyLight();
+    });
+    // Panel de hojas (HU-114): Tab lo muestra y lo oculta; queda guardado.
+    bool panelOn = config.value(QStringLiteral("sheetPanel"), true).toBool();
+    canvas.setSheetPanel(panelOn);
+    canvas.shortcuts().add(QStringLiteral("Panel de hojas"), {{VK_TAB}}, [&] {
+        panelOn = !panelOn;
+        config.setValue(QStringLiteral("sheetPanel"), panelOn);
+        canvas.setSheetPanel(panelOn);
+        qInfo() << "Panel de hojas:" << (panelOn ? "visible" : "oculto");
     });
     const auto logSheet = [&canvas](const char* what) {
         qInfo().noquote() << QStringLiteral("Hojas: %1 · hoja %2 de %3")

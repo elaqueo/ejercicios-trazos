@@ -133,6 +133,8 @@ public:
     }
     // Lo más que tardó una copia para guardar, en el hilo de simulación (diagnóstico).
     double autosaveCopyMaxMs() const { return m_autosaveCopyMaxMs; }
+    // Cuántas hojas cambiaron y todavía no se pasaron al guardado (más el trazo en curso).
+    int unsavedSheets() const { return m_unsaved; }
     // Sin deshacer (Ejercicios) no se guardan copias de los tiles. Llamar antes de start().
     void setUndo(bool enabled) { m_undoEnabled = enabled; }
     // La mina activa (HU-57): cambia al elegir otra dureza o al calibrar en vivo. Si
@@ -249,6 +251,7 @@ private:
     std::chrono::steady_clock::time_point m_lastActivity = std::chrono::steady_clock::now();
     std::optional<TakeIndex> m_savedIndex; // el último toma.json pasado a m_saver
     std::atomic<double> m_autosaveCopyMaxMs{0};
+    std::atomic<int> m_unsaved{0};
     std::vector<uint32_t> m_guides; // la que usa el hilo de simulación
     std::mutex m_guidesMutex;
     std::vector<uint32_t> m_pendingGuides; // la que llega de afuera

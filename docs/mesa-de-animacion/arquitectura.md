@@ -115,3 +115,19 @@ En Mesa de animación (medio recortado) cada tile lleva solo el depósito.
 - **Si la app muere:** se pierde a lo sumo lo de los últimos 300 ms. Cada archivo se escribe de una vez, así que la toma en disco siempre está entera.
 - **Una toma que no se puede abrir** (otro papel, de una versión más nueva, `toma.json` dañado) no se pisa: se usa la primera de al lado (`<carpeta>-2`, `-3`...) que abre, o una nueva (`takeFolder`). Se avisa en el log y en F3, y esa queda como la última toma en config.json, así el arranque siguiente la abre sin avisar.
 - **Errores al escribir:** van al log y a F3 ("Toma: no se pudo guardar").
+
+## El panel de hojas (HU-114)
+
+Angosto (240 px a escala 1), a la derecha de la pantalla, con la toma y si está guardada, la hoja activa y el total, las miniaturas de la activa y de 3 antes y 3 después, el lápiz, la mesa de luz y el giro de la vista. Tab lo muestra y lo oculta (`sheetPanel` en config.json). Diseño: mesa "Panel de hojas" del canvas.
+
+- **`lienzo/SheetPanel.h`:** qué muestra (`PanelInfo`, `panelSlots`), dónde va cada cosa (`panelLayout`, en píxeles del cliente con la escala de Windows) y el panel pintado con Qt (`paintPanel`). Se puede probar sin GPU.
+- **`Lienzo`:**
+  - Arma el `PanelInfo` en cada cambio de la pila o flip (`applyLayers`) y con un reloj de 200 ms (el estado del guardado, el lápiz, el giro).
+  - Lo vuelve a pintar solo si cambió algo.
+  - "guardado" quiere decir que no hay hojas sin pasar al guardado (`Simulation::unsavedSheets`) ni nada por escribir (`TakeSaver::pending`).
+- **`Renderer::setPanel`:**
+  - Copia la imagen del panel encima de todo, sin girar con la vista.
+  - Arma cada miniatura en la GPU (un shader que promedia la región de la hoja y oscurece el grafito 3 veces), una vez por cambio: al llegar la textura nueva de esa hoja, o, la activa, desde la imagen de pantalla a lo sumo cada 250 ms mientras se dibuja.
+  - Después solo copia la miniatura. Una hoja que nunca estuvo activa se ve en papel liso.
+- **Costo:** nada en el hilo de la simulación. En el render, copiar unas regiones chicas por frame. Los benchmarks no cambian.
+

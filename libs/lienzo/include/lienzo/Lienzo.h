@@ -39,6 +39,7 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
     void focusOutEvent(QFocusEvent* event) override;
+    bool focusNextPrevChild(bool) override { return false; } // Tab es un atajo (HU-114), no pasa el foco
 };
 
 // El monitor guardado ("monitor", sección común de config.json) si está conectado; si no,
@@ -159,6 +160,11 @@ public:
     // se usa la de al lado (<carpeta>-2, -3...) que abra, o una nueva (ver takeFolder en
     // lienzo/Take.h). Devuelve la carpeta que usa. Llamar antes de start().
     QString useTake(const QString& dir);
+    // Panel de hojas (HU-114, lienzo/SheetPanel.h): angosto, a la derecha de la pantalla, con
+    // la toma, la hoja activa y sus vecinas en miniatura, el lápiz, la mesa de luz y el giro.
+    // Solo con la pila de hojas (options.sheets); la app elige la tecla y lo guarda.
+    void setSheetPanel(bool visible);
+    bool sheetPanel() const;
     // Panel de configuración (HU-12): agrega las pestañas del lienzo ("Lápiz": mina activa y
     // goma; "Pantalla": área útil y monitor) y lo muestra pegado al borde derecho del área
     // útil.

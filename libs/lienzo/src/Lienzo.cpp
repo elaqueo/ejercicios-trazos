@@ -8,6 +8,7 @@
 #include "lienzo/Renderer.h"
 #include "lienzo/SampleQueue.h"
 #include "lienzo/SheetImages.h"
+#include "lienzo/SheetPanel.h"
 #include "lienzo/SheetStack.h"
 #include "lienzo/Simulation.h"
 #include "lienzo/Take.h"
@@ -22,6 +23,7 @@
 #include <appkit/Shortcuts.h>
 #include <appkit/ShortcutsOverlay.h>
 #include <appkit/SidePanel.h>
+#include <appkit/Theme.h>
 #include <appkit/UsableArea.h>
 #include <drymedia/Paper.h>
 
@@ -42,6 +44,7 @@
 #include <QProcess>
 #include <QSaveFile>
 #include <QScreen>
+#include <QTimer>
 
 #include <algorithm>
 #include <atomic>
@@ -345,6 +348,65 @@ struct Lienzo::Impl {
             untilActive = true;
         }
         render->setLayers(shown, std::move(below), untilActive);
+        refreshSheetPanel();
+    }
+
+    // Panel de hojas (HU-114): se vuelve a pintar solo si cambió algo (la imagen la pinta Qt
+    // acá; las miniaturas, el render). Lo llaman applyLayers (cada cambio de la pila o flip) y
+    // un reloj, para el estado del guardado, el lápiz y el giro.
+    bool panelVisible = false;
+    PanelInfo panelShown;
+    QRect panelRect;
+    bool panelSent = false;
+    QTimer panelTimer;
+    void refreshSheetPanel(bool force = false)
+    {
+        if (!render || !options.sheets)
+            return;
+        if (!panelVisible) {
+            if (panelSent)
+                render->hidePanel();
+            panelSent = false;
+            return;
+        }
+        syncOrder();
+        const int center = flipping() && order.valid(shownSheet) ? shownSheet : order.active;
+        PanelInfo info;
+        info.take = saver ? QFileInfo(saver->dir()).fileName() : QString();
+        info.saved = !saver || (!saver->pending() && sim->unsavedSheets() == 0);
+        info.number = center + 1;
+        info.total = order.count;
+        info.strip = panelSlots(order, center);
+        info.lead = QStringLiteral("%1 · %2 mm")
+                        .arg(QString::fromLatin1(media.activeName()),
+                             QString::number(sim->lead().diameter / 100.0, 'f', 2).replace(QLatin1Char('.'), QLatin1Char(',')));
+        const auto color = [](const Tint& t) {
+            QColor c = QColor::fromRgb(QRgb(t.color));
+            c.setAlphaF(t.opacity);
+            return c;
+        };
+        for (auto it = lightTable.before.rbegin(); it != lightTable.before.rend(); ++it)
+            info.light.push_back(color(*it));
+        for (const Tint& t : lightTable.after)
+            info.light.push_back(color(t));
+        info.degrees = int(std::lround(viewDegrees)) % 360;
+        const PanelLayout layout = panelLayout(canvas->width(), canvas->height(), screen->devicePixelRatio(),
+                                               double(mapping.sheetWidth) / std::max(1, mapping.sheetHeight));
+        if (!force && panelSent && info == panelShown && layout.panel == panelRect)
+            return;
+        std::vector<PanelThumb> thumbs;
+        for (size_t i = 0; i < info.strip.size() && i < layout.thumbs.size(); ++i) {
+            const QRect r = layout.thumbs[i].translated(layout.panel.topLeft());
+            thumbs.push_back({info.strip[i].id, RECT{r.left(), r.top(), r.left() + r.width(), r.top() + r.height()}});
+        }
+        const QImage painted = paintPanel(info, layout, QColor::fromRgb(QRgb(options.paperColor)), appkit::theme::kFuera);
+        const auto* bits = reinterpret_cast<const uint32_t*>(painted.constBits());
+        render->setPanel(layout.panel.x(), layout.panel.y(), painted.width(), painted.height(),
+                         std::vector<uint32_t>(bits, bits + size_t(painted.width()) * size_t(painted.height())),
+                         std::move(thumbs));
+        panelShown = std::move(info);
+        panelRect = layout.panel;
+        panelSent = true;
     }
 
     // Flip (HU-90): mientras haya una tecla de flip apretada se muestra shownSheet; al soltar
@@ -517,6 +579,7 @@ struct Lienzo::Impl {
             render->setOverlay(true);
         if (wasRunning)
             sim->start();
+        refreshSheetPanel(true); // la hoja cambió de forma: otras miniaturas
         qInfo() << "Hoja reubicada en" << mapping.sheetWidth << "x" << mapping.sheetHeight << "px desde"
                 << mapping.sheetX << mapping.sheetY;
         if (onSheetChanged)
@@ -765,6 +828,11 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     });
     if (!d->area)
         d->render->setOverlay(true); // el aviso tiene que verse sin apretar nada
+    if (d->options.sheets) { // panel de hojas (HU-114): el guardado, el lápiz y el giro cambian solos
+        d->panelTimer.setInterval(200);
+        QObject::connect(&d->panelTimer, &QTimer::timeout, [impl = d.get()] { impl->refreshSheetPanel(); });
+        d->panelTimer.start();
+    }
 
     d->calibrationHost = std::make_unique<QWidget>(&shell, Qt::Tool | Qt::FramelessWindowHint);
     d->calibration = new appkit::CalibrationOverlay(d->calibrationHost.get());
@@ -1205,6 +1273,17 @@ void Lienzo::removeSheet(int index)
         return;
     d->post([&] { d->sim->requestRemoveSheet(index); });
     d->applyLayers();
+}
+
+void Lienzo::setSheetPanel(bool visible)
+{
+    d->panelVisible = visible;
+    d->refreshSheetPanel(true);
+}
+
+bool Lienzo::sheetPanel() const
+{
+    return d->panelVisible;
 }
 
 void Lienzo::setLightTable(const LightTable& table)

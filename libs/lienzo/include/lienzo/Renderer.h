@@ -22,6 +22,12 @@ struct SheetLayer {
     float opacity = 1;
 };
 
+// Una miniatura del panel de hojas (HU-114): la hoja (por id) y dónde va, en píxeles del cliente.
+struct PanelThumb {
+    uint64_t sheet = 0;
+    RECT rect{};
+};
+
 // Qué se ve en la región de la hoja (HU-90). La imagen de pantalla es la de la hoja activa,
 // pero el render la sube de a partes (al cambiar de hoja, unos 10 frames): mientras no esté
 // entera, la hoja pedida se ve desde su textura. Sin GPU, para las pruebas.
@@ -121,6 +127,31 @@ public:
         m_dropped.push_back(sheet);
     }
 
+    // Panel de hojas (HU-114): una imagen (BGRA, ya pintada) que se copia en (x, y) encima de
+    // todo, sin girar con la vista, y las miniaturas que van adentro. Cada miniatura la arma la
+    // GPU achicando la textura de su hoja (la activa, desde la imagen de pantalla, cada tanto
+    // mientras se dibuja), una vez por cambio; después solo se copia. pixels vacío: no cambió
+    // la imagen, solo las miniaturas.
+    void setPanel(int x, int y, int width, int height, std::vector<uint32_t> pixels, std::vector<PanelThumb> thumbs)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_panelVisible = true;
+        m_panelX = x;
+        m_panelY = y;
+        if (!pixels.empty()) {
+            m_panelW = width;
+            m_panelH = height;
+            m_panelPixels = std::move(pixels);
+            m_panelChanged = true;
+        }
+        m_panelThumbs = std::move(thumbs);
+    }
+    void hidePanel()
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_panelVisible = false;
+    }
+
     // Resumen de la sesión para el log: latencias, adelanto final, vsyncs perdidos.
     std::string summary() const;
 
@@ -149,6 +180,10 @@ private:
     std::function<void(double)> m_onLightTable;
     std::vector<SheetLayer> m_below;
     std::vector<uint64_t> m_dropped;
+    bool m_panelVisible = false, m_panelChanged = false;
+    int m_panelX = 0, m_panelY = 0, m_panelW = 0, m_panelH = 0;
+    std::vector<uint32_t> m_panelPixels;
+    std::vector<PanelThumb> m_panelThumbs;
 };
 
 } // namespace lienzo

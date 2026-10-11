@@ -17,6 +17,7 @@ inline const QColor kTexto{0xEC, 0xEE, 0xF0};
 inline const QColor kTextoSecundario{0xA7, 0xAE, 0xB6};
 inline const QColor kSeleccion{0x3A, 0x2A, 0x12};      // fondo del ítem elegido
 inline const QColor kSeleccionTexto{0xF0, 0xA5, 0x41}; // texto del ítem elegido
+inline const QColor kGuardado{0x5F, 0xB4, 0x7A};       // estado "guardado" (HU-114, panel de hojas)
 
 // Lienzo y guías.
 inline const QColor kFuera{0x30, 0x33, 0x38};      // fuera del área útil y esquinas al rotar

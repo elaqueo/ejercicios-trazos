@@ -48,6 +48,12 @@ public:
     void saveIndex(TakeIndex index);
     // Espera a que esté todo escrito.
     void flush();
+    // Si hay algo por escribir o escribiéndose (HU-114: el panel dice "guardando…").
+    bool pending() const
+    {
+        std::lock_guard lock(m_mutex);
+        return !idle();
+    }
 
     struct Stats {
         int sheets = 0;  // archivos de hoja escritos

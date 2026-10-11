@@ -503,6 +503,7 @@ void Simulation::run()
                 m_lastActivity = now;
             else if (!active && now - m_lastActivity >= m_autosaveDelay)
                 autosave(true);
+            m_unsaved = int(m_sheets.unsaved().size()) + (active ? 1 : 0);
         }
     }
     // Al detenerse (cerrar la app, F9, abrir una toma): lo que quedó sin pasar al guardado.

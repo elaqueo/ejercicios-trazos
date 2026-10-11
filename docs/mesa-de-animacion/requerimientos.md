@@ -188,6 +188,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. Tab lo muestra y lo oculta; queda guardado en config.
     3. Las miniaturas salen de las texturas de las hojas que ya están en la GPU: no frenan el flip ni el trazo (benchmarks iguales).
     4. Se actualiza al flipear, insertar, borrar, mover y deshacer.
+    5. *Hecho (11 oct 2026): el panel lo pinta Qt en el hilo de la interfaz, solo cuando cambia algo, y el render lo copia encima de todo, sin girar con la vista. Cada miniatura la arma la GPU una sola vez por cambio, achicando la textura de su hoja (la activa, desde la imagen de pantalla, a lo sumo cada 250 ms mientras se dibuja) y oscureciendo el grafito 3 veces para que la línea fina se vea. Mientras se flipea, el centro de la tira es la hoja que se ve. Benchmarks iguales con el panel visible (10,8 ms de mediana) y flips en menos de 18 ms. En una pantalla baja (la laptop al 125 %) las miniaturas se achican para que entre todo. Detalle en [arquitectura.md](arquitectura.md).*
 
 ### E6 · Rol y chart
 

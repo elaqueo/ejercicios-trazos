@@ -134,6 +134,7 @@ $backup = if (Test-Path $config) { [IO.File]::ReadAllBytes($config) } else { $nu
 $state = if ($backup) { Get-Content $config -Raw | ConvertFrom-Json -AsHashtable } else { @{} }
 if (-not $state.ContainsKey('mesadeanimacion')) { $state['mesadeanimacion'] = @{} }
 $state['mesadeanimacion']['lightTable'] = $true
+$state['mesadeanimacion']['sheetPanel'] = $true # HU-114: el panel de hojas visible
 $state | ConvertTo-Json -Depth 32 | Set-Content $config -Encoding utf8
 # La toma de la prueba (HU-85), en una carpeta temporal: la del usuario no se toca.
 $takeDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-toma-$PID"
@@ -233,6 +234,17 @@ try {
     } else {
         Write-Host "  FALLA Inicio y Fin: $jumps"
         $failures.Add('Inicio y Fin')
+    }
+
+    # HU-114: Tab oculta el panel de hojas y lo vuelve a mostrar (los flips de arriba ya
+    # corrieron con el panel visible).
+    foreach ($k in '{TAB}', '{TAB}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    $panel = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Panel de hojas:' }) -join ' ')
+    if ($panel -match 'oculto.*visible') {
+        Write-Host '  ok   Tab oculta y muestra el panel de hojas'
+    } else {
+        Write-Host "  FALLA panel de hojas: $panel"
+        $failures.Add('Panel de hojas')
     }
 
     # HU-85 y HU-86: la toma (toma.json y una hoja por archivo) se guarda sola, sin cerrar: las 3

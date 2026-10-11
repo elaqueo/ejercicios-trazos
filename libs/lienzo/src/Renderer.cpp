@@ -71,6 +71,42 @@ V vs(uint id : SV_VertexID)
 float4 ps(V v) : SV_Target { return image.Sample(linearClamp, v.uv); }
 )";
 
+// Miniatura del panel de hojas (HU-114): cada píxel de la miniatura promedia el rectángulo
+// de la hoja que le toca (taps × taps muestras bilineales, cada una de 2 × 2 texeles) y
+// oscurece el grafito `boost` veces (3), para que una línea fina se siga viendo chiquita.
+const char kThumbShader[] = R"(
+cbuffer Thumb : register(b0) { float2 origin; float2 extent; float2 cell; float taps; float boost; float4 paper; };
+Texture2D image : register(t0);
+SamplerState linearClamp : register(s0);
+struct V { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
+V vs(uint id : SV_VertexID)
+{
+    float2 uv = float2(id & 1, id >> 1);
+    V o;
+    o.pos = float4(uv.x * 2 - 1, 1 - uv.y * 2, 0, 1);
+    o.uv = uv;
+    return o;
+}
+float4 ps(V v) : SV_Target
+{
+    float2 center = origin + v.uv * extent;
+    float3 sum = 0;
+    for (float j = 0; j < taps; j += 1)
+        for (float i = 0; i < taps; i += 1)
+            sum += image.SampleLevel(linearClamp, center + (float2(i, j) + 0.5) / taps * cell - cell * 0.5, 0).rgb;
+    float3 avg = sum / (taps * taps);
+    return float4(saturate(paper.rgb - (paper.rgb - avg) * boost), 1);
+}
+)";
+
+struct ThumbConstants {
+    float origin[2];
+    float extent[2];
+    float cell[2];
+    float taps, boost;
+    float paper[4];
+};
+
 struct ViewConstants {
     float size[2];
     float center[2];
@@ -92,6 +128,17 @@ struct SheetTexture {
     int width = 0, height = 0;
 };
 
+// La miniatura de una hoja en el panel (HU-114).
+struct Thumbnail {
+    ComPtr<ID3D11Texture2D> texture;
+    ComPtr<ID3D11RenderTargetView> target;
+    int width = 0, height = 0;
+    bool valid = false;
+    bool fromImage = false;    // salió de la imagen de pantalla (la activa)
+    uint64_t imageVersion = 0; // de qué versión de la imagen
+    int64_t madeQpc = 0;
+};
+
 struct Renderer::Impl {
     ComPtr<ID3D11Device> device;
     ComPtr<ID3D11DeviceContext> context;
@@ -110,6 +157,14 @@ struct Renderer::Impl {
     ComPtr<ID3D11ShaderResourceView> composedView;
     std::unordered_map<uint64_t, SheetTexture> sheets;
     SheetTexture blank; // una hoja que nunca estuvo activa: papel liso
+    // Panel de hojas (HU-114).
+    ComPtr<ID3D11Texture2D> panel;
+    int panelW = 0, panelH = 0;
+    std::unordered_map<uint64_t, Thumbnail> thumbs;
+    ComPtr<ID3D11VertexShader> thumbVs;
+    ComPtr<ID3D11PixelShader> thumbPs;
+    ComPtr<ID3D11Buffer> thumbConstants;
+    uint64_t imageVersion = 0; // sube cada vez que se sube algo de la imagen de pantalla
     SheetSource sheetSource; // la imagen o la textura de la hoja (HU-90)
     HANDLE waitable = nullptr, timer = nullptr;
     HDC statsDc = nullptr;
@@ -197,6 +252,7 @@ struct Renderer::Impl {
         td.Height = kStatsH;
         device->CreateTexture2D(&td, nullptr, &stats);
         initRotation();
+        initThumbs();
 
         BITMAPINFO bi{};
         bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
@@ -237,6 +293,127 @@ struct Renderer::Impl {
         sd.AddressU = sd.AddressV = sd.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
         sd.MaxLOD = D3D11_FLOAT32_MAX;
         device->CreateSamplerState(&sd, &sampler);
+    }
+
+    void initThumbs()
+    {
+        ComPtr<ID3DBlob> vsCode, psCode, errors;
+        if (FAILED(D3DCompile(kThumbShader, sizeof(kThumbShader) - 1, "thumb", nullptr, nullptr, "vs", "vs_5_0", 0, 0,
+                              &vsCode, &errors)) ||
+            FAILED(D3DCompile(kThumbShader, sizeof(kThumbShader) - 1, "thumb", nullptr, nullptr, "ps", "ps_5_0", 0, 0,
+                              &psCode, &errors)))
+            return;
+        device->CreateVertexShader(vsCode->GetBufferPointer(), vsCode->GetBufferSize(), nullptr, &thumbVs);
+        device->CreatePixelShader(psCode->GetBufferPointer(), psCode->GetBufferSize(), nullptr, &thumbPs);
+        D3D11_BUFFER_DESC bd{};
+        bd.ByteWidth = sizeof(ThumbConstants);
+        bd.Usage = D3D11_USAGE_DEFAULT;
+        bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        device->CreateBuffer(&bd, nullptr, &thumbConstants);
+    }
+
+    // La miniatura t (w × h) desde la región (x, y, sw, sh) de una textura de texW × texH; sin
+    // fuente, papel liso.
+    void makeThumb(Thumbnail& t, ID3D11ShaderResourceView* source, int texW, int texH, int x, int y, int sw, int sh)
+    {
+        const float paper[4] = {float((paperColor >> 16) & 0xFF) / 255.0f, float((paperColor >> 8) & 0xFF) / 255.0f,
+                                float(paperColor & 0xFF) / 255.0f, 1.0f};
+        if (!source || !thumbVs || !thumbPs || !sampler) {
+            context->ClearRenderTargetView(t.target.Get(), paper);
+            return;
+        }
+        const float scaleX = float(sw) / float(t.width), scaleY = float(sh) / float(t.height);
+        ThumbConstants c{};
+        c.origin[0] = float(x) / float(texW);
+        c.origin[1] = float(y) / float(texH);
+        c.extent[0] = float(sw) / float(texW);
+        c.extent[1] = float(sh) / float(texH);
+        c.cell[0] = c.extent[0] / float(t.width);
+        c.cell[1] = c.extent[1] / float(t.height);
+        c.taps = std::clamp(std::ceil(std::max(scaleX, scaleY) / 2.0f), 1.0f, 16.0f);
+        c.boost = 3.0f;
+        std::copy(paper, paper + 4, c.paper);
+        context->UpdateSubresource(thumbConstants.Get(), 0, nullptr, &c, 0, 0);
+        const D3D11_VIEWPORT viewport{0, 0, float(t.width), float(t.height), 0, 1};
+        context->RSSetViewports(1, &viewport);
+        context->OMSetRenderTargets(1, t.target.GetAddressOf(), nullptr);
+        context->IASetInputLayout(nullptr);
+        context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        context->VSSetShader(thumbVs.Get(), nullptr, 0);
+        context->PSSetShader(thumbPs.Get(), nullptr, 0);
+        context->PSSetConstantBuffers(0, 1, thumbConstants.GetAddressOf());
+        context->PSSetShaderResources(0, 1, &source);
+        context->PSSetSamplers(0, 1, sampler.GetAddressOf());
+        context->Draw(4, 0);
+        ID3D11ShaderResourceView* noView = nullptr;
+        context->PSSetShaderResources(0, 1, &noView);
+        context->OMSetRenderTargets(0, nullptr, nullptr);
+    }
+
+    // Panel de hojas (HU-114): la imagen del panel y las miniaturas, sobre el back buffer.
+    void drawPanel(ID3D11Texture2D* back, int x, int y, const std::vector<PanelThumb>& panelThumbs, const RECT& sheetRect,
+                   int64_t now)
+    {
+        if (!panel)
+            return;
+        const auto clipped = [&](int left, int top, int w, int h, D3D11_BOX& box, UINT& dx, UINT& dy) {
+            const int x0 = std::max(left, 0), y0 = std::max(top, 0);
+            const int x1 = std::min(left + w, int(width)), y1 = std::min(top + h, int(height));
+            if (x0 >= x1 || y0 >= y1)
+                return false;
+            box = {UINT(x0 - left), UINT(y0 - top), 0, UINT(x1 - left), UINT(y1 - top), 1};
+            dx = UINT(x0);
+            dy = UINT(y0);
+            return true;
+        };
+        D3D11_BOX box;
+        UINT dx, dy;
+        if (clipped(x, y, panelW, panelH, box, dx, dy))
+            context->CopySubresourceRegion(back, 0, dx, dy, 0, panel.Get(), 0, &box);
+        const int sheetW = int(sheetRect.right - sheetRect.left), sheetH = int(sheetRect.bottom - sheetRect.top);
+        const int64_t refresh = qpcFrequency / 4; // la activa, a lo sumo cada 250 ms mientras se dibuja
+        for (const PanelThumb& p : panelThumbs) {
+            const int w = int(p.rect.right - p.rect.left), h = int(p.rect.bottom - p.rect.top);
+            if (!p.sheet || w <= 0 || h <= 0)
+                continue;
+            Thumbnail& t = thumbs[p.sheet];
+            if (!t.texture || t.width != w || t.height != h) {
+                D3D11_TEXTURE2D_DESC td{};
+                td.Width = UINT(w);
+                td.Height = UINT(h);
+                td.MipLevels = 1;
+                td.ArraySize = 1;
+                td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+                td.SampleDesc.Count = 1;
+                td.Usage = D3D11_USAGE_DEFAULT;
+                td.BindFlags = D3D11_BIND_RENDER_TARGET;
+                t = {};
+                if (FAILED(device->CreateTexture2D(&td, nullptr, &t.texture)))
+                    continue;
+                device->CreateRenderTargetView(t.texture.Get(), nullptr, &t.target);
+                t.width = w;
+                t.height = h;
+            }
+            const bool fromImage = p.sheet == sheetSource.uploaded() && sheetW > 0 && sheetH > 0;
+            if (fromImage) {
+                if (!t.valid || !t.fromImage || (t.imageVersion != imageVersion && now - t.madeQpc > refresh)) {
+                    makeThumb(t, displayView.Get(), int(width), int(height), int(sheetRect.left), int(sheetRect.top), sheetW,
+                              sheetH);
+                    t.imageVersion = imageVersion;
+                    t.madeQpc = now;
+                    t.valid = t.fromImage = true;
+                }
+            } else if (!t.valid || t.fromImage) {
+                // Desde su textura (la que dejó al salir); si nunca estuvo activa, papel liso.
+                ID3D11ShaderResourceView* view = sheetW > 0 ? sheetView(p.sheet, sheetW, sheetH) : nullptr;
+                makeThumb(t, view, sheetW, sheetH, 0, 0, sheetW, sheetH);
+                t.madeQpc = now;
+                t.valid = true;
+                t.fromImage = false;
+            }
+            if (clipped(int(p.rect.left), int(p.rect.top), w, h, box, dx, dy))
+                context->CopySubresourceRegion(back, 0, dx, dy, 0, t.texture.Get(), 0, &box);
+        }
     }
 
     // Sube la imagen de una hoja a su textura (la crea si no hay o cambió el tamaño).
@@ -471,6 +648,7 @@ void Renderer::run()
                                              UINT(m_image.width) * 4, 0);
                 r.top += rows;
                 m_image.hasDirty = r.top < r.bottom;
+                ++d.imageVersion; // la miniatura de la activa (HU-114) se rehace
             }
             if (lock.owns_lock())
                 d.sheetSource.latched(m_image.sheet, pendingBefore, m_image.hasDirty);
@@ -489,8 +667,35 @@ void Renderer::run()
         bool untilActive;
         int64_t flipQpc, lightQpc;
         std::vector<SheetLayer> below;
+        bool panelVisible;
+        int panelX, panelY;
+        std::vector<PanelThumb> panelThumbs;
         {
             std::lock_guard layersLock(m_layersMutex);
+            panelVisible = m_panelVisible;
+            panelX = m_panelX;
+            panelY = m_panelY;
+            if (panelVisible)
+                panelThumbs = m_panelThumbs;
+            if (m_panelChanged) { // la imagen del panel (HU-114), a su textura
+                m_panelChanged = false;
+                if (!d.panel || d.panelW != m_panelW || d.panelH != m_panelH) {
+                    D3D11_TEXTURE2D_DESC td{};
+                    td.Width = UINT(std::max(1, m_panelW));
+                    td.Height = UINT(std::max(1, m_panelH));
+                    td.MipLevels = 1;
+                    td.ArraySize = 1;
+                    td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+                    td.SampleDesc.Count = 1;
+                    td.Usage = D3D11_USAGE_DEFAULT;
+                    d.panel.Reset();
+                    d.device->CreateTexture2D(&td, nullptr, &d.panel);
+                    d.panelW = m_panelW;
+                    d.panelH = m_panelH;
+                }
+                if (d.panel && m_panelPixels.size() == size_t(m_panelW) * size_t(m_panelH))
+                    d.context->UpdateSubresource(d.panel.Get(), 0, nullptr, m_panelPixels.data(), UINT(m_panelW) * 4, 0);
+            }
             sheetRect = m_sheetRect;
             shown = m_shown;
             untilActive = m_untilActive;
@@ -499,12 +704,17 @@ void Renderer::run()
             lightQpc = m_lightQpc;
             m_lightQpc = 0;
             below = m_below;
-            for (const uint64_t id : m_dropped)
+            for (const uint64_t id : m_dropped) {
                 d.sheets.erase(id);
+                d.thumbs.erase(id);
+            }
             m_dropped.clear();
         }
-        for (RetiredSheet& r : retired)
+        for (RetiredSheet& r : retired) {
             d.uploadSheet(d.sheets[r.sheet], r.width, r.height, r.pixels.data());
+            if (const auto t = d.thumbs.find(r.sheet); t != d.thumbs.end())
+                t->second.valid = false; // la miniatura sale de la textura nueva (HU-114)
+        }
         // La hoja soltada (HU-90) ya está entera en la imagen: de acá en más se ve la activa.
         if (untilActive && shown == d.sheetSource.uploaded()) {
             std::lock_guard layersLock(m_layersMutex);
@@ -555,6 +765,8 @@ void Renderer::run()
         }
         if (rotation.identity() || !d.drawRotated(back.Get(), rotation, sourceView))
             d.context->CopyResource(back.Get(), source);
+        if (panelVisible)
+            d.drawPanel(back.Get(), panelX, panelY, panelThumbs, sheetRect, now);
         if (m_overlay) {
             d.context->CopySubresourceRegion(back.Get(), 0, 16, 16, 0, d.stats.Get(), 0, nullptr);
             overlayShown = true;

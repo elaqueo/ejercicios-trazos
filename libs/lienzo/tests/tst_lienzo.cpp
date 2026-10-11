@@ -7,7 +7,9 @@
 #include <lienzo/Renderer.h>
 #include <lienzo/DisplayImage.h>
 #include <lienzo/SampleQueue.h>
+#include <appkit/Theme.h>
 #include <lienzo/SheetImages.h>
+#include <lienzo/SheetPanel.h>
 #include <lienzo/SheetStack.h>
 #include <lienzo/SheetMapping.h>
 #include <lienzo/Simulation.h>
@@ -1236,6 +1238,75 @@ private slots:
         QVERIFY(!broken.unpack(back));
         images.clear();
         QVERIFY(images.get(7).empty());
+    }
+
+    // HU-114: el panel de hojas muestra la activa y 3 antes y después; afuera de la pila, lugares
+    // vacíos.
+    void panelLugares()
+    {
+        SheetOrder o;
+        for (int i = 0; i < 5; ++i)
+            o.add(o.count); // 6 hojas, ids 1..6
+        auto strip = panelSlots(o, 1);
+        QCOMPARE(strip.size(), size_t(7));
+        QCOMPARE(strip[0].id, uint64_t(0)); // antes de la primera
+        QCOMPARE(strip[1].id, uint64_t(0));
+        QCOMPARE(strip[2].id, uint64_t(1));
+        QCOMPARE(strip[2].number, 1);
+        QVERIFY(strip[3].center && strip[3].number == 2);
+        QCOMPARE(strip[6].number, 5);
+        strip = panelSlots(o, 5);
+        QCOMPARE(strip[3].number, 6);
+        QCOMPARE(strip[4].id, uint64_t(0)); // después de la última
+    }
+
+    // HU-114: el panel va pegado a la derecha, de 240 px a escala 1; las miniaturas tienen la
+    // forma de la hoja, entran en el panel y se achican en una pantalla baja.
+    void panelMedidas()
+    {
+        const double aspect = 1734.0 / 1081.0;
+        const PanelLayout big = panelLayout(2560, 1080, 1.0, aspect);
+        QCOMPARE(big.panel, QRect(2560 - 16 - 240, 16, 240, 1048));
+        QCOMPARE(big.thumbs.size(), size_t(7));
+        QCOMPARE(big.rowHeight, 84);
+        for (const QRect& t : big.thumbs) {
+            QVERIFY(QRect(QPoint(0, 0), big.panel.size()).contains(t));
+            QVERIFY(std::abs(double(t.width()) / t.height() - aspect) < 0.05);
+        }
+        QVERIFY(big.thumbs[1].top() > big.thumbs[0].bottom());
+        // Laptop: 1920 × 1080 físicos al 125 %: el panel es más ancho en píxeles y las
+        // miniaturas, más chicas, para que entre todo.
+        const PanelLayout laptop = panelLayout(1920, 1080, 1.25, aspect);
+        QCOMPARE(laptop.panel.width(), 300);
+        QVERIFY(laptop.rowHeight < 84 * 1.25);
+        QVERIFY(laptop.thumbs.back().bottom() < laptop.panel.height() - 200); // queda lugar para el resto
+    }
+
+    // HU-114: el panel pintado: del tamaño de su lugar; la activa con marco de acento, las
+    // demás con el papel adentro hasta que el render ponga la miniatura; afuera de la pila, nada.
+    void panelPintado()
+    {
+        SheetOrder o;
+        o.add(1);
+        PanelInfo info;
+        info.take = QStringLiteral("toma-1");
+        info.number = 1;
+        info.total = 2;
+        info.strip = panelSlots(o, 0);
+        info.lead = QStringLiteral("HB · 0,87 mm");
+        const PanelLayout layout = panelLayout(2560, 1080, 1.0, 1.6);
+        const QColor paper(0xFA, 0xF8, 0xF2);
+        const QImage image = paintPanel(info, layout, paper, QColor(0x30, 0x33, 0x38));
+        QCOMPARE(image.size(), layout.panel.size());
+        const QRect active = layout.thumbs[3];
+        QCOMPARE(QColor(image.pixel(active.center())), paper);
+        QCOMPARE(QColor(image.pixel(active.left() - 1, active.center().y())), appkit::theme::kSeleccionTexto);
+        const QRect next = layout.thumbs[4];
+        QCOMPARE(QColor(image.pixel(next.center())), paper);
+        QCOMPARE(QColor(image.pixel(next.left() - 2, next.center().y())), appkit::theme::kBorde);
+        const QRect empty = layout.thumbs[0];
+        QCOMPARE(QColor(image.pixel(empty.center())), appkit::theme::kPanel);
+        QCOMPARE(QColor(image.pixel(0, 0)), QColor(0x30, 0x33, 0x38)); // la esquina redondeada
     }
 
     // HU-86: una toma que no se abre no se pisa: se usa la de al lado que abre, o una nueva;
