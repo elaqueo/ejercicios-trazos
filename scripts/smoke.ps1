@@ -224,6 +224,17 @@ try {
         $failures.Add('Reordenar')
     }
 
+    # HU-115: con la activa en la 1 de 3, Fin salta a la última, Fin otra vez no hace nada e
+    # Inicio vuelve a la primera.
+    foreach ($k in '{END}', '{END}', '{HOME}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    $jumps = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'la última|la primera' }) -join ' ')
+    if ($jumps -match 'la última · hoja 3 de 3.*ya está en la última.*la primera · hoja 1 de 3') {
+        Write-Host '  ok   Fin salta a la última hoja e Inicio a la primera'
+    } else {
+        Write-Host "  FALLA Inicio y Fin: $jumps"
+        $failures.Add('Inicio y Fin')
+    }
+
     # HU-85 y HU-86: la toma (toma.json y una hoja por archivo) se guarda sola, sin cerrar: las 3
     # hojas ya están en disco, e Insert agrega el archivo de la nueva enseguida. Con la app
     # matada (sin cerrar), al volver a abrir está la misma pila, con la misma hoja activa, sin

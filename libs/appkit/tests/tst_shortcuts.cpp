@@ -66,6 +66,8 @@ private slots:
         QCOMPARE(Shortcuts::describe({'S', true}), QStringLiteral("Ctrl+S"));
         QCOMPARE(Shortcuts::describe({VK_OEM_4}), QStringLiteral("["));
         QCOMPARE(Shortcuts::describe({VK_RIGHT}), QStringLiteral("→"));
+        QCOMPARE(Shortcuts::describe({VK_HOME}), QStringLiteral("Inicio")); // HU-115
+        QCOMPARE(Shortcuts::describe({VK_END}), QStringLiteral("Fin"));
     }
 };
 

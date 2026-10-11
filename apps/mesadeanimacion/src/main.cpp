@@ -2,7 +2,8 @@
 // (docs/mesa-de-animacion/idea.md y requerimientos.md). Corre sobre el lienzo de libs/lienzo,
 // como Cartuchera; las teclas comunes están en lienzo/Lienzo.h.
 // HU-84: el armazón. HU-87: Insert, Ctrl+D, Ctrl+N y Supr manejan las hojas, con deshacer.
-// HU-88: ↑ ↓ mueven la hoja activa en la pila.
+// HU-88: ↑ ↓ mueven la hoja activa en la pila. HU-115: Inicio y Fin saltan a la primera y la
+// última hoja.
 // HU-90: ← → flipean. HU-91: L prende y apaga la mesa de luz. HU-85 y HU-86: la toma se abre
 // al arrancar y se guarda sola mientras se trabaja.
 
@@ -117,6 +118,19 @@ int main(int argc, char* argv[])
     canvas.shortcuts().add(QStringLiteral("Mover la hoja hacia el principio"), {{VK_UP}}, [&] { moveActive(-1); });
     canvas.shortcuts().add(QStringLiteral("Mover la hoja hacia el final"), {{VK_DOWN}}, [&] { moveActive(1); });
     canvas.shortcuts().joinWithPrevious(QStringLiteral("Mover la hoja"));
+    // Saltar a un extremo (HU-115): como soltar un flip ahí, sin deshacer.
+    const auto jumpTo = [&](bool last) {
+        const int target = last ? canvas.sheetCount() - 1 : 0;
+        if (target == canvas.activeSheet()) {
+            qInfo() << "Hojas: ya está en" << (last ? "la última" : "la primera");
+            return;
+        }
+        canvas.activateSheet(target);
+        logSheet(last ? "la última" : "la primera");
+    };
+    canvas.shortcuts().add(QStringLiteral("Primera hoja"), {{VK_HOME}}, [&] { jumpTo(false); });
+    canvas.shortcuts().add(QStringLiteral("Última hoja"), {{VK_END}}, [&] { jumpTo(true); });
+    canvas.shortcuts().joinWithPrevious(QStringLiteral("Primera o última hoja"));
     appkit::ConfirmOverlay confirm(&shell);
     const auto removeActive = [&] {
         canvas.removeSheet(canvas.activeSheet());

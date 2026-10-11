@@ -108,6 +108,11 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. ← → la saltean; ↑ ↓ no la mueven; solo puede haber una (marcar otra desmarca la anterior).
     3. Se puede dibujar en ella eligiéndola con un atajo propio (no con el flip).
 
+115. **HU-115 · Inicio y Fin saltan a la primera y la última hoja** (Must · 1 pt). Como animador, quiero saltar a la primera hoja con Inicio y a la última con Fin, para ir a un extremo de la toma sin flipear hoja por hoja (pedido del usuario del 11 de octubre de 2026).
+    1. Inicio activa la primera hoja y Fin la última; si ya es la activa, no hace nada.
+    2. Van a la lista de atajos (Ctrl+,), en el grupo "Hojas".
+    3. *Hecho (11 oct 2026): saltar es como soltar un flip en ese extremo, así que no va al deshacer (activar una hoja tampoco). La lista de atajos ahora nombra Inicio, Fin y Tab (antes mostraba el código de la tecla).*
+
 ### E3 · Flip y mesa de luz
 
 90. **HU-90 · Flip con ← →** (Must · 3 pts). Como animador, quiero pasar de hoja con ← y → al instante, para probar el timing con la mano.
@@ -178,6 +183,12 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 103. **HU-103 · Guía de campo** (Could · 2 pts). Como animador, quiero una guía de campo de 12 campos superpuesta, para encuadrar y mantener el registro entre hojas.
     1. Un atajo la muestra y oculta; va bajo el grafito como las guías de Ejercicios, con los colores de guía del tema.
 
+114. **HU-114 · Panel de hojas** (Must · 5 pts). Como animador, quiero un panel angosto a la derecha de la pantalla con la hoja activa y sus vecinas en miniatura y los datos de la toma, para ubicarme en la pila sin abrir F3 (pedido del usuario del 11 de octubre de 2026; diseño: mesa "Panel de hojas" del canvas).
+    1. En el espacio libre a la derecha de la hoja, 240 px: la toma y si está guardada; la hoja activa y el total; miniaturas de la activa y de 3 antes y 3 después, con su número; el lápiz, la mesa de luz y el giro de la vista.
+    2. Tab lo muestra y lo oculta; queda guardado en config.
+    3. Las miniaturas salen de las texturas de las hojas que ya están en la GPU: no frenan el flip ni el trazo (benchmarks iguales).
+    4. Se actualiza al flipear, insertar, borrar, mover y deshacer.
+
 ### E6 · Rol y chart
 
 104. **HU-104 · Rol y número** (Should · 3 pts). Como animador, quiero marcar una hoja como key o breakdown y ver su número en la esquina, para leer la pila como leo el papel.
@@ -219,7 +230,7 @@ Primero se mide el flip con hojas reales; recién después se construye la pila.
 
 1. **Fase 0 — Factibilidad** (HU-81; 3 pts)
     1. Spike del flip y de la memoria por hoja. Salida: arquitectura de la pila decidida y escrita.
-2. **Fase 1 — MVP: flipear** (HU-82 a HU-88, HU-90, HU-91, HU-97, HU-98, HU-110, HU-112, HU-113; 45 pts)
+2. **Fase 1 — MVP: flipear** (HU-82 a HU-88, HU-90, HU-91, HU-97, HU-98, HU-110, HU-112 a HU-115; 51 pts)
     1. Pila en el lienzo, perfil de medio, tinte en el render, app, formato y guardado automático, hojas, flip, mesa de luz, papel de animación, grafito único, instalador.
     2. Salida: una toma de 24 hojas animada de punta a punta con flip y mesa de luz, guardada sola y reabierta igual.
 3. **Fase 2 — Mano de animador** (HU-89, HU-92 a HU-95, HU-99 a HU-105; 33 pts)
