@@ -19,7 +19,9 @@ class SampleQueue;
 class CanvasWindow {
 public:
     // onKey(vk, ctrl): teclas que llegan al lienzo (cuando tiene el foco).
-    CanvasWindow(HWND parent, SampleQueue& queue, std::function<void(UINT, bool)> onKey);
+    // ringModes: el nombre de cada modo de la rueda, como lo muestra el driver de Wacom.
+    CanvasWindow(HWND parent, SampleQueue& queue, std::function<void(UINT, bool)> onKey,
+                 std::vector<std::string> ringModes);
     ~CanvasWindow();
     CanvasWindow(const CanvasWindow&) = delete;
     CanvasWindow& operator=(const CanvasWindow&) = delete;

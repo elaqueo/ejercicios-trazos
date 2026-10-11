@@ -180,6 +180,16 @@ private slots:
 
     // En el borde de la superficie activa el driver deja el lápiz clavado: esas muestras se
     // marcan (la app corta el trazo ahí). Adentro, aunque sea cerca, no.
+    void nombresDeLosModos()
+    {
+        using tabletinput::TouchRing;
+        const std::vector<std::string> names{"Girar la vista", "Zoom"};
+        QCOMPARE(TouchRing::modeName(names, 0), std::string("Girar la vista"));
+        QCOMPARE(TouchRing::modeName(names, 1), std::string("Zoom"));
+        QCOMPARE(TouchRing::modeName(names, 3), std::string("Girar la vista")); // sin función propia
+        QCOMPARE(TouchRing::modeName({}, 0), std::string());
+    }
+
     void bordeDeLaTableta()
     {
         const DeviceRects r = desktopRects();

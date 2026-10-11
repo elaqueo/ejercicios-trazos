@@ -56,15 +56,20 @@ public:
     TouchRing& operator=(const TouchRing&) = delete;
 
     // Abre un contexto de Wintab en hwnd (los mensajes llegan a su WndProc) y toma la rueda.
-    // log recibe lo que pasa (diagnóstico). name (UTF-8) es lo que muestra el driver para la
-    // rueda al apretar el botón central. false si no hay Wintab o la tableta no tiene rueda.
-    bool open(HWND hwnd, Log log, std::string name = {});
+    // log recibe lo que pasa (diagnóstico). names (UTF-8) son los que muestra el driver para
+    // cada modo de la rueda al apretar el botón central (ver modeName). false si no hay Wintab
+    // o la tableta no tiene rueda.
+    bool open(HWND hwnd, Log log, std::vector<std::string> names = {});
     void close();
     bool isOpen() const { return m_context != nullptr; }
 
     // Para llamar desde el WndProc: si es un paquete de la rueda, agrega el evento y
     // devuelve true.
     bool handleMessage(UINT message, WPARAM wParam, LPARAM lParam, std::vector<RingEvent>& out);
+
+    // El nombre del modo `mode`: el suyo, o el primero si hay más modos que nombres (los modos
+    // sin función propia hacen lo del primero). Vacío si no hay nombres.
+    static std::string modeName(const std::vector<std::string>& names, int mode);
 
     // Rango de posiciones que informa el driver (Intuos4: 72 por vuelta).
     uint32_t minimum() const { return m_min; }
@@ -77,7 +82,7 @@ private:
     Api* m_api = nullptr;
     void* m_context = nullptr;
     Log m_log;
-    std::string m_name;
+    std::vector<std::string> m_names;
     uint32_t m_min = 0, m_max = 0;
     int m_controls = 0;
     std::vector<int> m_functions; // funciones (modos) por control

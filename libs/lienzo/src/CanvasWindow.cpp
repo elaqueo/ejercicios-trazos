@@ -16,7 +16,8 @@ const wchar_t* kClassName = L"LienzoCanvas";
 
 } // namespace
 
-CanvasWindow::CanvasWindow(HWND parent, SampleQueue& queue, std::function<void(UINT, bool)> onKey)
+CanvasWindow::CanvasWindow(HWND parent, SampleQueue& queue, std::function<void(UINT, bool)> onKey,
+                           std::vector<std::string> ringModes)
     : m_queue(queue)
     , m_onKey(std::move(onKey))
     , m_cursor(createCrossCursor())
@@ -38,7 +39,7 @@ CanvasWindow::CanvasWindow(HWND parent, SampleQueue& queue, std::function<void(U
     ClientToScreen(m_hwnd, &m_origin);
     SetFocus(m_hwnd);
     if (m_ring.open(m_hwnd, [](const std::string& line) { qInfo().noquote() << QString::fromStdString(line); },
-                    "Girar la vista"))
+                    std::move(ringModes)))
         m_ringTracker = tabletinput::RingTracker(int(m_ring.maximum() - m_ring.minimum() + 1));
 }
 

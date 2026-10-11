@@ -1002,7 +1002,12 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     const auto keyUp = [impl = d.get()](UINT vk) { impl->keyUp(vk); };
     shell.onKey = dispatch;
     shell.onKeyUp = keyUp;
-    d->canvas = std::make_unique<CanvasWindow>(reinterpret_cast<HWND>(shell.winId()), d->queue, dispatch);
+    // Los modos de la rueda (botón del centro): girar y, con zoom, zoom (HU-101); los demás giran.
+    std::vector<std::string> ringModes{"Girar la vista"};
+    if (d->options.zoom)
+        ringModes.push_back("Zoom");
+    d->canvas = std::make_unique<CanvasWindow>(reinterpret_cast<HWND>(shell.winId()), d->queue, dispatch,
+                                               std::move(ringModes));
     d->canvas->setOnKeyUp(keyUp);
 
     // Área útil: la de la familia de apps (sección común de config.json), la que se calibra

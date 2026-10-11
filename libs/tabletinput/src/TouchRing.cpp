@@ -147,10 +147,17 @@ TouchRing::~TouchRing()
     close();
 }
 
-bool TouchRing::open(HWND hwnd, Log log, std::string name)
+std::string TouchRing::modeName(const std::vector<std::string>& names, int mode)
+{
+    if (names.empty())
+        return {};
+    return mode >= 0 && size_t(mode) < names.size() ? names[size_t(mode)] : names.front();
+}
+
+bool TouchRing::open(HWND hwnd, Log log, std::vector<std::string> names)
 {
     m_log = std::move(log);
-    m_name = std::move(name);
+    m_names = std::move(names);
     const auto say = [this](const std::string& s) {
         if (m_log)
             m_log(s);
@@ -264,13 +271,14 @@ void TouchRing::overrideControls(bool enable)
             // El nombre que muestra el driver al apretar el botón central (si no, "Application
             // defined"), en UTF-8. Tiene que ir ANTES de tomar el modo: después el driver lo
             // rechaza (probado en la Intuos4 en UTF-8, UTF-16 y con varios tamaños).
-            if (enable && !m_name.empty()) {
+            const std::string name = modeName(m_names, f);
+            if (enable && !name.empty()) {
                 EXTPROPERTY n{};
                 n.controlIndex = BYTE(c);
                 n.functionIndex = BYTE(f);
                 n.propertyID = TABLET_PROPERTY_OVERRIDE_NAME;
-                n.dataSize = DWORD(std::min(m_name.size() + 1, sizeof n.data));
-                std::memcpy(n.data, m_name.c_str(), n.dataSize - 1);
+                n.dataSize = DWORD(std::min(name.size() + 1, sizeof n.data));
+                std::memcpy(n.data, name.c_str(), n.dataSize - 1);
                 if (!m_api->extSet(m_context, WTX_TOUCHRING, &n) && m_log)
                     m_log(format("Rueda: no se pudo poner el nombre del modo %d", f));
             }

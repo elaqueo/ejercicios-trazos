@@ -104,6 +104,6 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | + / − | Zoom de a ~20 %, de 25 % a 400 %, hacia la punta del lápiz si está sobre la hoja (si no, hacia el centro); también los del teclado numérico. Se guarda en la toma; el panel y F3 lo muestran (HU-101) |
 | Ctrl+1 | Zoom 100 %, centrada, sin cambiar el giro (HU-101) |
 | Espacio + arrastrar con el lápiz | Pan: la hoja sigue a la punta y no se dibuja; el cursor pasa a la flecha de cuatro puntas mientras Espacio está apretado. El centro de la hoja no sale de la pantalla. Se guarda en la toma (HU-102) |
-| Rueda, en su segundo modo (botón del centro) | Zoom continuo: un cuarto de vuelta duplica o reduce a la mitad (HU-101) |
+| Rueda, en su segundo modo (botón del centro) | Zoom continuo: un cuarto de vuelta duplica o reduce a la mitad (HU-101); el overlay de Wacom lo muestra como "Zoom" |
 | Botón lateral del lápiz | Menú del lápiz en la punta: los cinco lápices y mesa de luz, hojas, deshacer, rehacer y vista inicial (HU-116) |
 | Z / Ctrl+Y | Deshacer / rehacer lo más reciente: el último trazo de la hoja activa o la última operación con las hojas (incluido mover) |
