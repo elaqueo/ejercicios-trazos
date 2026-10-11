@@ -75,7 +75,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | F4 / F2 | Menú / panel | — |
 | F5 | Selector de lápices | Selector de lápices |
 | Ctrl+, | Lista de atajos; Esc o Ctrl+, la cierran (HU-78) | Igual |
-| Ctrl+0 | Vista inicial: giro a 0° (con zoom y pan, HU-101 y HU-102, también la hoja entera y centrada; HU-116) | Igual |
+| Ctrl+0 | Vista inicial: giro a 0°, zoom 100 % y centrada (HU-116, HU-101) | Igual |
 | 4 / 6 / 5 | Girar la vista de a 15° / volver a 0° | Igual (desde el 10 de octubre de 2026; las durezas se eligen con F5) |
 | Shift + arrastrar con el lápiz | Girar la vista libremente, sin snap (HU-79) | Igual |
 | Z / Ctrl+Y | — (sin deshacer) | Deshacer / rehacer |
@@ -101,5 +101,8 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Tab | Mostrar u ocultar el panel de hojas (queda guardado; HU-114) |
 | 1 · 2 · 3 · 4 · 5 | Grafito (HB) · azul no-foto (construcción) · rojo (sombra 1) · verde (sombra 2 o highlight) · violeta (cierres); queda guardado (HU-99) |
 | F5 | Selector de lápices, centrado sobre la hoja: el grafito y los cuatro colores con su muestra; F5 o Esc lo cierran (HU-100) |
+| + / − | Zoom de a ~20 %, de 25 % a 400 %, hacia la punta del lápiz si está sobre la hoja (si no, hacia el centro); también los del teclado numérico. Se guarda en la toma; el panel y F3 lo muestran (HU-101) |
+| Ctrl+1 | Zoom 100 %, centrada, sin cambiar el giro (HU-101) |
+| Rueda, en su segundo modo (botón del centro) | Zoom continuo: un cuarto de vuelta duplica o reduce a la mitad (HU-101) |
 | Botón lateral del lápiz | Menú del lápiz en la punta: los cinco lápices y mesa de luz, hojas, deshacer, rehacer y vista inicial (HU-116) |
 | Z / Ctrl+Y | Deshacer / rehacer lo más reciente: el último trazo de la hoja activa o la última operación con las hojas (incluido mover) |

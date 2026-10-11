@@ -79,6 +79,11 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
             // (con la vista girada dibujaba una línea a lo largo del borde).
             if (s.atEdge || m_penBlocked)
                 s.inContact = false;
+            if (!s.atEdge) {
+                m_penX = s.x;
+                m_penY = s.y;
+                m_penTick = GetTickCount64();
+            }
             if (s.barrel && !m_barrel && m_onStylusButton)
                 m_onStylusButton(int(std::lround(s.x)), int(std::lround(s.y)));
             m_barrel = s.barrel;
@@ -109,7 +114,7 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         for (const tabletinput::RingEvent& e : m_ringEvents) {
             const tabletinput::RingTracker::Step step = m_ringTracker.feed(e.position, us);
             if (m_onRing && (step.degrees != 0 || step.ended))
-                m_onRing(step.degrees, step.ended);
+                m_onRing(step.degrees, step.ended, e.mode);
         }
         return 0;
     }

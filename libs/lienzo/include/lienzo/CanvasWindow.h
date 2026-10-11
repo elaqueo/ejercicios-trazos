@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <cstdint>
 #include <functional>
 #include <vector>
 
@@ -32,8 +33,19 @@ public:
         m_onRotateGesture = std::move(callback);
     }
     // Rueda táctil de la tableta (HU-74): grados que giró el dedo (positivos = sentido de las
-    // agujas del reloj) y ended al levantarlo. En el hilo de la interfaz.
-    void setOnRing(std::function<void(double degrees, bool ended)> callback) { m_onRing = std::move(callback); }
+    // agujas del reloj) y ended al levantarlo. mode: el modo de la rueda, que cambia el botón del
+    // centro (HU-101: uno gira, otro hace zoom). En el hilo de la interfaz.
+    void setOnRing(std::function<void(double degrees, bool ended, int mode)> callback) { m_onRing = std::move(callback); }
+    // Dónde estuvo la punta por última vez (en el aire o apoyada), en píxeles del cliente, si fue
+    // hace menos de maxAgeMs: el zoom va hacia ahí (HU-101).
+    bool recentPen(double& x, double& y, uint64_t maxAgeMs = 1000) const
+    {
+        if (!m_penTick || GetTickCount64() - m_penTick > maxAgeMs)
+            return false;
+        x = m_penX;
+        y = m_penY;
+        return true;
+    }
     // Al soltar una tecla (HU-90: el flip termina al soltar la flecha); vk = 0 si el lienzo
     // perdió el foco (las teclas apretadas ya no van a avisar).
     void setOnKeyUp(std::function<void(UINT vk)> callback) { m_onKeyUp = std::move(callback); }
@@ -67,7 +79,9 @@ private:
     tabletinput::TouchRing m_ring; // rueda táctil (HU-74)
     std::vector<tabletinput::RingEvent> m_ringEvents;
     tabletinput::RingTracker m_ringTracker;
-    std::function<void(double, bool)> m_onRing;
+    std::function<void(double, bool, int)> m_onRing;
+    double m_penX = 0, m_penY = 0;
+    uint64_t m_penTick = 0;
     std::vector<tabletinput::PenSample> m_samples;
 };
 

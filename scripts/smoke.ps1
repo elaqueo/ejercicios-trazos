@@ -278,11 +278,16 @@ try {
     # la 3 Ctrl+L la muestra sola. Después la 1 vuelve a sin rol y la activa a la 3 de 3.
     # Ctrl con keybd_event, mantenido un momento: el ^ de SendKeys a veces llega suelto.
     Add-Type -Namespace Smoke -Name Keys -MemberDefinition '[DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, System.UIntPtr extra);'
-    function CtrlL {
+    function Ctrl([byte]$vk) {
         [Smoke.Keys]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
-        [Smoke.Keys]::keybd_event(0x4C, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
-        [Smoke.Keys]::keybd_event(0x4C, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
+        [Smoke.Keys]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
+        [Smoke.Keys]::keybd_event($vk, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
         [Smoke.Keys]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 400
+    }
+    function CtrlL { Ctrl 0x4C }
+    function Key([byte]$vk) {
+        [Smoke.Keys]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
+        [Smoke.Keys]::keybd_event($vk, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 400
     }
     CtrlL; CtrlL
     foreach ($k in '{HOME}', 'k', '{END}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 450 }
@@ -295,6 +300,20 @@ try {
     } else {
         Write-Host "  FALLA solo keys · $keysOnly"
         $failures.Add('Solo keys')
+    }
+
+    # HU-101: + + − (las del teclado numérico) acercan y alejan de a 20 %; Ctrl+1 vuelve a 100 %;
+    # + y Ctrl+0 vuelven a la vista inicial.
+    Key 0x6B; Key 0x6B; Key 0x6D # VK_ADD, VK_SUBTRACT
+    Ctrl 0x31
+    Key 0x6B
+    Ctrl 0x30
+    $zoom = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Zoom |Vista inicial' }) -join ' ')
+    if ($zoom -match 'Zoom 120 % \(\+\).*Zoom 144 % \(\+\).*Zoom 120 % \(−\).*Zoom 100 % \(Ctrl\+1\).*Zoom 120 % \(\+\).*Vista inicial: rotada 0 °, zoom 100 %') {
+        Write-Host '  ok   + y − acercan y alejan, Ctrl+1 vuelve a 100 % y Ctrl+0 a la vista inicial'
+    } else {
+        Write-Host "  FALLA zoom · $zoom"
+        $failures.Add('Zoom')
     }
 
     # HU-88: con la activa en la 3 de 3, ↑ ↑ la llevan al principio, otra ↑ no hace nada, ↓ la

@@ -54,7 +54,7 @@ double percentile(std::vector<double> v, double p)
 // Vista rotada (HU-40): un rectángulo del tamaño del cliente girado alrededor de (cx, cy),
 // con la imagen de pantalla como textura.
 const char kRotateShader[] = R"(
-cbuffer View : register(b0) { float2 size; float2 center; float cosA; float sinA; float2 pad; };
+cbuffer View : register(b0) { float2 size; float2 center; float cosA; float sinA; float scale; float taps; float2 pan; float2 pad; };
 Texture2D image : register(t0);
 SamplerState linearClamp : register(s0);
 struct V { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
@@ -62,13 +62,25 @@ V vs(uint id : SV_VertexID)
 {
     float2 uv = float2(id & 1, id >> 1);
     float2 d = uv * size - center;
-    float2 p = center + float2(cosA * d.x - sinA * d.y, sinA * d.x + cosA * d.y);
+    float2 p = center + pan + scale * float2(cosA * d.x - sinA * d.y, sinA * d.x + cosA * d.y);
     V o;
     o.pos = float4(p.x / size.x * 2 - 1, 1 - p.y / size.y * 2, 0, 1);
     o.uv = uv;
     return o;
 }
-float4 ps(V v) : SV_Target { return image.Sample(linearClamp, v.uv); }
+// Al alejar (HU-101), cada píxel promedia los 1/scale × 1/scale texeles que cubre (taps × taps
+// muestras bilineales), así una línea fina se aclara en vez de desaparecer.
+float4 ps(V v) : SV_Target
+{
+    if (taps <= 1)
+        return image.Sample(linearClamp, v.uv);
+    float2 cell = 1.0 / (scale * size);
+    float3 sum = 0;
+    for (float j = 0; j < taps; j += 1)
+        for (float i = 0; i < taps; i += 1)
+            sum += image.SampleLevel(linearClamp, v.uv + ((float2(i, j) + 0.5) / taps - 0.5) * cell, 0).rgb;
+    return float4(sum / (taps * taps), 1);
+}
 )";
 
 // Miniatura del panel de hojas (HU-114): cada píxel de la miniatura promedia el rectángulo
@@ -111,6 +123,8 @@ struct ViewConstants {
     float size[2];
     float center[2];
     float cosA, sinA;
+    float scale, taps;
+    float pan[2];
     float pad[2];
 };
 
@@ -475,10 +489,15 @@ struct Renderer::Impl {
                                   float(kOutsideColor & 0xFF) / 255.0f, 1.0f};
         context->ClearRenderTargetView(target.Get(), outside);
         const double a = rotation.degrees * 3.14159265358979323846 / 180.0;
+        // Al alejar, una muestra por texel cubierto (cada una bilineal: 2 × 2), hasta 4 × 4.
+        const float taps = rotation.scale < 1 ? float(std::min(4.0, std::ceil(0.5 / rotation.scale))) : 1.0f;
         const ViewConstants c{{float(width), float(height)},
                               {float(rotation.cx), float(rotation.cy)},
                               float(std::cos(a)),
                               float(std::sin(a)),
+                              float(rotation.scale),
+                              taps,
+                              {float(rotation.panX), float(rotation.panY)},
                               {0, 0}};
         context->UpdateSubresource(viewConstants.Get(), 0, nullptr, &c, 0, 0);
         const D3D11_VIEWPORT viewport{0, 0, float(width), float(height), 0, 1};

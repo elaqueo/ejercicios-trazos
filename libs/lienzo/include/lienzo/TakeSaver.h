@@ -26,6 +26,7 @@ struct TakeIndex {
     int active = 0;
     double degrees = 0;
     SheetRoles roles;
+    double zoom = 1, panX = 0, panY = 0; // HU-101, HU-102 (como TakeView)
     bool operator==(const TakeIndex&) const = default;
 };
 

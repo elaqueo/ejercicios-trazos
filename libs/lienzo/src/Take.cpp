@@ -180,7 +180,9 @@ QString writeTakeIndex(const QString& dir, const drymedia::Paper& paper, const s
         {QStringLiteral("papel"), paperJson(paper)},
         {QStringLiteral("hojas"), list},
         {QStringLiteral("activa"), active},
-        {QStringLiteral("vista"), QJsonObject{{QStringLiteral("giro"), view.degrees}}},
+        {QStringLiteral("vista"), QJsonObject{{QStringLiteral("giro"), view.degrees},
+                                              {QStringLiteral("zoom"), view.zoom},
+                                              {QStringLiteral("pan"), QJsonArray{view.panX, view.panY}}}},
         // HU-106 a HU-108.
         {QStringLiteral("audio"),
          QJsonObject{{QStringLiteral("archivo"), QString()}, {QStringLiteral("marcas"), QJsonArray()}}},
@@ -302,7 +304,11 @@ TakeResult openTake(const QString& dir, drymedia::Paper& paper, SheetStack& shee
     }
     const int active = std::clamp(root.value(QStringLiteral("activa")).toInt(), 0, int(stack.size()) - 1);
     sheets.replace(paper, std::move(stack), active);
-    view.degrees = root.value(QStringLiteral("vista")).toObject().value(QStringLiteral("giro")).toDouble();
+    const QJsonObject vista = root.value(QStringLiteral("vista")).toObject();
+    view.degrees = vista.value(QStringLiteral("giro")).toDouble();
+    view.zoom = vista.value(QStringLiteral("zoom")).toDouble(1.0); // las tomas de antes: 100 %
+    view.panX = vista.value(QStringLiteral("pan")).toArray().at(0).toDouble();
+    view.panY = vista.value(QStringLiteral("pan")).toArray().at(1).toDouble();
     result.ok = true;
     return result;
 }

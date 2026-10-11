@@ -186,6 +186,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. La función "Zoom" del anillo hace lo mismo de forma continua.
     3. Con zoom, el trazo sigue cayendo bajo la punta (la simulación lleva la muestra a la hoja con la escala, como hoy con la rotación) y la latencia no cambia (RNF-04).
     4. Se guarda en la toma con la rotación.
+    5. *Hecho (11 oct 2026): opción A elegida por el usuario: la GPU agranda la imagen que ya se ve (bilineal; al alejar promedia), sin latencia extra pero suave más allá de 100 %. Por pedido de diseño el zoom va hacia la punta del lápiz si está sobre la hoja (si no, al centro), porque sin pan el centro solo mostraba el medio. Ctrl+0 vuelve todo (vista inicial) y Ctrl+1 a 100 % centrada. La rueda hace zoom en su segundo modo (el botón del centro); el modo se anota en el log para confirmarlo con la tableta del usuario. Detalle en [arquitectura.md](arquitectura.md).*
 102. **HU-102 · Pan** (Should · 3 pts). Como animador, quiero desplazar la vista con Espacio + arrastrar, para mirar la parte de la hoja que me quedó fuera al acercar.
     1. Mientras Espacio está apretado, arrastrar con el lápiz mueve la vista y no dibuja.
     2. `Ctrl+0` y `Ctrl+1` también centran.

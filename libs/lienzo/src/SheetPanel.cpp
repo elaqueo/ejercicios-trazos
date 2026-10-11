@@ -205,7 +205,9 @@ QImage paintPanel(const PanelInfo& info, const PanelLayout& layout, const QColor
         chipX -= px(6);
     }
     y += px(30);
-    row(QStringLiteral("Vista"), QStringLiteral("%1°").arg(info.degrees), true);
+    row(QStringLiteral("Vista"),
+        info.zoom == 100 ? QStringLiteral("%1°").arg(info.degrees) : QStringLiteral("%1° · %2 %").arg(info.degrees).arg(info.zoom),
+        true);
 
     // La tecla que lo oculta.
     const QFont keyFont = font(true, px(13));

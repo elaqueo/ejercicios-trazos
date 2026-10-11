@@ -43,6 +43,7 @@ struct PanelInfo {
     std::vector<QColor> light;  // los colores de la mesa de luz (vacío: apagada)
     bool keysOnly = false;      // HU-93: la mesa de luz muestra solo las keys
     int degrees = 0;            // giro de la vista
+    int zoom = 100;             // HU-101, en %
     QString key = QStringLiteral("Tab");
     bool operator==(const PanelInfo&) const = default;
 };

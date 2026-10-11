@@ -225,16 +225,19 @@ void Simulation::autosave(bool interruptible)
                            std::move(pixels));
         m_sheets.markSaved(i);
     }
-    double degrees;
+    double degrees, zoom, panX, panY;
     SheetRoles roles; // solo de las hojas que están (las borradas guardan el suyo para deshacer)
     {
         std::lock_guard rotationLock(m_rotationMutex);
         degrees = m_rotation.degrees;
+        zoom = m_rotation.scale;
+        panX = m_mapping.sheetWidth ? m_rotation.panX / m_mapping.sheetWidth : 0;
+        panY = m_mapping.sheetHeight ? m_rotation.panY / m_mapping.sheetHeight : 0;
         for (const uint64_t id : order.ids)
             if (const SheetRole role = roleOf(m_roles, id); role != SheetRole::None)
                 roles[id] = role;
     }
-    TakeIndex index{order.ids, order.active, degrees, std::move(roles)};
+    TakeIndex index{order.ids, order.active, degrees, std::move(roles), zoom, panX, panY};
     if (index != m_savedIndex) {
         m_savedIndex = index;
         m_saver->saveIndex(std::move(index));

@@ -69,6 +69,10 @@ struct LienzoOptions {
     // rojo, verde, violeta); los números dejan de girar la vista (gira la rueda y Shift +
     // arrastrar). Queda guardado en config.json ("pencil").
     bool colorPencils = false;
+    // Zoom (HU-101, Mesa de animación): + y − acercan y alejan hacia la punta del lápiz (o el
+    // centro), de 25 % a 400 %; Ctrl+1 vuelve a 100 %; el modo de zoom de la rueda lo hace
+    // continuo. Se guarda en la toma.
+    bool zoom = false;
 };
 
 // El lienzo de baja latencia (HU-63, nacido en Cartuchera): una hoja de grafito del tamaño de

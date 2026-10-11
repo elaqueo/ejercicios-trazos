@@ -29,6 +29,8 @@ constexpr int kTakeVersion = 1;
 
 struct TakeView {
     double degrees = 0; // giro de la vista
+    double zoom = 1;    // HU-101
+    double panX = 0, panY = 0; // HU-102: el corrimiento, en fracción del ancho y el alto de la hoja
     SheetRoles roles;   // HU-104: key o breakdown, por id (solo las que tienen)
 };
 

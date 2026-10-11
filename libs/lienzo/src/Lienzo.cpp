@@ -431,6 +431,7 @@ struct Lienzo::Impl {
             info.light.push_back(color(t));
         info.keysOnly = lightTable.keysOnly && !info.light.empty(); // HU-93
         info.degrees = int(std::lround(viewDegrees)) % 360;
+        info.zoom = int(std::lround(viewScale * 100));
         const PanelLayout layout = panelLayout(canvas->width(), canvas->height(), screen->devicePixelRatio(),
                                                double(mapping.sheetWidth) / std::max(1, mapping.sheetHeight));
         if (!force && panelSent && info == panelShown && layout.panel == panelRect)
@@ -517,22 +518,75 @@ struct Lienzo::Impl {
         }
     }
 
+    // Zoom y corrimiento de la vista (HU-101, HU-102): el corrimiento en píxeles del cliente.
+    double viewScale = 1, viewPanX = 0, viewPanY = 0;
     ViewRotation rotation() const
     {
-        return {viewDegrees, mapping.sheetX + mapping.sheetWidth / 2.0, mapping.sheetY + mapping.sheetHeight / 2.0};
+        return {viewDegrees, mapping.sheetX + mapping.sheetWidth / 2.0, mapping.sheetY + mapping.sheetHeight / 2.0,
+                viewScale, viewPanX, viewPanY};
+    }
+    void applyView()
+    {
+        const ViewRotation r = rotation();
+        sim->setRotation(r);
+        if (render)
+            render->setRotation(r);
     }
 
     // persist: guarda el giro en config.json (HU-13); el gesto guarda solo al soltar.
     void setViewRotation(double degrees, bool persist = true)
     {
         viewDegrees = ViewRotation::normalized(degrees);
-        const ViewRotation r = rotation();
-        sim->setRotation(r);
-        if (render)
-            render->setRotation(r);
+        applyView();
         if (persist)
             config->setValue(QStringLiteral("viewRotation"), viewDegrees);
     }
+
+    // HU-101: la escala `to` con el punto (x, y) del cliente quieto.
+    void setViewScale(double to, double x, double y)
+    {
+        const ViewRotation v = rotation().zoomedAt(to, x, y);
+        viewScale = v.scale;
+        viewPanX = v.panX;
+        viewPanY = v.panY;
+        applyView();
+    }
+    // Hacia dónde va el zoom: la punta, si estuvo sobre la hoja hace poco; si no, el centro de
+    // la hoja como se ve.
+    void zoomAnchor(double& x, double& y) const
+    {
+        const ViewRotation r = rotation();
+        double px, py;
+        if (canvas->recentPen(px, py) && px >= mapping.sheetX && px < mapping.sheetX + mapping.sheetWidth &&
+            py >= mapping.sheetY && py < mapping.sheetY + mapping.sheetHeight) {
+            x = px;
+            y = py;
+            return;
+        }
+        x = r.cx + r.panX;
+        y = r.cy + r.panY;
+    }
+    void zoomBy(double factor, const char* how)
+    {
+        double x, y;
+        zoomAnchor(x, y);
+        setViewScale(viewScale * factor, x, y);
+        qInfo().noquote() << QStringLiteral("Zoom %1 % (%2)").arg(std::lround(viewScale * 100)).arg(QString::fromUtf8(how));
+    }
+    // Ctrl+0 (HU-116): giro a 0°, 100 % y centrada.
+    void resetView()
+    {
+        viewScale = 1;
+        viewPanX = viewPanY = 0;
+        setViewRotation(0);
+    }
+    // La vista y los roles como los guarda toma.json.
+    TakeView takeView() const
+    {
+        return {viewDegrees, viewScale, mapping.sheetWidth ? viewPanX / mapping.sheetWidth : 0,
+                mapping.sheetHeight ? viewPanY / mapping.sheetHeight : 0, roles};
+    }
+    int ringMode = -1; // el último modo de la rueda que se vio (HU-101: se anota al cambiar)
 
     // Lápiz de color (HU-99): -1 el grafito, 0..3 los colores; queda guardado.
     int colorPencil = -1;
@@ -608,8 +662,8 @@ struct Lienzo::Impl {
 
     double pointerAngle(double x, double y) const
     {
-        const ViewRotation r = rotation();
-        return std::atan2(y - r.cy, x - r.cx) * 180.0 / 3.14159265358979323846;
+        const ViewRotation r = rotation(); // alrededor del centro de la hoja como se ve
+        return std::atan2(y - r.cy - r.panY, x - r.cx - r.panX) * 180.0 / 3.14159265358979323846;
     }
 
     void rotateGesture(int phase, double x, double y)
@@ -887,6 +941,10 @@ struct Lienzo::Impl {
             if (lightTable.keysOnly && !lightTable.before.empty()) // HU-93
                 out += L"   ·   mesa de luz: solo keys (Ctrl+L)";
         }
+        if (options.zoom) { // HU-101
+            swprintf(text, 768, L"   ·   zoom %d %% (+ −)", int(std::lround(viewScale * 100)));
+            out += text;
+        }
         if (options.paperTexture)
             swprintf(text, 768, L"   ·   textura %d %% (Ctrl+[ ])%ls", texture, warning);
         else
@@ -964,7 +1022,26 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     d->canvas->setOnRotateGesture(
         [impl = d.get()](int phase, double x, double y) { impl->rotateGesture(phase, x, y); });
     // Rueda táctil (HU-74): giro libre, sin snap; se guarda al levantar el dedo.
-    d->canvas->setOnRing([impl = d.get()](double degrees, bool ended) {
+    d->canvas->setOnRing([impl = d.get()](double degrees, bool ended, int mode) {
+        if (mode != impl->ringMode) {
+            impl->ringMode = mode;
+            qInfo() << "Rueda: modo" << mode;
+        }
+        // HU-101: en el segundo modo (el botón del centro), zoom continuo: un cuarto de vuelta
+        // duplica o reduce a la mitad.
+        if (impl->options.zoom && mode == 1) {
+            if (degrees != 0) {
+                double x, y;
+                impl->zoomAnchor(x, y);
+                impl->setViewScale(impl->viewScale * std::pow(2.0, degrees / 90.0), x, y);
+                impl->ringTurned = true;
+            }
+            if (ended && impl->ringTurned) {
+                impl->ringTurned = false;
+                qInfo().noquote() << QStringLiteral("Zoom %1 % (rueda)").arg(std::lround(impl->viewScale * 100));
+            }
+            return;
+        }
         if (degrees != 0) {
             impl->setViewRotation(impl->viewDegrees + degrees, false);
             impl->ringTurned = true;
@@ -1179,9 +1256,22 @@ void Lienzo::registerShortcuts()
     }
     // HU-116: giro a 0° (y, con zoom y pan, HU-101 y HU-102, la hoja entera y centrada).
     keys.add(QStringLiteral("Vista inicial"), {{'0', true}}, [impl] {
-        impl->setViewRotation(0);
-        qInfo() << "Vista inicial: rotada 0 °";
+        impl->resetView();
+        qInfo() << "Vista inicial: rotada 0 °, zoom 100 %";
     });
+    if (d->options.zoom) { // HU-101
+        keys.add(QStringLiteral("Acercar"), {{VK_OEM_PLUS}, {VK_ADD}}, [impl] { impl->zoomBy(ViewRotation::kZoomStep, "+"); });
+        keys.add(QStringLiteral("Alejar"), {{VK_OEM_MINUS}, {VK_SUBTRACT}},
+                 [impl] { impl->zoomBy(1 / ViewRotation::kZoomStep, "−"); });
+        keys.joinWithPrevious(QStringLiteral("Zoom"));
+        keys.add(QStringLiteral("Zoom 100 %"), {{'1', true}}, [impl] {
+            impl->viewScale = 1;
+            impl->viewPanX = impl->viewPanY = 0;
+            impl->applyView();
+            qInfo() << "Zoom 100 % (Ctrl+1)";
+        });
+        keys.note(QStringLiteral("Rueda, modo 2"), QStringLiteral("Zoom con la rueda de la tableta"));
+    }
     keys.note(QStringLiteral("Shift+arrastrar"), QStringLiteral("Girar libre con el lápiz")); // HU-79
     keys.note(QStringLiteral("Rueda"), QStringLiteral("Girar con la rueda de la tableta"));   // HU-74
 
@@ -1287,7 +1377,7 @@ bool Lienzo::saveTake(const QString& dir)
                         d->mapping.sheetWidth, region.data() + size_t(y) * size_t(d->mapping.sheetWidth));
     }
     const PackedImage activeImage = PackedImage::pack(d->mapping.sheetWidth, d->mapping.sheetHeight, region.data());
-    const TakeResult result = lienzo::saveTake(dir, d->paper, d->sheets, {d->viewDegrees}, [&](uint64_t id) {
+    const TakeResult result = lienzo::saveTake(dir, d->paper, d->sheets, d->takeView(), [&](uint64_t id) {
         return id == activeId ? activeImage : d->images.get(id);
     });
     const int count = d->sheets.count(), active = d->sheets.active();
@@ -1358,6 +1448,11 @@ bool Lienzo::openTake(const QString& dir)
                              .toStdWString();
     }
     d->viewDegrees = ViewRotation::normalized(view.degrees);
+    if (d->options.zoom) { // HU-101, HU-102
+        d->viewScale = std::clamp(view.zoom, ViewRotation::kMinScale, ViewRotation::kMaxScale);
+        d->viewPanX = view.panX * d->mapping.sheetWidth;
+        d->viewPanY = view.panY * d->mapping.sheetHeight;
+    }
     d->roles = view.roles;
     d->createSimulation(); // con la pila nueva (y la vista); pinta la activa
     d->applyLayers();

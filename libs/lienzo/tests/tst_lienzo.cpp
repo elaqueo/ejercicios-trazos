@@ -583,6 +583,36 @@ private slots:
         QCOMPARE(ViewRotation::snapped(23), 30.0);
     }
 
+    // HU-101: con zoom, pantalla → imagen sigue deshaciendo imagen → pantalla (con giro y
+    // corrimiento); el zoom hacia un punto lo deja quieto; los límites, de 25 % a 400 %; 100 %
+    // centrada es la identidad.
+    void zoomDeLaVista()
+    {
+        const ViewRotation r{30, 500, 400, 2.5, 40, -70};
+        double x = 612, y = 333;
+        r.toScreen(x, y);
+        r.toImage(x, y);
+        QVERIFY(qAbs(x - 612) < 1e-9 && qAbs(y - 333) < 1e-9);
+        double ix = 600, iy = 400; // a 2x sin giro, 100 px de imagen son 200 de pantalla
+        ViewRotation{0, 500, 400, 2.0}.toScreen(ix, iy);
+        QVERIFY(qAbs(ix - 700) < 1e-9 && qAbs(iy - 400) < 1e-9);
+
+        const ViewRotation start{15, 500, 400};
+        double qx = 820, qy = 610; // la punta
+        double before_x = qx, before_y = qy;
+        start.toImage(before_x, before_y);
+        const ViewRotation zoomed = start.zoomedAt(3.0, qx, qy);
+        QCOMPARE(zoomed.scale, 3.0);
+        double after_x = qx, after_y = qy;
+        zoomed.toImage(after_x, after_y);
+        QVERIFY(qAbs(after_x - before_x) < 1e-6 && qAbs(after_y - before_y) < 1e-6); // lo de bajo la punta, quieto
+
+        QCOMPARE(start.zoomedAt(10, qx, qy).scale, ViewRotation::kMaxScale);
+        QCOMPARE(start.zoomedAt(0.01, qx, qy).scale, ViewRotation::kMinScale);
+        // Acercar y alejar hacia el mismo punto vuelve a la vista de antes.
+        QVERIFY((ViewRotation{0, 500, 400}.zoomedAt(2, 700, 100).zoomedAt(1, 700, 100).identity()));
+    }
+
     // HU-79: Shift + arrastrar gira lo que recorre la punta, sin saltar de a 15°.
     void arrastreGiraLibre()
     {
@@ -1211,7 +1241,8 @@ private slots:
         const PackedImage image = PackedImage::pack(3, 2, pixels.data());
 
         QTemporaryDir dir;
-        const TakeView roles{45.0, {{ids[0], SheetRole::Key}, {ids[2], SheetRole::Breakdown}}}; // HU-104
+        const TakeView roles{.degrees = 45.0, .zoom = 2.0, .panX = 0.1, .panY = -0.25, // HU-101, HU-102
+                             .roles = {{ids[0], SheetRole::Key}, {ids[2], SheetRole::Breakdown}}}; // HU-104
         const TakeResult saved = saveTake(dir.path(), paper, stack, roles,
                                           [&](uint64_t id) { return id == ids[0] ? image : PackedImage{}; });
         QVERIFY2(saved.ok, qPrintable(saved.error));
@@ -1241,6 +1272,9 @@ private slots:
             QCOMPARE(opened.hash(other, i), hashes[size_t(i)]);
         QCOMPARE(view.degrees, 45.0);
         QVERIFY(view.roles == roles.roles);
+        QCOMPARE(view.zoom, 2.0);
+        QCOMPARE(view.panX, 0.1);
+        QCOMPARE(view.panY, -0.25);
         QCOMPARE(images.size(), size_t(1));
         QCOMPARE(images[0].first, ids[0]);
         std::vector<uint32_t> back;

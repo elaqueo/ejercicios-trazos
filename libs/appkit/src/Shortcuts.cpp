@@ -156,7 +156,9 @@ QString Shortcuts::describe(KeyChord chord)
         case VK_OEM_COMMA: key = QStringLiteral(","); break;
         case VK_OEM_PERIOD: key = QStringLiteral("."); break;
         case VK_OEM_MINUS: key = QStringLiteral("-"); break;
-        case VK_OEM_PLUS: key = QStringLiteral("="); break;
+        case VK_OEM_PLUS: key = QStringLiteral("+"); break; // "=" en el teclado inglés
+        case VK_ADD: key = QStringLiteral("Num +"); break;
+        case VK_SUBTRACT: key = QStringLiteral("Num −"); break;
         case VK_INSERT: key = QStringLiteral("Insert"); break;
         case VK_DELETE: key = QStringLiteral("Supr"); break;
         case VK_HOME: key = QStringLiteral("Inicio"); break; // HU-115
