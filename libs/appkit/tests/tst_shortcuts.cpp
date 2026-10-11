@@ -69,6 +69,19 @@ private slots:
         QCOMPARE(Shortcuts::describe({VK_HOME}), QStringLiteral("Inicio")); // HU-115
         QCOMPARE(Shortcuts::describe({VK_END}), QStringLiteral("Fin"));
     }
+
+    // El menú del lápiz (HU-116) corre los atajos por su nombre y muestra su tecla.
+    void porNombre()
+    {
+        Shortcuts keys;
+        int rehacer = 0;
+        keys.add(QStringLiteral("Rehacer"), {{'Y', true}, {'Z', true}}, [&] { ++rehacer; });
+        QVERIFY(keys.run(QStringLiteral("Rehacer")));
+        QCOMPARE(rehacer, 1);
+        QVERIFY(!keys.run(QStringLiteral("Otra cosa")));
+        QCOMPARE(keys.keyOf(QStringLiteral("Rehacer")), QStringLiteral("Ctrl+Y"));
+        QVERIFY(keys.keyOf(QStringLiteral("Otra cosa")).isEmpty());
+    }
 };
 
 QTEST_MAIN(TestShortcuts)

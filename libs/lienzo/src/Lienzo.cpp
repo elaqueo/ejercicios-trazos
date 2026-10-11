@@ -178,6 +178,8 @@ struct Lienzo::Impl {
     double gestureStartDegrees = 0, gestureStartPointer = 0;
     bool ringTurned = false; // la rueda giró la vista desde que se apoyó el dedo (HU-74)
     std::function<void()> onSheetChanged;
+    std::function<void()> onStylusButton;
+    std::unique_ptr<PenMenu> penMenu; // botón lateral (HU-116, Mesa de animación)
     std::unique_ptr<QWidget> calibrationHost; // F9 (HU-66): ventana propia que cubre el monitor
     appkit::CalibrationOverlay* calibration = nullptr;
     std::unique_ptr<LeadPicker> picker; // F5 (HU-67)
@@ -617,6 +619,8 @@ struct Lienzo::Impl {
         picker->hide();
         if (pencilPicker)
             pencilPicker->hide();
+        if (penMenu)
+            penMenu->hide();
         calibrationHost->setGeometry(screen->geometry());
         calibrationHost->show();
         calibrationHost->raise();
@@ -725,6 +729,34 @@ struct Lienzo::Impl {
         shortcutsOverlay->setSheet(QApplication::applicationName(), shortcuts.sheet());
         showOverlay(shortcutsOverlay.get());
         qInfo() << "Atajos: abiertos";
+    }
+
+    // Botón lateral con la punta en (x, y) del lienzo: el menú del lápiz (HU-116) o lo de la app.
+    void stylusButton(int x, int y)
+    {
+        if (!penMenu) {
+            if (onStylusButton)
+                onStylusButton();
+            return;
+        }
+        if (penMenu->isVisible()) { // la punta fuera de la hoja: el menú no recibió el botón
+            penMenu->hide();
+            qInfo() << "Menú del lápiz: cerrado (botón)";
+            focusCanvas();
+            return;
+        }
+        std::vector<QColor> colors; // el grafito y los colores, solo con lápices de color (HU-99)
+        if (options.colorPencils) {
+            colors.push_back(QColor(0x3A, 0x3A, 0x3E));
+            for (uint32_t c : kColorPencilColors)
+                colors.push_back(QColor::fromRgb(QRgb(c)));
+        }
+        penMenu->setPencils(std::move(colors), colorPencil + 1);
+        const QRect sheet = toQt({mapping.sheetX, mapping.sheetY, mapping.sheetWidth, mapping.sheetHeight});
+        const double dpr = screen->devicePixelRatio();
+        const QPoint tip(int((x - mapping.sheetX) / dpr), int((y - mapping.sheetY) / dpr));
+        penMenu->open(QRect(shell->mapToGlobal(sheet.topLeft()), sheet.size()), tip);
+        qInfo() << "Menú del lápiz: abierto";
     }
 
     // HU-100: el grafito y los cuatro colores, centrado sobre la hoja (al alcance del lápiz).
@@ -909,6 +941,7 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
         }
     });
 
+    d->canvas->setOnStylusButton([impl = d.get()](int x, int y) { impl->stylusButton(x, y); });
     d->picker = std::make_unique<LeadPicker>(&shell);
     d->picker->setPaper(d->paper.cellsPerMm(), d->options.profile);
     d->picker->onPick = [impl = d.get()](int grade) {
@@ -972,7 +1005,41 @@ void Lienzo::setOnSheetChanged(std::function<void()> callback)
 
 void Lienzo::setOnStylusButton(std::function<void()> callback)
 {
-    d->canvas->setOnStylusButton(std::move(callback));
+    d->onStylusButton = std::move(callback);
+}
+
+// El nombre del atajo de cada lápiz (HU-99): -1 el grafito, 0..3 los colores.
+static QString pencilShortcutName(int color)
+{
+    if (color < 0)
+        return QStringLiteral("Grafito");
+    const ColorPencilName& n = kColorPencilNames[size_t(color)];
+    return QStringLiteral("Lápiz %1 (%2)").arg(QString::fromUtf8(n.name), QString::fromUtf8(n.use));
+}
+
+void Lienzo::setPenMenu(std::vector<PenMenuAction> actions)
+{
+    for (PenMenuAction& a : actions)
+        a.key = d->shortcuts.keyOf(a.shortcut);
+    if (!d->penMenu) {
+        d->penMenu = std::make_unique<PenMenu>(d->shell);
+        Impl* impl = d.get();
+        d->penMenu->onPencil = [impl](int index) {
+            qInfo().noquote() << QStringLiteral("Menú del lápiz: %1").arg(pencilShortcutName(index - 1));
+            impl->shortcuts.run(pencilShortcutName(index - 1));
+            impl->focusCanvas();
+        };
+        d->penMenu->onAction = [impl](int index) {
+            const PenMenuAction& a = impl->penMenu->actions()[size_t(index)];
+            qInfo().noquote() << QStringLiteral("Menú del lápiz: %1").arg(a.shortcut);
+            impl->shortcuts.run(a.shortcut);
+        };
+        d->penMenu->onDismiss = [impl](const char* how) {
+            qInfo().noquote() << QStringLiteral("Menú del lápiz: cerrado (%1)").arg(QString::fromUtf8(how));
+            impl->focusCanvas();
+        };
+    }
+    d->penMenu->setActions(std::move(actions));
 }
 
 void Lienzo::registerShortcuts()
@@ -1053,12 +1120,10 @@ void Lienzo::registerShortcuts()
 
     if (d->options.colorPencils) { // HU-99: 1 el grafito, 2 a 5 los colores
         keys.setGroup(kGroupLead);
-        keys.add(QStringLiteral("Grafito"), {{'1'}, {VK_NUMPAD1}}, [impl] { impl->setColorPencil(-1); });
-        for (int c = 0; c < drymedia::kColorCount; ++c) {
-            const ColorPencilName& n = kColorPencilNames[size_t(c)];
-            keys.add(QStringLiteral("Lápiz %1 (%2)").arg(QString::fromUtf8(n.name), QString::fromUtf8(n.use)),
-                     {{UINT('2' + c)}, {UINT(VK_NUMPAD2 + c)}}, [impl, c] { impl->setColorPencil(c); });
-        }
+        keys.add(pencilShortcutName(-1), {{'1'}, {VK_NUMPAD1}}, [impl] { impl->setColorPencil(-1); });
+        for (int c = 0; c < drymedia::kColorCount; ++c)
+            keys.add(pencilShortcutName(c), {{UINT('2' + c)}, {UINT(VK_NUMPAD2 + c)}},
+                     [impl, c] { impl->setColorPencil(c); });
     }
 
     keys.setGroup(kGroupView);
@@ -1077,6 +1142,11 @@ void Lienzo::registerShortcuts()
             qInfo() << "Vista rotada 0 ° (tecla)";
         });
     }
+    // HU-116: giro a 0° (y, con zoom y pan, HU-101 y HU-102, la hoja entera y centrada).
+    keys.add(QStringLiteral("Vista inicial"), {{'0', true}}, [impl] {
+        impl->setViewRotation(0);
+        qInfo() << "Vista inicial: rotada 0 °";
+    });
     keys.note(QStringLiteral("Shift+arrastrar"), QStringLiteral("Girar libre con el lápiz")); // HU-79
     keys.note(QStringLiteral("Rueda"), QStringLiteral("Girar con la rueda de la tableta"));   // HU-74
 

@@ -176,6 +176,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. Se elige tocando una opción con la punta (o soltando el botón sobre ella); tocar fuera, el botón otra vez o Esc lo cierran sin hacer nada.
     3. Lo que hace cada opción es lo mismo que su tecla (pasa por el registro de atajos) y queda en el log.
     4. Diseño primero en el canvas (mesa "Menú del lápiz"); qué va en el anillo se decide ahí con el usuario.
+    5. *Hecho (11 oct 2026): `PenMenu` (lienzo/PenMenu.h). En el canvas el usuario sumó "Vista inicial" (Ctrl+0: giro a 0°; con zoom y pan, HU-101 y HU-102, también la hoja entera y centrada), así que afuera hay seis acciones. Elegir un lápiz cierra; una acción deja el menú abierto. El menú es una ventana casi transparente del tamaño de la hoja, para que un toque fuera del anillo lo cierre sin dibujar; el lápiz se lee de WM_POINTER (el botón lateral en el aire). La prueba de la app real lo maneja con un lápiz simulado (scripts/pen.ps1).*
 
 ### E5 · Vista
 

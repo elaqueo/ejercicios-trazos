@@ -2,6 +2,7 @@
 
 #include "lienzo/LightTable.h"
 #include "lienzo/Media.h"
+#include "lienzo/PenMenu.h"
 #include "lienzo/SheetMapping.h"
 #include "lienzo/Tone.h"
 
@@ -109,6 +110,11 @@ public:
     static inline const QString kGroupScreen = QStringLiteral("Pantalla");
     // Botón lateral del lápiz (en el hilo de la interfaz).
     void setOnStylusButton(std::function<void()> callback);
+    // Menú del botón del lápiz (HU-116, lienzo/PenMenu.h): con él, el botón lateral abre un anillo
+    // en la punta con los lápices (si hay lápices de color) y estas acciones, desde arriba en el
+    // sentido del reloj. Cada opción corre su atajo del registro (por nombre) y queda en el log.
+    // Reemplaza a setOnStylusButton. Llamar después de registrar los atajos de la app.
+    void setPenMenu(std::vector<PenMenuAction> actions);
     // La hoja cambió de lugar o de tamaño en pantalla (después de calibrar con F9). Lo
     // dibujado se conserva; las guías ya pasadas se vuelven a ubicar solas.
     void setOnSheetChanged(std::function<void()> callback);

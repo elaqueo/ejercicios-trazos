@@ -97,6 +97,24 @@ bool Shortcuts::trigger(unsigned key, bool ctrl) const
     return true;
 }
 
+bool Shortcuts::run(const QString& name) const
+{
+    for (const Entry& entry : m_entries)
+        if (entry.name == name && entry.action) {
+            entry.action();
+            return true;
+        }
+    return false;
+}
+
+QString Shortcuts::keyOf(const QString& name) const
+{
+    for (const Entry& entry : m_entries)
+        if (entry.name == name && !entry.keys.empty())
+            return describe(entry.keys.front());
+    return {};
+}
+
 const Shortcuts::Entry* Shortcuts::find(KeyChord chord) const
 {
     for (const Entry& entry : m_entries)

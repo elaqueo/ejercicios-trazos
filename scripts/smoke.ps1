@@ -234,6 +234,31 @@ try {
         $failures.Add('Selector de lápices')
     }
 
+    # HU-116: con un lápiz simulado (scripts/pen.ps1), el botón lateral abre el menú en el centro
+    # de la hoja; tocar el rojo lo elige y cierra; la mesa de luz se toca dos veces (el menú queda
+    # abierto); Esc cierra. Mantener el botón y soltarlo sobre el violeta lo elige; 1 vuelve al grafito.
+    . (Join-Path $PSScriptRoot 'pen.ps1')
+    $sheetLine = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'en (\d+) x (\d+) px desde (-?\d+) (-?\d+)' })[0]
+    $null = $sheetLine -match 'en (\d+) x (\d+) px desde (-?\d+) (-?\d+)'
+    $cx = [int]$Matches[3] + [int]([int]$Matches[1] / 2); $cy = [int]$Matches[4] + [int]([int]$Matches[2] / 2)
+    $dpr = [double]((@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'escala de Windows ([\d.]+)' })[0] -replace '.*escala de Windows ([\d.]+).*', '$1'))
+    $at = { param([double]$r, [double]$deg) @([int]($cx + $r * $dpr * [math]::Cos($deg * [math]::PI / 180)), [int]($cy - $r * $dpr * [math]::Sin($deg * [math]::PI / 180))) }
+    Barrel $cx $cy; Start-Sleep -Milliseconds 400
+    $p = & $at 68 (-54); Tap $p[0] $p[1]; Start-Sleep -Milliseconds 400
+    Barrel $cx $cy; Start-Sleep -Milliseconds 400
+    $p = & $at 140 90; Tap $p[0] $p[1]; Start-Sleep -Milliseconds 400; Tap $p[0] $p[1]; Start-Sleep -Milliseconds 400
+    $ws.SendKeys('{ESC}'); Start-Sleep -Milliseconds 500
+    Pen $cx $cy; Pen $cx $cy $true 'move' 300
+    $p = & $at 68 162; Pen $p[0] $p[1] $true 'move' 150; Pen $p[0] $p[1] $false 'move' 300
+    $ws.SendKeys('1'); Start-Sleep -Milliseconds 400
+    $menu = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Menú del lápiz|Lápiz: |Mesa de luz: ' }) -join ' ')
+    if ($menu -match 'Menú del lápiz: abierto.*Lápiz: Rojo.*Menú del lápiz: abierto.*Mesa de luz: apagada.*Mesa de luz: prendida.*cerrado \(Esc\).*Menú del lápiz: abierto.*Lápiz: Violeta.*Lápiz: HB') {
+        Write-Host '  ok   el botón del lápiz abre el menú: el rojo, la mesa de luz dos veces, Esc, y soltar sobre el violeta'
+    } else {
+        Write-Host "  FALLA menú del lápiz · $menu"
+        $failures.Add('Menú del lápiz')
+    }
+
     # HU-88: con la activa en la 3 de 3, ↑ ↑ la llevan al principio, otra ↑ no hace nada, ↓ la
     # vuelve a la 2 y Z deshace eso: queda primera, y así se guarda en toma.json.
     foreach ($k in '{UP}', '{UP}', '{UP}', '{DOWN}', 'z') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }

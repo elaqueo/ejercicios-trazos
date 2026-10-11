@@ -51,6 +51,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Confirmación | Como la mesa "Confirmación": pregunta, detalle y la tecla que confirma en ámbar; cualquier otra tecla cancela | HU-87 |
 | Atajos (Ctrl+,) | Como la mesa "Atajos": título con el nombre de la app, los grupos en tres columnas (Lápiz · Hoja y papel, Vista · Ejercicios, Pantalla), teclas como chips y los gestos que no son teclas en gris claro. Sale del registro de atajos, así no se desactualiza | HU-78 |
 | Mesa de luz | Como la mesa "Mesa de luz": las hojas anteriores teñidas de naranja y las siguientes de turquesa (rojo y verde hasta HU-99: se confundían con los lápices), más tenues cuanto más lejos; se apaga mientras se flipea | HU-91 |
+| Menú del lápiz (botón lateral, Mesa de animación) | Como la mesa "Menú del lápiz", al estilo de la paleta emergente de Krita: anillo de radio 176 px, semitransparente, centrado en la punta y corrido lo justo para entrar entero en la hoja. Adentro los cinco lápices (el activo con anillo ámbar; elegir uno cierra); afuera seis acciones en lugares fijos: mesa de luz arriba, hoja siguiente y rehacer a la derecha, vista inicial abajo, deshacer y hoja anterior a la izquierda (el menú queda abierto). Lo que está bajo la punta se resalta en ámbar. Se elige tocando con la punta, o manteniendo el botón y soltándolo sobre la opción; tocar fuera, el botón otra vez o Esc lo cierran | HU-116 |
 | Selector de lápices (F5, Mesa de animación) | Como la mesa "Selector de lápices": panel de 400 px centrado sobre la hoja (al alcance del lápiz: la hoja es el área útil de la tableta), con el grafito y los cuatro colores; cada fila con su tecla, una muestra simulada (tres pasadas, para que se vea el color a 300 dpi), el nombre y para qué es; el activo con borde ámbar. Se elige con el lápiz, clic, 1 a 5 o ↑ ↓ y Enter | HU-100 |
 | Lápices de color | Como la mesa "Selector de lápices": azul `#4F8FD6`, rojo `#D0392F`, verde `#3C9A52`, violeta `#8B52C4` (tokens `kLapiz*`), más tenues que el grafito y siempre bajo él; el panel de hojas muestra el activo con un cuadrito de su color | HU-99 |
 | Panel de hojas (Tab) | Como la mesa "Panel de hojas": angosto (240 px) a la derecha, con la toma y si está guardada, el número grande en ámbar y el total, las miniaturas de la activa (marco ámbar) y de 3 antes y 3 después, el lápiz, la mesa de luz y el giro | HU-114 |
@@ -73,6 +74,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | F4 / F2 | Menú / panel | — |
 | F5 | Selector de lápices | Selector de lápices |
 | Ctrl+, | Lista de atajos; Esc o Ctrl+, la cierran (HU-78) | Igual |
+| Ctrl+0 | Vista inicial: giro a 0° (con zoom y pan, HU-101 y HU-102, también la hoja entera y centrada; HU-116) | Igual |
 | 4 / 6 / 5 | Girar la vista de a 15° / volver a 0° | Igual (desde el 10 de octubre de 2026; las durezas se eligen con F5) |
 | Shift + arrastrar con el lápiz | Girar la vista libremente, sin snap (HU-79) | Igual |
 | Z / Ctrl+Y | — (sin deshacer) | Deshacer / rehacer |
@@ -96,4 +98,5 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Tab | Mostrar u ocultar el panel de hojas (queda guardado; HU-114) |
 | 1 · 2 · 3 · 4 · 5 | Grafito (HB) · azul no-foto (construcción) · rojo (sombra 1) · verde (sombra 2 o highlight) · violeta (cierres); queda guardado (HU-99) |
 | F5 | Selector de lápices, centrado sobre la hoja: el grafito y los cuatro colores con su muestra; F5 o Esc lo cierran (HU-100) |
+| Botón lateral del lápiz | Menú del lápiz en la punta: los cinco lápices y mesa de luz, hojas, deshacer, rehacer y vista inicial (HU-116) |
 | Z / Ctrl+Y | Deshacer / rehacer lo más reciente: el último trazo de la hoja activa o la última operación con las hojas (incluido mover) |

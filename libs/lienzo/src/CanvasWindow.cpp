@@ -6,6 +6,8 @@
 
 #include <QDebug>
 
+#include <cmath>
+
 namespace lienzo {
 
 namespace {
@@ -78,7 +80,7 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
             if (s.atEdge || m_penBlocked)
                 s.inContact = false;
             if (s.barrel && !m_barrel && m_onStylusButton)
-                m_onStylusButton();
+                m_onStylusButton(int(std::lround(s.x)), int(std::lround(s.y)));
             m_barrel = s.barrel;
             // Gesto de rotación: apoyar con Shift empieza; mientras siga apoyado, gira.
             const bool touching = s.inContact && !s.eraser;

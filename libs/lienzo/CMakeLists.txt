@@ -12,6 +12,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/LightTable.h
     include/lienzo/Lienzo.h
     include/lienzo/Media.h
+    include/lienzo/PenMenu.h
     include/lienzo/Renderer.h
     include/lienzo/SampleQueue.h
     include/lienzo/SheetImages.h
@@ -32,6 +33,7 @@ qt_add_library(lienzo STATIC
     src/LeadPicker.cpp
     src/Lienzo.cpp
     src/Media.cpp
+    src/PenMenu.cpp
     src/Renderer.cpp
     src/SheetImages.cpp
     src/SheetMapping.cpp

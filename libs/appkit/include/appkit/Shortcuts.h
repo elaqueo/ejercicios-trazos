@@ -71,6 +71,10 @@ public:
 
     // Corre la acción de la tecla; false si la tecla no tiene atajo.
     bool trigger(unsigned key, bool ctrl) const;
+    // Corre la acción por su nombre (el menú del lápiz, HU-116); false si no hay ninguna así.
+    bool run(const QString& name) const;
+    // La primera tecla de la acción como se dibuja ("Ctrl+Y", "←"); vacía si no hay acción así.
+    QString keyOf(const QString& name) const;
 
     const std::vector<Entry>& entries() const { return m_entries; }
     // Un texto por choque: "Ctrl+R: «Repetir» ya es de «Otra cosa»".

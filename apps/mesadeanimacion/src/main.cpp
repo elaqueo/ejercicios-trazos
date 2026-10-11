@@ -184,6 +184,15 @@ int main(int argc, char* argv[])
         config.setValue(QStringLiteral("take"), QFileInfo(used).fileName());
     }
 
+    // Menú del botón del lápiz (HU-116, mesa "Menú del lápiz"): los lápices adentro y estas
+    // acciones afuera, desde arriba en el sentido del reloj (lugares fijos, para la mano).
+    canvas.setPenMenu({{QStringLiteral("Mesa de luz"), QStringLiteral("Mesa de luz"), QStringLiteral("◫")},
+                       {QStringLiteral("Hoja siguiente"), QStringLiteral("Siguiente"), QStringLiteral("→")},
+                       {QStringLiteral("Rehacer"), QStringLiteral("Rehacer"), QStringLiteral("↷")},
+                       {QStringLiteral("Vista inicial"), QStringLiteral("Vista inicial"), QStringLiteral("⌂")},
+                       {QStringLiteral("Deshacer"), QStringLiteral("Deshacer"), QStringLiteral("↶")},
+                       {QStringLiteral("Hoja anterior"), QStringLiteral("Anterior"), QStringLiteral("←")}});
+
     canvas.start();
     const int result = QApplication::exec();
     canvas.stop(); // espera a que la toma esté escrita

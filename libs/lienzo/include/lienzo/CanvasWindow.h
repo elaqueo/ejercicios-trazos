@@ -41,7 +41,8 @@ public:
     // que se ve. Las muestras siguen yendo a la simulación, sin contacto (cierran el trazo).
     void setPenBlocked(bool blocked) { m_penBlocked = blocked; }
     // Al apretar el botón lateral del lápiz (flanco de subida; en el hilo de la interfaz).
-    void setOnStylusButton(std::function<void()> callback) { m_onStylusButton = std::move(callback); }
+    // Botón lateral apretado, con la punta en (x, y) del cliente.
+    void setOnStylusButton(std::function<void(int x, int y)> callback) { m_onStylusButton = std::move(callback); }
     int width() const { return m_width; }
     int height() const { return m_height; }
 
@@ -56,7 +57,7 @@ private:
     std::function<void(UINT, bool)> m_onKey;
     std::function<void(UINT)> m_onKeyUp;
     bool m_penBlocked = false;
-    std::function<void()> m_onStylusButton;
+    std::function<void(int, int)> m_onStylusButton;
     std::function<void(int, double, double)> m_onRotateGesture;
     bool m_barrel = false;
     bool m_contact = false;  // el lápiz estaba apoyado en la muestra anterior
