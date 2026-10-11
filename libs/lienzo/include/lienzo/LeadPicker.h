@@ -1,6 +1,9 @@
 #pragma once
 
 #include "lienzo/Media.h"
+#include "lienzo/Tone.h"
+
+#include <drymedia/Paper.h>
 
 #include <QImage>
 #include <QWidget>
@@ -17,6 +20,11 @@ namespace lienzo {
 // cellsPerMm y profile: los del papel de la app (HU-112).
 QImage leadSample(const Lead& lead, QSize size, double pixelsPerCell, double cellsPerMm = drymedia::kCellsPerMm,
                   MediumProfile profile = MediumProfile::Illustration);
+// Lo mismo con cualquier medio (HU-100: los lápices de color), ya con su perfil, sobre una
+// hoja de `paperColor`. bold: más presión y tres pasadas (a 300 dpi el trazo de un solo
+// repaso liviano casi no se ve en una muestra chica y no deja ver el color).
+QImage mediumSample(const drymedia::Medium& medium, QSize size, double pixelsPerCell,
+                    double cellsPerMm = drymedia::kCellsPerMm, uint32_t paperColor = kPaperColor, bool bold = false);
 
 // Selector de lápices (F5, HU-67): las diez minas con su muestra; la activa resaltada. Es
 // una ventana propia sin borde encima del lienzo nativo (un widget hijo quedaría tapado por
@@ -65,6 +73,46 @@ private:
     MediumProfile m_profile = MediumProfile::Illustration;
     int m_active = kHbIndex;
     int m_cursor = kHbIndex; // fila marcada con el teclado
+    int m_hover = -1;
+};
+
+// Selector de lápices de Mesa de animación (F5, HU-100; mesa "Selector de lápices" del canvas):
+// el grafito y los cuatro lápices de color, cada uno con su tecla, su muestra simulada y para
+// qué es; el activo en ámbar. Va centrado sobre la hoja, al alcance del lápiz (la hoja es el
+// área útil de la tableta). Se elige tocando una fila con el lápiz o con clic, con 1 a 5, o
+// con flechas y Enter, y se cierra; F5 o Esc lo cierran sin cambiar. Ventana propia sin borde,
+// como LeadPicker.
+class PencilPicker : public QWidget {
+public:
+    explicit PencilPicker(QWidget* owner);
+    // graphite: la mina del grafito (la HB). active: -1 el grafito, 0..3 un color. Las muestras
+    // se rehacen solo si cambió la escala o la mina.
+    void setPencils(const Lead& graphite, int active, double pixelsPerCell, double cellsPerMm, MediumProfile profile,
+                    uint32_t paperColor);
+    int active() const { return m_active - 1; }
+    std::function<void(int)> onPick; // eligió: -1 el grafito, 0..3 un color
+    std::function<void()> onClose;   // se cerró sin elegir (F5 o Esc)
+    static constexpr int kWidth = 400;
+    static constexpr int kRowHeight = 72;
+    static constexpr int kRows = 1 + drymedia::kColorCount;
+
+protected:
+    void paintEvent(QPaintEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void leaveEvent(QEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+
+private:
+    QRect rowRect(int row) const;
+    int rowAt(QPoint point) const;
+    void pick(int row);
+    std::array<QImage, kRows> m_samples; // fila 0 el grafito, 1..4 los colores
+    std::optional<Lead> m_graphiteOf;
+    double m_pixelsPerCell = 0;
+    uint32_t m_paperColor = kPaperColor;
+    int m_active = 0; // fila
+    int m_cursor = 0;
     int m_hover = -1;
 };
 

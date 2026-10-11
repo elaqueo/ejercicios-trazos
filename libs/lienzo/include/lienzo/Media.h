@@ -65,7 +65,7 @@ struct ColorPencilName {
 };
 inline constexpr std::array<ColorPencilName, 4> kColorPencilNames{{{"Azul", "construcción"},
                                                                    {"Rojo", "sombra 1"},
-                                                                   {"Verde", "sombra 2"},
+                                                                   {"Verde", "sombra 2 o highlight"},
                                                                    {"Violeta", "cierres"}}};
 
 // La goma (HU-58), calibrable como las minas.

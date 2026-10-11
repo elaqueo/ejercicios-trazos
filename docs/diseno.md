@@ -51,7 +51,8 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Confirmación | Como la mesa "Confirmación": pregunta, detalle y la tecla que confirma en ámbar; cualquier otra tecla cancela | HU-87 |
 | Atajos (Ctrl+,) | Como la mesa "Atajos": título con el nombre de la app, los grupos en tres columnas (Lápiz · Hoja y papel, Vista · Ejercicios, Pantalla), teclas como chips y los gestos que no son teclas en gris claro. Sale del registro de atajos, así no se desactualiza | HU-78 |
 | Mesa de luz | Como la mesa "Mesa de luz": las hojas anteriores teñidas de naranja y las siguientes de turquesa (rojo y verde hasta HU-99: se confundían con los lápices), más tenues cuanto más lejos; se apaga mientras se flipea | HU-91 |
-| Lápices de color | Como la mesa "Lápices de color": azul `#4F8FD6`, rojo `#D0392F`, verde `#3C9A52`, violeta `#8B52C4` (tokens `kLapiz*`), más tenues que el grafito y siempre bajo él; el panel de hojas muestra el activo con un cuadrito de su color | HU-99 |
+| Selector de lápices (F5, Mesa de animación) | Como la mesa "Selector de lápices": panel de 400 px centrado sobre la hoja (al alcance del lápiz: la hoja es el área útil de la tableta), con el grafito y los cuatro colores; cada fila con su tecla, una muestra simulada (tres pasadas, para que se vea el color a 300 dpi), el nombre y para qué es; el activo con borde ámbar. Se elige con el lápiz, clic, 1 a 5 o ↑ ↓ y Enter | HU-100 |
+| Lápices de color | Como la mesa "Selector de lápices": azul `#4F8FD6`, rojo `#D0392F`, verde `#3C9A52`, violeta `#8B52C4` (tokens `kLapiz*`), más tenues que el grafito y siempre bajo él; el panel de hojas muestra el activo con un cuadrito de su color | HU-99 |
 | Panel de hojas (Tab) | Como la mesa "Panel de hojas": angosto (240 px) a la derecha, con la toma y si está guardada, el número grande en ámbar y el total, las miniaturas de la activa (marco ámbar) y de 3 antes y 3 después, el lápiz, la mesa de luz y el giro | HU-114 |
 | Íconos | Como la mesa "Íconos": fondo gris oscuro redondeado; Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; Mesa de animación, tres hojas apiladas con la pelota en grafito y, debajo, la del dibujo anterior en naranja, como la mesa de luz; el instalador, la hoja y el lápiz juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70, HU-110 |
 
@@ -80,7 +81,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | F3 · F9 · F10 · F12 | Latencia · calibrar el área útil · monitor siguiente · captura | Igual |
 | Alt+F4 | Salir | Salir |
 
-**Mesa de animación:** las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), Ctrl+[ ] (el papel de animación no tiene textura visual, HU-97), y F5, las de calibración ([ ] , . - =) y Ctrl+S (un solo grafito, la HB, HU-98), y 4 / 6 / 5 (los números eligen el lápiz, HU-99; la vista gira con la rueda y con Shift + arrastrar); el costado (I) arranca apagado, más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
+**Mesa de animación:** las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), Ctrl+[ ] (el papel de animación no tiene textura visual, HU-97), las de calibración ([ ] , . - =) y Ctrl+S (un solo grafito, la HB, HU-98), y 4 / 6 / 5 (los números eligen el lápiz, HU-99; la vista gira con la rueda y con Shift + arrastrar); el costado (I) arranca apagado, más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
 
 | Tecla | Qué hace |
 | --- | --- |
@@ -94,4 +95,5 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Inicio / Fin | Ir a la primera o a la última hoja, sin deshacer, como un flip (HU-115) |
 | Tab | Mostrar u ocultar el panel de hojas (queda guardado; HU-114) |
 | 1 · 2 · 3 · 4 · 5 | Grafito (HB) · azul no-foto (construcción) · rojo (sombra 1) · verde (sombra 2 o highlight) · violeta (cierres); queda guardado (HU-99) |
+| F5 | Selector de lápices, centrado sobre la hoja: el grafito y los cuatro colores con su muestra; F5 o Esc lo cierran (HU-100) |
 | Z / Ctrl+Y | Deshacer / rehacer lo más reciente: el último trazo de la hoja activa o la última operación con las hojas (incluido mover) |

@@ -170,6 +170,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 100. **HU-100 · F5 elige entre los cinco** (Must · 2 pts). Como animador, quiero elegir el lápiz con F5 o con una tecla por lápiz, para cambiar de color sin mirar.
     1. F5 abre el selector con los cinco lápices (muestra real de cada uno); 1 a 5 eligen directo (hecho en HU-99: en esta app 4/6/5 no giran la vista, el anillo y Shift + arrastrar sí).
     2. El lápiz activo se ve en F3 y queda en config.
+    3. *Hecho (11 oct 2026): `PencilPicker` (lienzo/LeadPicker.h), centrado sobre la hoja por pedido del usuario (tiene que quedar al alcance del lápiz: la hoja es el área útil de la tableta); las muestras van con tres pasadas y más presión, porque a 300 dpi un repaso liviano no dejaba ver el color.*
 
 ### E5 · Vista
 

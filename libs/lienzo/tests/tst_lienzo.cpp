@@ -211,6 +211,36 @@ private slots:
         QCOMPARE(image[size_t(m.sheetY + 11) * 200 + size_t(m.sheetX + 10)], kPaperColor);
     }
 
+    // HU-100: la muestra de cada lápiz del selector sale de su color; la del grafito, gris.
+    // Sobre papel blanco: en un trazo de color, su canal es el que menos baja.
+    void muestrasDeLosLapices()
+    {
+        const double cellsPerMm = 300 / 25.4, pixelsPerCell = 0.45;
+        const uint32_t white = bgra(255, 255, 255);
+        const auto tinted = [](const QImage& image, int channel) { // píxeles con trazo de ese color
+            int n = 0;
+            for (int y = 0; y < image.height(); ++y)
+                for (int x = 0; x < image.width(); ++x) {
+                    const QColor c = image.pixelColor(x, y);
+                    const int d[3] = {255 - c.red(), 255 - c.green(), 255 - c.blue()};
+                    const int others = std::min(d[(channel + 1) % 3], d[(channel + 2) % 3]);
+                    n += d[0] + d[1] + d[2] > 30 && d[channel] < others - 15;
+                }
+            return n;
+        };
+        const QSize size(150, 52);
+        const auto sample = [&](const drymedia::Medium& m) { return mediumSample(m, size, pixelsPerCell, cellsPerMm, white, true); };
+        const QImage grafito = sample(forProfile(Lead{}.medium(), MediumProfile::Animation));
+        const QImage azul = sample(drymedia::Medium::colored(0)), rojo = sample(drymedia::Medium::colored(1)),
+                     verde = sample(drymedia::Medium::colored(2));
+        qInfo() << "píxeles teñidos: azul" << tinted(azul, 2) << "· rojo" << tinted(rojo, 0) << "· verde" << tinted(verde, 1);
+        QCOMPARE(tinted(grafito, 0) + tinted(grafito, 1) + tinted(grafito, 2), 0);
+        QVERIFY(tinted(azul, 2) > 50);
+        QVERIFY(tinted(rojo, 0) > 50);
+        QVERIFY(tinted(verde, 1) > 50);
+        QCOMPARE(tinted(azul, 0), 0);
+    }
+
     // HU-99: los lápices de color van sobre la hoja y bajo el grafito.
     void colorBajoElGrafito()
     {

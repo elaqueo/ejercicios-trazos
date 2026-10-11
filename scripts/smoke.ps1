@@ -202,14 +202,14 @@ try {
         $failures.Add('Mesa de luz')
     }
 
-    # HU-98 y HU-112: un solo grafito; F5, A y E no hacen nada (no hay selector, desgaste ni punta seca).
-    foreach ($k in '{F5}', 'a', 'e') { $ws.SendKeys($k); Start-Sleep -Milliseconds 400 }
-    $extra = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Selector de lápices|Afilada|Punta seca' })
+    # HU-112: A y E no hacen nada (no hay desgaste ni punta seca).
+    foreach ($k in 'a', 'e') { $ws.SendKeys($k); Start-Sleep -Milliseconds 400 }
+    $extra = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Afilada|Punta seca' })
     if ($extra.Count -eq 0) {
-        Write-Host '  ok   F5, A y E no hacen nada en Mesa de animación'
+        Write-Host '  ok   A y E no hacen nada en Mesa de animación'
     } else {
-        Write-Host "  FALLA F5, A o E hicieron algo · $($extra -join ' | ')"
-        $failures.Add('Un solo grafito')
+        Write-Host "  FALLA A o E hicieron algo · $($extra -join ' | ')"
+        $failures.Add('Medio recortado')
     }
 
     # HU-99: 2 a 5 eligen los lápices de color y 1 vuelve al grafito; los números ya no giran
@@ -221,6 +221,17 @@ try {
     } else {
         Write-Host "  FALLA lápices de color · $pencils"
         $failures.Add('Lápices de color')
+    }
+
+    # HU-100: F5 abre el selector y 3 elige el rojo (lo cierra); F5 y Esc lo cierran sin
+    # cambiar; 1 vuelve al grafito.
+    foreach ($k in '{F5}', '3', '{F5}', '{ESC}', '1') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    $picker = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Selector de lápices|Lápiz: ' }) -join ' ')
+    if ($picker -match 'Selector de lápices: abierto.*Lápiz: Rojo.*Selector de lápices: abierto.*Selector de lápices: cerrado.*Lápiz: HB') {
+        Write-Host '  ok   F5 abre el selector, 3 elige el rojo, Esc lo cierra'
+    } else {
+        Write-Host "  FALLA selector de lápices · $picker"
+        $failures.Add('Selector de lápices')
     }
 
     # HU-88: con la activa en la 3 de 3, ↑ ↑ la llevan al principio, otra ↑ no hace nada, ↓ la

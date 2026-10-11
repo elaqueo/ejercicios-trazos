@@ -181,6 +181,7 @@ struct Lienzo::Impl {
     std::unique_ptr<QWidget> calibrationHost; // F9 (HU-66): ventana propia que cubre el monitor
     appkit::CalibrationOverlay* calibration = nullptr;
     std::unique_ptr<LeadPicker> picker; // F5 (HU-67)
+    std::unique_ptr<PencilPicker> pencilPicker; // F5 con lápices de color (HU-100, Mesa de animación)
     std::unique_ptr<appkit::ShortcutsOverlay> shortcutsOverlay; // Ctrl+, (HU-78)
     std::optional<QRect> area;
     // La hoja ocupa todo el mapeo de la tableta (HU-69, pedido del usuario: dibuja sobre una
@@ -614,6 +615,8 @@ struct Lienzo::Impl {
     void startCalibration()
     {
         picker->hide();
+        if (pencilPicker)
+            pencilPicker->hide();
         calibrationHost->setGeometry(screen->geometry());
         calibrationHost->show();
         calibrationHost->raise();
@@ -724,8 +727,27 @@ struct Lienzo::Impl {
         qInfo() << "Atajos: abiertos";
     }
 
+    // HU-100: el grafito y los cuatro colores, centrado sobre la hoja (al alcance del lápiz).
+    void togglePencilPicker()
+    {
+        if (pencilPicker->isVisible()) {
+            pencilPicker->hide();
+            qInfo() << "Selector de lápices: cerrado";
+            focusCanvas();
+            return;
+        }
+        pencilPicker->setPencils(media.lead(), colorPencil, mapping.pixelsPerCellX, paper.cellsPerMm(), options.profile,
+                                 options.paperColor);
+        qInfo() << "Selector de lápices: abierto";
+        showOverlay(pencilPicker.get());
+    }
+
     void togglePicker()
     {
+        if (pencilPicker) {
+            togglePencilPicker();
+            return;
+        }
         if (picker->isVisible()) {
             picker->hide();
             focusCanvas();
@@ -778,9 +800,13 @@ struct Lienzo::Impl {
             wchar_t wear[64] = L""; // sin desgaste en el perfil de animación (HU-112)
             if (options.profile == MediumProfile::Illustration)
                 swprintf(wear, 64, L"   ·   punta %d %% gastada (A afila)", sim->wearPercent());
-            if (options.fixedGrade >= 0) // un solo grafito (HU-98): no se calibra acá
-                swprintf(text, 768, L"grafito %hs   ·   %.2f mm   ·   costado %ls (I)", media.activeName(),
-                         lead.diameter / 100.0, tilt ? L"sí" : L"no");
+            if (colorPencil >= 0) // HU-100: el lápiz de color activo
+                swprintf(text, 768, L"lápiz %hs (%hs) (F5)   ·   %.2f mm   ·   costado %ls (I)",
+                         kColorPencilNames[size_t(colorPencil)].name, kColorPencilNames[size_t(colorPencil)].use,
+                         drymedia::Medium::colored(colorPencil).leadDiameterMm, tilt ? L"sí" : L"no");
+            else if (options.fixedGrade >= 0) // un solo grafito (HU-98): no se calibra acá
+                swprintf(text, 768, L"grafito %hs%ls   ·   %.2f mm   ·   costado %ls (I)", media.activeName(),
+                         options.colorPencils ? L" (F5)" : L"", lead.diameter / 100.0, tilt ? L"sí" : L"no");
             else
                 swprintf(text, 768,
                          L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)%ls   ·   costado %ls (I)%ls",
@@ -890,6 +916,17 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
         impl->focusCanvas();
     };
     d->picker->onClose = [impl = d.get()] { impl->focusCanvas(); };
+    if (d->options.colorPencils) { // HU-100
+        d->pencilPicker = std::make_unique<PencilPicker>(&shell);
+        d->pencilPicker->onPick = [impl = d.get()](int color) {
+            impl->setColorPencil(color);
+            impl->focusCanvas();
+        };
+        d->pencilPicker->onClose = [impl = d.get()] {
+            qInfo() << "Selector de lápices: cerrado";
+            impl->focusCanvas();
+        };
+    }
     d->shortcutsOverlay = std::make_unique<appkit::ShortcutsOverlay>(&shell);
     d->shortcutsOverlay->onClose = [impl = d.get()] {
         qInfo() << "Atajos: cerrados";
@@ -949,8 +986,8 @@ void Lienzo::registerShortcuts()
 
     keys.setGroup(kGroupLead);
     const bool calibrable = d->options.fixedGrade < 0; // con un solo grafito (HU-98), nada de esto
-    if (calibrable)
-        keys.add(QStringLiteral("Selector de lápices"), {{VK_F5}}, [impl] { impl->togglePicker(); }); // HU-67
+    if (calibrable || d->options.colorPencils) // HU-67; HU-100: el grafito y los colores
+        keys.add(QStringLiteral("Selector de lápices"), {{VK_F5}}, [impl] { impl->togglePicker(); });
     // [ y ] tamaño, pasos de ~15 % (pedido del usuario: como el tamaño del pincel).
     const auto size = [impl, &media](bool up) {
         if (impl->erasing()) // goma: 2 a 8 mm
