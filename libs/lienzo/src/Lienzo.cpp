@@ -152,6 +152,11 @@ QScreen* savedScreen(const appkit::Config& config)
 }
 
 struct Lienzo::Impl {
+    explicit Impl(LienzoOptions o)
+        : options(std::move(o))
+        , paper({.widthMm = kTabletWidthMm, .heightMm = kTabletHeightMm, .dpi = profileDpi(options.profile)})
+    {
+    }
     LienzoOptions options;
     Shell* shell = nullptr;
     QScreen* screen = nullptr;
@@ -170,7 +175,7 @@ struct Lienzo::Impl {
     std::optional<QRect> area;
     // La hoja ocupa todo el mapeo de la tableta (HU-69, pedido del usuario: dibuja sobre una
     // A3 que cubre la superficie), así que coincide con el área útil calibrada.
-    drymedia::Paper paper{{.widthMm = kTabletWidthMm, .heightMm = kTabletHeightMm}};
+    drymedia::Paper paper; // con la resolución del perfil (HU-112)
     // Pila de hojas (HU-82): la cambia solo la simulación; acá, junto al papel, sobrevive a
     // recrearla (F9). `order` es lo mismo visto desde la interfaz (sheetCount, activeSheet).
     SheetStack sheets{Simulation::kUndoLimit};
@@ -224,7 +229,7 @@ struct Lienzo::Impl {
         area = appkit::loadUsableArea(*config, appkit::ScreenId::of(screen));
         mapping = area ? SheetMapping::onTablet(canvas->width(), canvas->height(), area->x(), area->y(), area->width(),
                                                 area->height(), kTabletWidthMm, kTabletHeightMm, paper.spec().widthMm,
-                                                paper.spec().heightMm, paper.width(), paper.height())
+                                                paper.spec().heightMm, paper.width(), paper.height(), paper.cellsPerMm())
                        : SheetMapping::fit(canvas->width(), canvas->height(), paper.width(), paper.height());
     }
 
@@ -255,6 +260,7 @@ struct Lienzo::Impl {
         order = sheets.order(); // la simulación nueva todavía no atendió nada
         sentRequests = 0;
         sim->setUndo(options.undo);
+        sim->setProfile(options.profile);
         // Deshacer cambia la pila sin que la interfaz lo pida: la mesa de luz se recalcula al
         // aviso (encolado: si el lienzo ya no está, relay tampoco y el aviso se descarta).
         sim->setOnSheetState([this] { QMetaObject::invokeMethod(&relay, [this] { applyLayers(); }, Qt::QueuedConnection); });
@@ -640,10 +646,13 @@ struct Lienzo::Impl {
         } else {
             const Lead lead = sim->lead();
             const bool unsaved = media.leadUnsaved;
+            wchar_t wear[64] = L""; // sin desgaste en el perfil de animación (HU-112)
+            if (options.profile == MediumProfile::Illustration)
+                swprintf(wear, 64, L"   ·   punta %d %% gastada (A afila)", sim->wearPercent());
             swprintf(text, 768,
-                     L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)   ·   punta %d %% gastada (A afila)   ·   costado %ls (I)%ls",
+                     L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)%ls   ·   costado %ls (I)%ls",
                      media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
-                     int(std::lround(lead.ceiling * 100.0 / 65535)), sim->wearPercent(), tilt ? L"sí" : L"no",
+                     int(std::lround(lead.ceiling * 100.0 / 65535)), wear, tilt ? L"sí" : L"no",
                      unsaved ? L"   ·   Ctrl+S guarda" : L"");
         }
         std::wstring out = text;
@@ -661,9 +670,8 @@ struct Lienzo::Impl {
 };
 
 Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOptions options)
-    : d(std::make_unique<Impl>())
+    : d(std::make_unique<Impl>(std::move(options)))
 {
-    d->options = std::move(options);
     d->shell = &shell;
     d->screen = screen;
     d->config = &config;
@@ -730,6 +738,7 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     });
 
     d->picker = std::make_unique<LeadPicker>(&shell);
+    d->picker->setPaper(d->paper.cellsPerMm(), d->options.profile);
     d->picker->onPick = [impl = d.get()](int grade) {
         impl->setActive(grade);
         impl->focusCanvas();
@@ -820,8 +829,10 @@ void Lienzo::registerShortcuts()
     keys.add(QStringLiteral("Bajar el techo"), {{VK_OEM_MINUS}}, [ceiling] { ceiling(false); });
     keys.add(QStringLiteral("Subir el techo"), {{VK_OEM_PLUS}}, [ceiling] { ceiling(true); });
     keys.joinWithPrevious(QStringLiteral("Techo de tono"));
-    keys.add(QStringLiteral("Afilar"), {{'A'}}, [impl] { impl->sharpen(); });                 // HU-62
-    keys.add(QStringLiteral("Punta seca o mina"), {{'E'}}, [impl] { impl->toggleStylus(); }); // HU-61
+    if (d->options.profile == MediumProfile::Illustration) { // sin desgaste ni punta seca en animación (HU-112)
+        keys.add(QStringLiteral("Afilar"), {{'A'}}, [impl] { impl->sharpen(); });                 // HU-62
+        keys.add(QStringLiteral("Punta seca o mina"), {{'E'}}, [impl] { impl->toggleStylus(); }); // HU-61
+    }
     keys.add(QStringLiteral("Costado sí o no"), {{'I'}}, [impl] { impl->toggleTilt(); });     // HU-73
     keys.add(QStringLiteral("Guardar el lápiz"), {{'S', true}}, [impl] {
         if (impl->erasing())

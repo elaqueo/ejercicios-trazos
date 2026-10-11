@@ -135,7 +135,7 @@ La simulación corre en CPU, por tiles, en aritmética de punto fijo y con SIMD.
 
 **Resolución y memoria**
 
-1. 600 dpi (celda de unos 42 µm): suficiente para el grano del papel, que es lo que el ojo nota. La posición del lápiz es exacta solo a ±0,25 mm; el resto del detalle lo aporta el papel.
+1. 600 dpi (celda de unos 42 µm): suficiente para el grano del papel, que es lo que el ojo nota. La posición del lápiz es exacta solo a ±0,25 mm; el resto del detalle lo aporta el papel. **Desde HU-112 la resolución es un dato del papel** (`PaperSpec::dpi`, `Paper::cellsPerMm()`): Mesa de animación usa 300. La ondulación del relieve se escala para conservar su tamaño físico, y la mina se convierte al papel (`Medium::atResolution`: pendiente del cono × s, fuerza ÷ s², blandura, bruñido y daño × s, con celdas s veces más grandes); a 600 dpi no cambia nada (mismos hashes). Una hoja que no es la del papel (`TileSet` fuera de `Paper`) se guarda empaquetada, con solo los planos que usa cada tile.
 2. Una hoja A4 son unos 35 millones de celdas, en tiles de 64 × 64 (unos 8.600 tiles).
 3. Tiles dispersos: solo existen en memoria los tiles tocados. El relieve base del papel es una textura de solo lectura compartida.
 4. Con unos 10 bytes por celda en grafito, una hoja tocada entera son unos 350 MB; normal con 16 GB. El pastel suma canales de color.

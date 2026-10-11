@@ -1,8 +1,14 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace drymedia {
+
+// Resolución de referencia: 600 dpi (celda de ~42 µm), la de Cartuchera y Ejercicios. El
+// papel puede tener otra (HU-112, Mesa de animación: 300 dpi); ver Paper::cellsPerMm().
+constexpr double kCellsPerMm = 600.0 / 25.4;
 
 // Parámetros de un medio seco o de la goma. Las minas calibradas viven en la app
 // (medios.json de Cartuchera); acá están la HB de referencia y la forma de armarlos.
@@ -46,6 +52,30 @@ struct Medium {
     // de cono chico, si no se gastaban casi como ellas). 0 = no se gasta.
     uint16_t wearRate = 0;
     double minTabletAltitudeDeg = 30.0;
+    // La resolución del papel para la que están los valores por celda (HU-112).
+    double cellsPerMm = kCellsPerMm;
+
+    // La misma mina en un papel de otra resolución (HU-112): lo que va por celda se
+    // convierte para que la línea tenga el mismo tamaño y el mismo tono físicos. Con celdas
+    // s veces más grandes, el cono sube s veces más por celda, la fuerza (suma de
+    // penetraciones) se reparte en s² veces menos celdas y cada celda deslizada vale s veces
+    // más distancia. En la misma resolución no cambia nada (Cartuchera: mismos hashes).
+    Medium atResolution(double paperCellsPerMm) const
+    {
+        if (paperCellsPerMm == cellsPerMm)
+            return *this;
+        Medium m = *this;
+        const double s = cellsPerMm / paperCellsPerMm;
+        const auto u16 = [](double v) { return uint16_t(std::clamp(std::round(v), 0.0, 65535.0)); };
+        m.coneSlope = u16(coneSlope * s);
+        m.forceScale = uint32_t(std::max(1.0, std::round(forceScale / (s * s))));
+        m.softness = u16(softness * s);
+        m.burnishRate = u16(burnishRate * s);
+        m.damageRate = u16(damageRate * s);
+        m.maxStepCells = std::max(1, int(std::lround(maxStepCells / s)));
+        m.cellsPerMm = paperCellsPerMm;
+        return m;
+    }
 
     // HB calibrada con la tableta el 10 de octubre de 2026 (HU-51): mina de 0,87 mm y
     // blandura 20, mirando el tono, el grano y las pasadas repetidas.

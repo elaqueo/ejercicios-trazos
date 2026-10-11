@@ -14,7 +14,9 @@ namespace lienzo {
 // Muestra de una mina (HU-67): un trazo en S con la presión subiendo y bajando, simulado
 // con drymedia sobre un papel chico y pintado a `size` píxeles con la escala de la hoja en
 // pantalla (`pixelsPerCell`), así el tono y el grano se ven como al dibujar.
-QImage leadSample(const Lead& lead, QSize size, double pixelsPerCell);
+// cellsPerMm y profile: los del papel de la app (HU-112).
+QImage leadSample(const Lead& lead, QSize size, double pixelsPerCell, double cellsPerMm = drymedia::kCellsPerMm,
+                  MediumProfile profile = MediumProfile::Illustration);
 
 // Selector de lápices (F5, HU-67): las diez minas con su muestra; la activa resaltada. Es
 // una ventana propia sin borde encima del lienzo nativo (un widget hijo quedaría tapado por
@@ -26,6 +28,13 @@ public:
 
     // Minas y activa; rehace solo las muestras de las minas que cambiaron.
     void setLeads(const Grades& grades, int active, double pixelsPerCell);
+    // El papel de la app (HU-112): las muestras se dibujan en su resolución y con su perfil.
+    void setPaper(double cellsPerMm, MediumProfile profile)
+    {
+        m_cellsPerMm = cellsPerMm;
+        m_profile = profile;
+        m_sampleOf.fill(std::nullopt);
+    }
     int active() const { return m_active; }
 
     std::function<void(int)> onPick; // eligió la mina (índice 0 = 2H … 9 = 6B)
@@ -52,6 +61,8 @@ private:
     std::array<QImage, kGradeCount> m_samples;
     std::array<std::optional<Lead>, kGradeCount> m_sampleOf; // con qué valores se hizo cada muestra
     double m_pixelsPerCell = 0;
+    double m_cellsPerMm = drymedia::kCellsPerMm;
+    MediumProfile m_profile = MediumProfile::Illustration;
     int m_active = kHbIndex;
     int m_cursor = kHbIndex; // fila marcada con el teclado
     int m_hover = -1;

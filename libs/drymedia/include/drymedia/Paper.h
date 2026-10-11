@@ -4,6 +4,8 @@
 // Sin dependencias de Qt ni de D3D. Todo el estado es entero y determinista: la misma
 // semilla y la misma secuencia de muestras dan el mismo papel en cualquier máquina.
 
+#include "drymedia/Medium.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -11,8 +13,6 @@
 
 namespace drymedia {
 
-// Resolución de simulación: 600 dpi (celda de ~42 µm).
-constexpr double kCellsPerMm = 600.0 / 25.4;
 // Tiles de depósito: kTileSize × kTileSize celdas.
 constexpr int kTileSize = 64;
 constexpr int kTileCells = kTileSize * kTileSize;
@@ -26,6 +26,7 @@ struct PaperSpec {
     uint32_t seed = 1;
     double widthMm = 297.0;  // A4 apaisado recortado a la altura útil de la tableta
     double heightMm = 203.0; // (decisión del 10 de octubre de 2026)
+    int dpi = 600; // resolución de la simulación (HU-112: Mesa de animación, 300)
 };
 
 // El depósito de una hoja (HU-82): los tiles tocados, qué planos usa cada uno y el pool del
@@ -41,12 +42,19 @@ public:
     TileSet& operator=(const TileSet&) = delete;
 
     size_t tileCount() const { return m_tileCount; }
+    // Memoria que ocupa (bloques del pool o tiles empaquetados), para medir (HU-112).
+    size_t bytes() const;
 
 private:
     friend class Paper;
     std::vector<uint16_t*> m_tiles; // tilesX × tilesY; nullptr = no tocado
     std::vector<uint8_t> m_planes;  // tilesX × tilesY: qué planos usa cada tile
     std::vector<std::unique_ptr<uint16_t[]>> m_blocks;
+    // Empaquetado (HU-112): un conjunto que no es el del papel guarda de cada tile solo los
+    // planos que usa (el depósito y los de m_planes, en orden), seguidos en m_packed; m_tiles
+    // apunta ahí y no hay pool. El papel lo desempaqueta al tomarlo.
+    std::vector<uint16_t> m_packed;
+    bool m_isPacked = false;
     uint16_t* m_nextFree = nullptr;
     int m_freeInBlock = 0;
     std::vector<uint16_t*> m_recycled; // tiles devueltos por clear(), ya en cero
@@ -67,6 +75,7 @@ public:
     Paper& operator=(const Paper&) = delete;
 
     const PaperSpec& spec() const;
+    double cellsPerMm() const { return spec().dpi / 25.4; } // HU-112
 
     // Tamaño en celdas y en tiles (el último tile de cada fila o columna puede quedar
     // parcialmente fuera de la hoja).

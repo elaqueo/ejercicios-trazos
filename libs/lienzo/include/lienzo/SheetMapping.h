@@ -1,5 +1,7 @@
 #pragma once
 
+#include <drymedia/Medium.h>
+
 namespace lienzo {
 
 // Dónde se dibuja la hoja dentro de la ventana y cómo se pasa de píxeles a celdas de
@@ -20,7 +22,7 @@ struct SheetMapping {
     // (sheetWidthMm × sheetHeightMm) va centrada sobre esa superficie, a escala real.
     static SheetMapping onTablet(int clientWidth, int clientHeight, int areaX, int areaY, int areaWidth, int areaHeight,
                                  double tabletWidthMm, double tabletHeightMm, double sheetWidthMm, double sheetHeightMm,
-                                 int cellsWidth, int cellsHeight);
+                                 int cellsWidth, int cellsHeight, double cellsPerMm = drymedia::kCellsPerMm);
 
     // Píxel del cliente (con decimales) → celda.
     double cellX(double px) const { return (px - originX) / pixelsPerCellX; }

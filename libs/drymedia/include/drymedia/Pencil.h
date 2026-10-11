@@ -13,7 +13,7 @@ namespace drymedia {
 class Paper;
 
 // Una muestra del lápiz en coordenadas de simulación: celdas del papel (la app convierte
-// desde milímetros con kCellsPerMm), presión 0..1, azimut y altitud en grados.
+// desde milímetros con Paper::cellsPerMm()), presión 0..1, azimut y altitud en grados.
 struct PencilSample {
     double x = 0, y = 0;
     float pressure = 0;

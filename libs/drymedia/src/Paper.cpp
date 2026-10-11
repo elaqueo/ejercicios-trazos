@@ -11,7 +11,8 @@ namespace {
 
 // Tiles que reserva el pool de una vez (256 × 8 KB = 2 MB).
 constexpr int kPoolBlock = 64; // 2 MB por bloque con 4 planos: llenar con ceros 8 MB de golpe frenaba la simulación (HU-76)
-// Separación de la grilla de la ondulación, en celdas.
+// Separación de la grilla de la ondulación, en celdas a 600 dpi (0,34 mm; a otra resolución
+// se escala para que conserve su tamaño físico, HU-112).
 constexpr int kWaveCell = 8;
 
 uint32_t hash32(uint32_t x)
@@ -32,18 +33,17 @@ uint32_t cellHash(uint32_t x, uint32_t y, uint32_t seed)
 constexpr uint32_t kGrainMax = 2047;
 
 // Relieve en (x, y): grano fino por celda (0..kGrainMax) + ondulación suave interpolada
-// en una grilla de kWaveCell (0..2047). Solo enteros: igual en cualquier máquina. `crest`
+// en una grilla de `k` celdas (0..2047). Solo enteros: igual en cualquier máquina. `crest`
 // es el nivel de las crestas de la zona (la ondulación + el grano máximo): hasta ahí llena
 // el grafito un valle (Contact).
-uint16_t reliefValue(int x, int y, uint32_t seed, uint16_t& crest)
+uint16_t reliefValue(int x, int y, uint32_t seed, uint32_t k, uint16_t& crest)
 {
     const uint32_t grain = cellHash(uint32_t(x), uint32_t(y), seed) >> 21;
-    const uint32_t gx = uint32_t(x / kWaveCell), gy = uint32_t(y / kWaveCell);
-    const uint32_t fx = uint32_t(x % kWaveCell), fy = uint32_t(y % kWaveCell);
+    const uint32_t gx = uint32_t(x) / k, gy = uint32_t(y) / k;
+    const uint32_t fx = uint32_t(x) % k, fy = uint32_t(y) % k;
     const uint32_t waveSeed = seed ^ 0x9e3779b9U;
     const uint32_t c00 = cellHash(gx, gy, waveSeed) >> 21, c10 = cellHash(gx + 1, gy, waveSeed) >> 21;
     const uint32_t c01 = cellHash(gx, gy + 1, waveSeed) >> 21, c11 = cellHash(gx + 1, gy + 1, waveSeed) >> 21;
-    const uint32_t k = kWaveCell;
     const uint32_t wave = (c00 * (k - fx) * (k - fy) + c10 * fx * (k - fy) + c01 * (k - fx) * fy + c11 * fx * fy) / (k * k);
     crest = uint16_t(wave + kGrainMax);
     return uint16_t(grain + wave);
@@ -71,14 +71,15 @@ struct Paper::Impl {
         relief.resize(size_t(width) * size_t(height));
         crest.resize(relief.size());
         const unsigned threads = std::max(1u, std::thread::hardware_concurrency());
+        const uint32_t wave = uint32_t(std::max(1, kWaveCell * spec.dpi / 600));
         std::vector<std::thread> pool;
         for (unsigned t = 0; t < threads; ++t) {
-            pool.emplace_back([this, t, threads] {
+            pool.emplace_back([this, t, threads, wave] {
                 for (int y = int(t); y < height; y += int(threads)) {
                     uint16_t* row = relief.data() + size_t(y) * size_t(width);
                     uint16_t* crestRow = crest.data() + size_t(y) * size_t(width);
                     for (int x = 0; x < width; ++x)
-                        row[x] = reliefValue(x, y, spec.seed, crestRow[x]);
+                        row[x] = reliefValue(x, y, spec.seed, wave, crestRow[x]);
                 }
             });
         }
@@ -114,6 +115,66 @@ struct Paper::Impl {
         return tile;
     }
 
+    // Los planos que guarda un tile empaquetado: el depósito y los que marca `planes`.
+    static int packedPlanes(uint8_t planes)
+    {
+        int n = 1;
+        for (int pl = 1; pl < kTilePlanes; ++pl)
+            n += (planes >> pl) & 1;
+        return n;
+    }
+
+    // HU-112: deja en el conjunto solo los planos que usa cada tile y suelta el pool.
+    static void pack(TileSet& set)
+    {
+        if (set.m_isPacked)
+            return;
+        size_t cells = 0;
+        for (size_t i = 0; i < set.m_tiles.size(); ++i)
+            if (set.m_tiles[i])
+                cells += size_t(packedPlanes(set.m_planes[i])) * kTileCells;
+        std::vector<uint16_t> packed(cells);
+        uint16_t* out = packed.data();
+        for (size_t i = 0; i < set.m_tiles.size(); ++i) {
+            const uint16_t* tile = set.m_tiles[i];
+            if (!tile)
+                continue;
+            set.m_tiles[i] = out;
+            for (int pl = 0; pl < kTilePlanes; ++pl)
+                if (pl == kDepositPlane || ((set.m_planes[i] >> pl) & 1)) {
+                    out = std::copy_n(tile + size_t(pl) * kTileCells, kTileCells, out);
+                }
+        }
+        set.m_packed = std::move(packed);
+        set.m_blocks.clear();
+        set.m_recycled.clear();
+        set.m_nextFree = nullptr;
+        set.m_freeInBlock = 0;
+        set.m_isPacked = true;
+    }
+
+    // Al revés: cada tile vuelve a tener sus kTilePlanes planos, en un pool nuevo.
+    static void unpack(TileSet& set)
+    {
+        if (!set.m_isPacked)
+            return;
+        for (size_t i = 0; i < set.m_tiles.size(); ++i) {
+            const uint16_t* in = set.m_tiles[i];
+            if (!in)
+                continue;
+            uint16_t* tile = takeTile(set);
+            for (int pl = 0; pl < kTilePlanes; ++pl)
+                if (pl == kDepositPlane || ((set.m_planes[i] >> pl) & 1)) {
+                    std::copy_n(in, kTileCells, tile + size_t(pl) * kTileCells);
+                    in += kTileCells;
+                }
+            set.m_tiles[i] = tile;
+        }
+        set.m_packed.clear();
+        set.m_packed.shrink_to_fit();
+        set.m_isPacked = false;
+    }
+
     void release(uint16_t*& slot)
     {
         std::fill(slot, slot + kTileStride, uint16_t(0));
@@ -126,8 +187,8 @@ Paper::Paper(const PaperSpec& spec)
     : d(std::make_unique<Impl>())
 {
     d->spec = spec;
-    d->width = int(std::lround(spec.widthMm * kCellsPerMm));
-    d->height = int(std::lround(spec.heightMm * kCellsPerMm));
+    d->width = int(std::lround(spec.widthMm * cellsPerMm()));
+    d->height = int(std::lround(spec.heightMm * cellsPerMm()));
     d->tilesX = (d->width + kTileSize - 1) / kTileSize;
     d->tilesY = (d->height + kTileSize - 1) / kTileSize;
     d->set = newTileSet();
@@ -285,8 +346,16 @@ void Paper::swapTiles(TileSet& other)
     if (other.m_tiles.size() != d->set.m_tiles.size())
         other = newTileSet(); // vacío o de otro tamaño: entra una hoja en blanco
     std::swap(d->set, other);
+    Impl::unpack(d->set); // la que entra, con todos sus planos
+    Impl::pack(other);    // la que sale, solo con los que usa (HU-112)
     if (d->set.m_recycled.empty() && d->set.m_freeInBlock == 0)
         Impl::reserveBlock(d->set);
+}
+
+size_t TileSet::bytes() const
+{
+    return m_blocks.size() * size_t(kPoolBlock) * kTileStride * sizeof(uint16_t) + m_packed.size() * sizeof(uint16_t) +
+           (m_tiles.size() * sizeof(uint16_t*) + m_planes.size());
 }
 
 uint64_t Paper::reliefHash() const

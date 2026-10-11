@@ -3,10 +3,16 @@
 #include <QElapsedTimer>
 #include <QTest>
 
+#include <cmath>
+
 #include <set>
 
 using drymedia::Paper;
 using drymedia::PaperSpec;
+using drymedia::TileSet;
+using drymedia::kBurnishPlane;
+using drymedia::kTileCells;
+using drymedia::kTileStride;
 
 class TestPaper : public QObject {
     Q_OBJECT
@@ -144,13 +150,60 @@ private slots:
 
     // HU-82: el papel cambia de conjunto de tiles (de hoja) sin copiar; cada conjunto
     // conserva lo suyo y el relieve es el mismo para todos.
+    // HU-112: la resolución es un dato del papel. A 300 dpi la hoja tiene la mitad de celdas
+    // por lado y la ondulación conserva su tamaño físico: en los nodos de su grilla (cada 0,34
+    // mm) las crestas son las mismas que a 600.
+    void resolucionDelPapel()
+    {
+        const Paper fino({.seed = 4, .widthMm = 40, .heightMm = 30});
+        const Paper grueso({.seed = 4, .widthMm = 40, .heightMm = 30, .dpi = 300});
+        QCOMPARE(fino.width(), int(std::lround(40 * 600 / 25.4)));
+        QCOMPARE(grueso.width(), int(std::lround(40 * 300 / 25.4)));
+        QCOMPARE(grueso.height(), int(std::lround(30 * 300 / 25.4)));
+        QCOMPARE(grueso.cellsPerMm(), 300 / 25.4);
+        for (int j = 0; j < 40; ++j)
+            for (int i = 0; i < 50; ++i)
+                QCOMPARE(grueso.crest()[size_t(4 * j) * size_t(grueso.width()) + size_t(4 * i)],
+                         fino.crest()[size_t(8 * j) * size_t(fino.width()) + size_t(8 * i)]);
+    }
+
+    // HU-112: una hoja que no es la del papel guarda de cada tile solo los planos que usa;
+    // al volver es la misma. La hoja de Mesa de animación (la tableta entera a 300 dpi) con el
+    // 26 % de los tiles dibujado (lo que midió el spike de HU-81) ocupa menos de 10 MB.
+    void hojaGuardadaEmpaquetada()
+    {
+        Paper paper({.seed = 2, .widthMm = 325.1, .heightMm = 203.2, .dpi = 300});
+        const int tilesX = paper.tilesX(), total = paper.tilesX() * paper.tilesY();
+        int touched = 0;
+        for (int i = 0; i < total; ++i)
+            if (i % 100 < 26) {
+                paper.depositTile(i % tilesX, i / tilesX)[i % kTileCells] = uint16_t(1000 + i % 7);
+                ++touched;
+            }
+        paper.depositTile(0, 0)[kBurnishPlane * kTileCells + 5] = 77; // uno bruñido: ese plano también se guarda
+        paper.setTilePlanes(0, 0, 1 << kBurnishPlane);
+        const uint64_t hoja = paper.hash();
+
+        TileSet guardada = paper.newTileSet();
+        paper.swapTiles(guardada);
+        QCOMPARE(guardada.tileCount(), size_t(touched));
+        qInfo("Hoja de %d tiles con %d dibujados: %.1f MB guardada (%.1f MB con 4 planos)", total, touched,
+              guardada.bytes() / 1048576.0, double(touched) * kTileStride * 2 / 1048576.0);
+        QVERIFY(guardada.bytes() <= size_t(10) * 1024 * 1024);
+        QVERIFY(guardada.bytes() < size_t(touched) * kTileStride * 2 / 3);
+
+        paper.swapTiles(guardada);
+        QCOMPARE(paper.hash(), hoja);
+        QCOMPARE(paper.tilePlanes(0, 0), uint8_t(1 << kBurnishPlane));
+        QCOMPARE(paper.depositTile(0, 0)[kBurnishPlane * kTileCells + 5], uint16_t(77));
+    }
+
     void cambiarDeConjuntoDeTiles()
     {
         Paper paper({.seed = 1, .widthMm = 50, .heightMm = 50});
         paper.depositTile(2, 2)[100] = 500;
         paper.setTilePlanes(2, 2, 0b0010);
         const uint64_t hojaA = paper.hash();
-        const uint16_t* tileA = paper.findDepositTile(2, 2);
 
         drymedia::TileSet otra = paper.newTileSet();
         QCOMPARE(otra.tileCount(), size_t(0));
@@ -164,9 +217,9 @@ private slots:
         const uint64_t hojaB = paper.hash();
         QVERIFY(hojaB != hojaA);
 
-        paper.swapTiles(otra); // vuelve la A, tal cual y sin copiar
+        paper.swapTiles(otra); // vuelve la A, tal cual (desempaquetada en otro lugar, HU-112)
         QCOMPARE(paper.hash(), hojaA);
-        QCOMPARE(paper.findDepositTile(2, 2), tileA);
+        QVERIFY(paper.findDepositTile(2, 2) != nullptr);
         QCOMPARE(paper.tilePlanes(2, 2), uint8_t(0b0010));
         paper.swapTiles(otra);
         QCOMPARE(paper.hash(), hojaB);

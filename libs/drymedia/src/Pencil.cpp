@@ -35,7 +35,7 @@ void DirtyRect::unite(const DirtyRect& o)
 
 Pencil::Pencil(Paper& paper, const Medium& medium, Contact::Path path)
     : m_paper(paper)
-    , m_medium(medium)
+    , m_medium(medium.atResolution(paper.cellsPerMm())) // HU-112
     , m_contact(path)
     , m_tips(360 * 91)
     , m_tileMarked(size_t(paper.tilesX()) * size_t(paper.tilesY()), false)
@@ -47,7 +47,7 @@ Pencil::~Pencil() = default;
 
 void Pencil::setMedium(const Medium& medium)
 {
-    m_medium = medium;
+    m_medium = medium.atResolution(m_paper.cellsPerMm());
     setupWear();
     clearTips();
 }
@@ -55,7 +55,7 @@ void Pencil::setMedium(const Medium& medium)
 void Pencil::setupWear()
 {
     if (wears())
-        m_wear->setup(m_medium.leadDiameterMm * kCellsPerMm / 2.0, m_medium.coneHalfAngleDeg);
+        m_wear->setup(m_medium.leadDiameterMm * m_medium.cellsPerMm / 2.0, m_medium.coneHalfAngleDeg);
 }
 
 void Pencil::clearTips()
@@ -67,7 +67,7 @@ void Pencil::clearTips()
 
 void Pencil::setMedium(const Medium& medium, LeadWear* wear)
 {
-    m_medium = medium;
+    m_medium = medium.atResolution(m_paper.cellsPerMm());
     m_wear = wear ? wear : &m_ownWear;
     setupWear();
     clearTips();

@@ -751,6 +751,43 @@ private slots:
         QCOMPARE(width(1300), width(700));
     }
 
+    // HU-112: la misma línea (en mm) a 300 dpi que a 600. La mina convertida a la resolución
+    // del papel deja casi el mismo grafito por mm de línea y casi el mismo ancho (el ajuste
+    // fino del papel de animación es de HU-97).
+    void mismaLineaEnOtraResolucion()
+    {
+        const auto line = [](int dpi, double& graphite, double& widthMm) {
+            Paper paper({.seed = 5, .widthMm = 50, .heightMm = 30, .dpi = dpi});
+            Pencil pencil(paper, Medium::hb());
+            const double c = paper.cellsPerMm();
+            draw(pencil, [c](double t) { return PencilSample{(10 + 30 * t) * c, 15 * c, 0.6f, 0.0f, 90.0f}; }, 120);
+            // Por fila, el depósito medio en el tramo del medio (de 20 a 30 mm).
+            const std::vector<uint16_t> d = depositOf(paper);
+            const int x0 = int(20 * c), x1 = int(30 * c);
+            std::vector<double> rows;
+            for (int y = int(13 * c); y < int(17 * c); ++y) {
+                double sum = 0;
+                for (int x = x0; x < x1; ++x)
+                    sum += d[size_t(y) * size_t(paper.width()) + size_t(x)];
+                rows.push_back(sum / (x1 - x0) / 65535.0);
+            }
+            const double peak = *std::max_element(rows.begin(), rows.end());
+            graphite = 0;
+            int wide = 0;
+            for (const double r : rows) {
+                graphite += r / c; // × alto de la fila en mm
+                wide += r > peak / 4 ? 1 : 0;
+            }
+            widthMm = wide / c;
+        };
+        double g600, w600, g300, w300;
+        line(600, g600, w600);
+        line(300, g300, w300);
+        qInfo("grafito por mm de línea: %.4f (600 dpi) / %.4f (300) · ancho %.3f / %.3f mm", g600, g300, w600, w300);
+        QVERIFY(std::abs(g300 / g600 - 1) < 0.25);
+        QVERIFY(std::abs(w300 / w600 - 1) < 0.3);
+    }
+
     void velocidad()
     {
         // Garabato rápido: ~1000 mm/s a 133 muestras/s → ~178 celdas por muestra.

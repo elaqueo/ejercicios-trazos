@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lienzo/LightTable.h"
+#include "lienzo/Media.h"
 #include "lienzo/SheetMapping.h"
 
 #include <appkit/Shortcuts.h>
@@ -47,6 +48,9 @@ struct LienzoOptions {
     QString name = QStringLiteral("lienzo"); // para los archivos de diagnóstico (<name>-muestras.csv)
     bool undo = true;                        // Z / Ctrl+Y (Ejercicios no deshace)
     bool sheets = false; // pila de hojas (Mesa de animación): Ctrl+N limpia la hoja, con deshacer; F3 dice qué hoja es
+    // Perfil de medio (HU-112): Animation es 300 dpi y sin bruñido, punta seca (E), daño de
+    // fibra ni desgaste (A afila); esas teclas no están.
+    MediumProfile profile = MediumProfile::Illustration;
 };
 
 // El lienzo de baja latencia (HU-63, nacido en Cartuchera): una hoja de grafito del tamaño de

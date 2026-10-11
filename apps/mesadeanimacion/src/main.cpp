@@ -36,7 +36,10 @@ int main(int argc, char* argv[])
     shell.show();
 
     lienzo::Lienzo canvas(shell, screen, config,
-                          {.name = QStringLiteral("mesadeanimacion"), .undo = true, .sheets = true});
+                          {.name = QStringLiteral("mesadeanimacion"),
+                           .undo = true,
+                           .sheets = true,
+                           .profile = lienzo::MediumProfile::Animation}); // 300 dpi, medio recortado (HU-112)
 
     // Hojas (HU-87). Se ve cuál es la activa en F3; las acciones quedan en el log (las verifica
     // la prueba de la app real, scripts/smoke.ps1).

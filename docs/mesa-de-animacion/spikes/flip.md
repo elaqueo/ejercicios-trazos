@@ -118,3 +118,10 @@ Estimación con los números medidos (a confirmar en HU-82): una hoja al 26 % pa
 - La mesa de luz se pide contada desde la activa (`LightTable`: hojas hacia atrás y hacia adelante, cada una con color y opacidad) y `Lienzo` la recalcula cada vez que cambia la pila: los cambios de la interfaz al momento y los que hace la simulación sola (deshacer) por un aviso (`Simulation::setOnSheetState`).
 - Mesa de animación: L la prende y apaga y queda en config (`lightTable`, prendida por defecto); 2 hojas atrás (60 % y 30 %) en `kMesaLuzAnterior` y 1 adelante (60 %) en `kMesaLuzSiguiente` (`Theme.h`, mesa "Mesa de luz" del canvas).
 - RNF-03 medido (smoke, 32 flips): al soltar, la mesa de luz se presenta en 14,6 ms como mucho. Latencia del trazo sin cambios (mediana 11,8 ms).
+
+## Hecho en HU-112
+
+- Perfil de medio por app (`LienzoOptions::profile`): Mesa de animación es `Animation`, 300 dpi y sin bruñido, punta seca ni hundimiento, daño de fibra ni desgaste (sin las teclas A y E). Cartuchera y Ejercicios siguen en 600 dpi con todo y con los mismos hashes.
+- Una hoja que no está activa guarda de cada tile solo los planos que usa (el papel la empaqueta al soltarla y la desempaqueta al tomarla; los kernels no cambiaron). **La hoja de Mesa de animación (3840 × 2400 celdas) con el 26 % de los tiles dibujado: 4,7 MB guardada, contra 18,7 MB con los 4 planos** (`tst_paper`, `hojaGuardadaEmpaquetada`).
+- La misma línea a 300 y a 600 dpi: grafito por mm de línea 0,145 / 0,144; ancho 0,51 / 0,42 mm (la celda más grande ensancha el borde; el ajuste fino es de HU-97).
+- Activar una hoja sigue en ~29 ms: el repintado depende de los píxeles de la pantalla, no de las celdas. Latencia del trazo en Mesa de animación: mediana 10,6 ms, 0 vsyncs perdidos; el lápiz, 0,046 ms por lote (en Cartuchera, 11,0 ms).

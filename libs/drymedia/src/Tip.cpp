@@ -32,7 +32,7 @@ Tip Tip::make(const Medium& medium, float azimuthDeg, float altitudeDeg, const L
     if (medium.kind == Medium::Kind::Eraser)
         return makeEraser(medium);
     Tip tip;
-    const double radius = medium.leadDiameterMm * kCellsPerMm / 2.0;
+    const double radius = medium.leadDiameterMm * medium.cellsPerMm / 2.0;
     const double altitude = effectiveAltitude(medium, altitudeDeg);
     const bool withWear = wear && !wear->empty();
     const double toHeightAxis = medium.coneSlope * std::tan(std::clamp(medium.coneHalfAngleDeg, 1.0, 45.0) * kRadians);
@@ -141,8 +141,8 @@ Tip Tip::makeEraser(const Medium& medium)
 {
     // Cara plana con el borde redondeado (0,3 mm): apoyada, toca primero las crestas del
     // papel en toda su cara; con más presión llega a los valles.
-    const double radius = medium.leadDiameterMm * kCellsPerMm / 2.0;
-    const double edge = std::min(radius, 0.3 * kCellsPerMm);
+    const double radius = medium.leadDiameterMm * medium.cellsPerMm / 2.0;
+    const double edge = std::min(radius, 0.3 * medium.cellsPerMm);
     Tip tip;
     tip.m_width = tip.m_height = (int(std::ceil(2.0 * radius)) + 2 + 3) / 4 * 4;
     tip.m_originX = tip.m_originY = tip.m_width / 2;

@@ -44,7 +44,7 @@ SheetMapping SheetMapping::fit(int clientWidth, int clientHeight, int cellsWidth
 
 SheetMapping SheetMapping::onTablet(int clientWidth, int clientHeight, int areaX, int areaY, int areaWidth,
                                     int areaHeight, double tabletWidthMm, double tabletHeightMm, double sheetWidthMm,
-                                    double sheetHeightMm, int cellsWidth, int cellsHeight)
+                                    double sheetHeightMm, int cellsWidth, int cellsHeight, double cellsPerMm)
 {
     SheetMapping m;
     m.clientWidth = clientWidth;
@@ -52,8 +52,8 @@ SheetMapping SheetMapping::onTablet(int clientWidth, int clientHeight, int areaX
     m.cellsWidth = cellsWidth;
     m.cellsHeight = cellsHeight;
     const double pxPerMmX = areaWidth / tabletWidthMm, pxPerMmY = areaHeight / tabletHeightMm;
-    m.pixelsPerCellX = pxPerMmX / drymedia::kCellsPerMm;
-    m.pixelsPerCellY = pxPerMmY / drymedia::kCellsPerMm;
+    m.pixelsPerCellX = pxPerMmX / cellsPerMm; // la resolución del papel (HU-112)
+    m.pixelsPerCellY = pxPerMmY / cellsPerMm;
     // La hoja centrada sobre la superficie activa.
     m.originX = areaX + (tabletWidthMm - sheetWidthMm) / 2 * pxPerMmX;
     m.originY = areaY + (tabletHeightMm - sheetHeightMm) / 2 * pxPerMmY;

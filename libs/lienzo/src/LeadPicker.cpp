@@ -25,15 +25,15 @@ constexpr int kSampleWidth = 300;
 
 } // namespace
 
-QImage leadSample(const Lead& lead, QSize size, double pixelsPerCell)
+QImage leadSample(const Lead& lead, QSize size, double pixelsPerCell, double cellsPerMm, MediumProfile profile)
 {
     // Papel del tamaño de la muestra a la escala de la hoja (la misma semilla siempre: las
     // diferencias entre minas son solo de la mina).
     const double cells = 1.0 / std::max(pixelsPerCell, 1e-3);
-    const double widthMm = size.width() * cells / drymedia::kCellsPerMm;
-    const double heightMm = size.height() * cells / drymedia::kCellsPerMm;
-    drymedia::Paper paper({.seed = 7, .widthMm = widthMm, .heightMm = heightMm});
-    drymedia::Pencil pencil(paper, lead.medium());
+    const double widthMm = size.width() * cells / cellsPerMm;
+    const double heightMm = size.height() * cells / cellsPerMm;
+    drymedia::Paper paper({.seed = 7, .widthMm = widthMm, .heightMm = heightMm, .dpi = int(std::lround(cellsPerMm * 25.4))});
+    drymedia::Pencil pencil(paper, forProfile(lead.medium(), profile));
     const double w = paper.width(), h = paper.height();
     const int samples = 80;
     const auto at = [&](double t) {
@@ -80,7 +80,8 @@ void LeadPicker::setLeads(const Grades& grades, int active, double pixelsPerCell
     m_active = m_cursor = active;
     for (int i = 0; i < kGradeCount; ++i)
         if (m_sampleOf[size_t(i)] != grades[size_t(i)]) {
-            m_samples[size_t(i)] = leadSample(grades[size_t(i)], QSize(kSampleWidth, kRowHeight - 2 * 8), pixelsPerCell);
+            m_samples[size_t(i)] = leadSample(grades[size_t(i)], QSize(kSampleWidth, kRowHeight - 2 * 8), pixelsPerCell,
+                                              m_cellsPerMm, m_profile);
             m_sampleOf[size_t(i)] = grades[size_t(i)];
         }
     update();
