@@ -132,3 +132,7 @@ Estimación con los números medidos (a confirmar en HU-82): una hoja al 26 % pa
 - **Vuelta a 600 dpi.** Las láminas de comparación (`docs/mesa-de-animacion/capturas/`, `spikes/mesa-papel`) no alcanzaron para decidir; probando en la app, a 300 dpi el grano se veía grueso con cualquier profundidad, y el usuario eligió 600 dpi con grano 900. La resolución sigue siendo un dato del papel; el perfil de animación quedó en 600.
 - Memoria a 600: la hoja de Mesa de animación con el 26 % dibujado, 18,4 MB guardada (73,1 MB con los 4 planos). 120 hojas ≈ 2,3 GB; 24 hojas (la salida de la Fase 1) ≈ 450 MB.
 - Latencia del trazo en Mesa de animación: mediana 11,0 ms, 0 vsyncs perdidos (Cartuchera, 10,9 ms).
+
+## Hecho en HU-98
+
+- Un solo grafito, la HB, elegida dibujando contra la B (con una tecla provisoria que alternaba las dos en vivo, ya sacada). `LienzoOptions::fixedGrade`: la dureza viene de `medios.json` pero Mesa de animación no lo toca (sin F5, sin las teclas de calibración ni Ctrl+S, y la dureza no se guarda en config). `tiltByDefault = false`: el costado arranca apagado.

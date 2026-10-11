@@ -197,6 +197,16 @@ try {
         Write-Host "  FALLA mesa de luz: $($lights.Count) veces, $($late.Count) de 50 ms o más (máx. $lmax ms) · $toggles"
         $failures.Add('Mesa de luz')
     }
+
+    # HU-98 y HU-112: un solo grafito; F5, A y E no hacen nada (no hay selector, desgaste ni punta seca).
+    foreach ($k in '{F5}', 'a', 'e') { $ws.SendKeys($k); Start-Sleep -Milliseconds 400 }
+    $extra = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Selector de lápices|Afilada|Punta seca' })
+    if ($extra.Count -eq 0) {
+        Write-Host '  ok   F5, A y E no hacen nada en Mesa de animación'
+    } else {
+        Write-Host "  FALLA F5, A o E hicieron algo · $($extra -join ' | ')"
+        $failures.Add('Un solo grafito')
+    }
 }
 finally {
     if ($app -and -not $app.HasExited) {

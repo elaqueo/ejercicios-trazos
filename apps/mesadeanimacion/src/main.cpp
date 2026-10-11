@@ -51,6 +51,8 @@ int main(int argc, char* argv[])
                            .undo = true,
                            .sheets = true,
                            .profile = lienzo::MediumProfile::Animation, // medio recortado (HU-112)
+                           .fixedGrade = lienzo::kHbIndex, // un solo grafito, HB (HU-98: elegida dibujando)
+                           .tiltByDefault = false,
                            .paperColor = lienzo::bgra(sheetColor.red(), sheetColor.green(), sheetColor.blue()),
                            .paperGrain = kAnimationGrain,
                            .paperTexture = false});

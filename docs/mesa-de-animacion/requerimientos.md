@@ -85,6 +85,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     1. Una toma es una carpeta con `toma.json` (versión, orden de hojas, hoja activa, roles, marcas de audio, ruta del audio, vista) y un archivo por hoja con el estado de la simulación (formato propio documentado en el `arquitectura.md` de la app, sin pérdida).
     2. Abrir la toma reconstruye la pila idéntica: hash de cada hoja igual al guardado (prueba unitaria con una toma de muestra).
     3. Un archivo corrupto o faltante no impide abrir la toma: la hoja queda en blanco y se avisa en el log y en F3.
+    4. Análisis antes de elegir el formato (pedido del usuario, 11 oct 2026): comparar algoritmos de compresión sin pérdida para las hojas guardadas (zlib, zstd, lz4 u otros) con hojas reales a 600 dpi: tamaño en disco, tiempo de guardar y de abrir. El spike de HU-81 midió zlib nivel 1 a 8 : 1.
 86. **HU-86 · Guardado automático** (Must · 3 pts). Como animador, quiero que la toma se guarde sola, para no pensar en archivos mientras flipeo y dibujo.
     1. Cada hoja cambiada se guarda al soltar el lápiz o al cambiar de hoja, en un hilo aparte; `toma.json` al cambiar el orden, el rol o la vista.
     2. Cerrar la app con Alt+F4 espera a que termine lo pendiente (menos de 2 s con 120 hojas).
@@ -138,8 +139,8 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     1. La hoja de Mesa de animación tiene su color (token del tema, más cercano al blanco) y un grano más fino en la simulación; el relieve visual está en 0 y no tiene atajo.
     2. El papel no se trabaja: sin bruñido, sin deformación ni daño de fibra (no hay planos para eso, HU-82). El grano sigue respondiendo al lápiz.
     3. Simulación a 300 dpi: la línea se ve igual que a 600 dpi hasta un zoom de 200 % (verificado con capturas lado a lado).
-    4. *Hecho (11 oct 2026): las capturas (`capturas/papel*.png`, `spikes/mesa-papel`) no alcanzaron para decidir; probando en la app, el usuario eligió 600 dpi y grano 900 (de 2047), color `#FAF8F2`.*
     4. Cartuchera y Ejercicios no cambian: el papel es un parámetro del lienzo.
+    5. *Hecho (11 oct 2026): las capturas (`capturas/papel*.png`, `spikes/mesa-papel`) no alcanzaron para decidir; probando en la app, el usuario eligió 600 dpi y grano 900 (de 2047), color `#FAF8F2`.*
 98. **HU-98 · Un solo grafito** (Must · 2 pts). Como animador, quiero un único grafito (HB o B) en vez de la escala 2H a 6B, para no elegir dureza.
     1. La app arranca con el grafito; la dureza (HB o B) se decide dibujando en esta historia y queda escrita en idea.md.
     2. La punta no se gasta: sin desgaste ni afilado (no hay tecla A), así la línea de la hoja 40 es la de la hoja 1. Sin punta seca (no hay tecla E).

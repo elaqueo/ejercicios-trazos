@@ -77,7 +77,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | F3 · F9 · F10 · F12 | Latencia · calibrar el área útil · monitor siguiente · captura | Igual |
 | Alt+F4 | Salir | Salir |
 
-**Mesa de animación** (en construcción): las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), y Ctrl+[ ] (el papel de animación no tiene textura visual, HU-97), más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
+**Mesa de animación** (en construcción): las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), Ctrl+[ ] (el papel de animación no tiene textura visual, HU-97), y F5, las de calibración ([ ] , . - =) y Ctrl+S (un solo grafito, la HB, HU-98); el costado (I) arranca apagado, más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
 
 | Tecla | Qué hace |
 | --- | --- |

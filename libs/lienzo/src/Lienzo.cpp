@@ -407,12 +407,9 @@ struct Lienzo::Impl {
     // crear la simulación, que los toma.
     void restoreState()
     {
-        const QString lead = config->value(QStringLiteral("lead")).toString();
-        for (int g = 0; g < kGradeCount; ++g)
-            if (lead == QLatin1String(kGradeNames[size_t(g)]))
-                media.active = g;
+        media.active = startingGrade(options.fixedGrade, config->value(QStringLiteral("lead")).toString());
         viewDegrees = ViewRotation::normalized(config->value(QStringLiteral("viewRotation"), 0.0).toDouble());
-        tilt = config->value(QStringLiteral("tilt"), true).toBool();
+        tilt = config->value(QStringLiteral("tilt"), options.tiltByDefault).toBool();
         texture = std::clamp(config->value(QStringLiteral("paperTexture"), 20, appkit::Config::Scope::Common).toInt(), 0, 100);
         if (!options.paperTexture)
             texture = 0; // papel liso (HU-97): no se lee ni se guarda la de la familia
@@ -610,6 +607,7 @@ struct Lienzo::Impl {
             return;
         }
         picker->setLeads(media.current.grades, media.active, mapping.pixelsPerCellX);
+        qInfo() << "Selector de lápices: abierto";
         // A la derecha de la hoja, arriba, en coordenadas de pantalla.
         const QRect sheet = toQt({mapping.sheetX, mapping.sheetY, mapping.sheetWidth, mapping.sheetHeight});
         const QPoint corner = shell->mapToGlobal(QPoint(sheet.right() + 1 - LeadPicker::kWidth - 16, sheet.top() + 16));
@@ -655,11 +653,15 @@ struct Lienzo::Impl {
             wchar_t wear[64] = L""; // sin desgaste en el perfil de animación (HU-112)
             if (options.profile == MediumProfile::Illustration)
                 swprintf(wear, 64, L"   ·   punta %d %% gastada (A afila)", sim->wearPercent());
-            swprintf(text, 768,
-                     L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)%ls   ·   costado %ls (I)%ls",
-                     media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
-                     int(std::lround(lead.ceiling * 100.0 / 65535)), wear, tilt ? L"sí" : L"no",
-                     unsaved ? L"   ·   Ctrl+S guarda" : L"");
+            if (options.fixedGrade >= 0) // un solo grafito (HU-98): no se calibra acá
+                swprintf(text, 768, L"grafito %hs   ·   %.2f mm   ·   costado %ls (I)", media.activeName(),
+                         lead.diameter / 100.0, tilt ? L"sí" : L"no");
+            else
+                swprintf(text, 768,
+                         L"mina %hs%ls (F5)   ·   blandura %d (, .)   ·   %.2f mm ([ ])   ·   techo %d %% (- =)%ls   ·   costado %ls (I)%ls",
+                         media.activeName(), unsaved ? L"*" : L"", lead.softness, lead.diameter / 100.0,
+                         int(std::lround(lead.ceiling * 100.0 / 65535)), wear, tilt ? L"sí" : L"no",
+                         unsaved ? L"   ·   Ctrl+S guarda" : L"");
         }
         std::wstring out = text;
         if (options.sheets) { // HU-87: qué hoja es (lo que ya atendió la simulación)
@@ -812,7 +814,9 @@ void Lienzo::registerShortcuts()
     keys.setColumns({{kGroupLead}, {kGroupSheet, kGroupView}, {kGroupScreen}});
 
     keys.setGroup(kGroupLead);
-    keys.add(QStringLiteral("Selector de lápices"), {{VK_F5}}, [impl] { impl->togglePicker(); }); // HU-67
+    const bool calibrable = d->options.fixedGrade < 0; // con un solo grafito (HU-98), nada de esto
+    if (calibrable)
+        keys.add(QStringLiteral("Selector de lápices"), {{VK_F5}}, [impl] { impl->togglePicker(); }); // HU-67
     // [ y ] tamaño, pasos de ~15 % (pedido del usuario: como el tamaño del pincel).
     const auto size = [impl, &media](bool up) {
         if (impl->erasing()) // goma: 2 a 8 mm
@@ -820,36 +824,43 @@ void Lienzo::registerShortcuts()
         else // mina: 0,30 a 2,00 mm (punta de 48 celdas)
             impl->adjust(media.lead().diameter, up, 1.15, 30, 200);
     };
-    keys.add(QStringLiteral("Achicar"), {{VK_OEM_4}}, [size] { size(false); });
-    keys.add(QStringLiteral("Agrandar"), {{VK_OEM_6}}, [size] { size(true); });
-    keys.joinWithPrevious(QStringLiteral("Tamaño de la mina"));
+    if (calibrable) {
+        keys.add(QStringLiteral("Achicar"), {{VK_OEM_4}}, [size] { size(false); });
+        keys.add(QStringLiteral("Agrandar"), {{VK_OEM_6}}, [size] { size(true); });
+        keys.joinWithPrevious(QStringLiteral("Tamaño de la mina"));
+    }
     // , y . blandura de la mina o fuerza de la goma, pasos de ~25 %.
     const auto softness = [impl, &media](bool up) {
         int& value = impl->erasing() ? media.current.eraser.strength : media.lead().softness;
         impl->adjust(value, up, 1.25, 1, 255);
     };
-    keys.add(QStringLiteral("Menos blandura o fuerza"), {{VK_OEM_COMMA}}, [softness] { softness(false); });
-    keys.add(QStringLiteral("Más blandura o fuerza"), {{VK_OEM_PERIOD}}, [softness] { softness(true); });
-    keys.joinWithPrevious(QStringLiteral("Blandura o fuerza"));
+    if (calibrable) {
+        keys.add(QStringLiteral("Menos blandura o fuerza"), {{VK_OEM_COMMA}}, [softness] { softness(false); });
+        keys.add(QStringLiteral("Más blandura o fuerza"), {{VK_OEM_PERIOD}}, [softness] { softness(true); });
+        keys.joinWithPrevious(QStringLiteral("Blandura o fuerza"));
+    }
     // - y = techo de tono de la mina, pasos de ~10 % (la goma no tiene).
     const auto ceiling = [impl, &media](bool up) {
         if (!impl->erasing())
             impl->adjust(media.lead().ceiling, up, 1.1, 2000, 65535);
     };
-    keys.add(QStringLiteral("Bajar el techo"), {{VK_OEM_MINUS}}, [ceiling] { ceiling(false); });
-    keys.add(QStringLiteral("Subir el techo"), {{VK_OEM_PLUS}}, [ceiling] { ceiling(true); });
-    keys.joinWithPrevious(QStringLiteral("Techo de tono"));
+    if (calibrable) {
+        keys.add(QStringLiteral("Bajar el techo"), {{VK_OEM_MINUS}}, [ceiling] { ceiling(false); });
+        keys.add(QStringLiteral("Subir el techo"), {{VK_OEM_PLUS}}, [ceiling] { ceiling(true); });
+        keys.joinWithPrevious(QStringLiteral("Techo de tono"));
+    }
     if (d->options.profile == MediumProfile::Illustration) { // sin desgaste ni punta seca en animación (HU-112)
         keys.add(QStringLiteral("Afilar"), {{'A'}}, [impl] { impl->sharpen(); });                 // HU-62
         keys.add(QStringLiteral("Punta seca o mina"), {{'E'}}, [impl] { impl->toggleStylus(); }); // HU-61
     }
     keys.add(QStringLiteral("Costado sí o no"), {{'I'}}, [impl] { impl->toggleTilt(); });     // HU-73
-    keys.add(QStringLiteral("Guardar el lápiz"), {{'S', true}}, [impl] {
-        if (impl->erasing())
-            impl->saveEraser();
-        else
-            impl->saveLead();
-    });
+    if (calibrable)
+        keys.add(QStringLiteral("Guardar el lápiz"), {{'S', true}}, [impl] {
+            if (impl->erasing())
+                impl->saveEraser();
+            else
+                impl->saveLead();
+        });
 
     keys.setGroup(kGroupSheet);
     if (d->options.sheets) // con la pila, limpiar la hoja se deshace (HU-87)

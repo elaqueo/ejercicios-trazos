@@ -61,11 +61,11 @@ Un atajo la prende y apaga. Cuando está prendida:
 
 ## Los lápices
 
-El motor es el de Cartuchera, pero la cartuchera es otra. No hay escala de minas 2H a 6B: en animación se trabaja con **un solo grafito**, HB o B (a decidir probando), y lo que cambia de lápiz a lápiz es el color, no la dureza. Hay **pocos colores y cada uno con un significado fijo**. No es una paleta: cada color es un lápiz distinto que se usa para una cosa.
+El motor es el de Cartuchera, pero la cartuchera es otra. No hay escala de minas 2H a 6B: en animación se trabaja con **un solo grafito**, la HB (elegida dibujando contra la B el 11 de octubre de 2026, HU-98), y lo que cambia de lápiz a lápiz es el color, no la dureza. Hay **pocos colores y cada uno con un significado fijo**. No es una paleta: cada color es un lápiz distinto que se usa para una cosa.
 
 | Lápiz | Para qué |
 | --- | --- |
-| Grafito (HB o B) | El dibujo. |
+| Grafito (HB) | El dibujo. |
 | Azul no-fotográfico | Construcción: volúmenes, ejes, líneas de acción. |
 | Rojo | Sombra 1, a la manera del anime (líneas de sombra, 影). |
 | Verde | Sombra 2 o highlight. |
@@ -132,7 +132,7 @@ Todo lo que no se nombra acá es como en Cartuchera (goma, tamaño, calibración
 ## Ideas abiertas
 
 - ¿Breakdown como rol, o solo key?
-- ¿HB o B? Se decide dibujando.
+- ~~¿HB o B?~~ La HB (HU-98, elegida dibujando).
 - **Roll**: mantener una tecla apretada y ver las últimas tres a cinco hojas sin tinte, como rolar el papel con los dedos. Puede que con el flip rápido y la mesa de luz que se apaga sola no agregue nada; se prueba después de tener el flip.
 - ¿El chart de timing tiene atajo propio (un rincón que se agranda) o es simplemente una zona de la hoja?
 - ¿Qué pasa con el audio al flipear? Por ahora, nada.

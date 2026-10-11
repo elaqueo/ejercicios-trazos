@@ -54,6 +54,11 @@ struct LienzoOptions {
     MediumProfile profile = MediumProfile::Illustration;
     // El papel (HU-97): su color (BGRA, como los de Tone.h), la profundidad del grano en la
     // simulación (PaperSpec::grain) y si tiene textura visual (Ctrl+[ ], común a la familia).
+    // Un solo grafito (HU-98, Mesa de animación): la dureza fija (índice de kGradeNames), de
+    // medios.json pero sin tocarlo: sin F5, sin las teclas de calibración ni Ctrl+S, y no se
+    // guarda en config. -1: se elige con F5 (Cartuchera, Ejercicios).
+    int fixedGrade = -1;
+    bool tiltByDefault = true; // el costado (I) la primera vez; después, lo guardado
     uint32_t paperColor = kPaperColor;
     int paperGrain = 2047;
     bool paperTexture = true;

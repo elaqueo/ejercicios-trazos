@@ -893,6 +893,16 @@ private slots:
         QVERIFY(std::any_of(left.begin(), left.end(), [](uint32_t px) { return px != kPaperColor; }));
     }
 
+    // HU-98: con un solo grafito la dureza es la fija aunque config.json tenga otra; sin él, la
+    // guardada, y si no hay, la HB.
+    void durezaConLaQueArranca()
+    {
+        QCOMPARE(startingGrade(4, QStringLiteral("6B")), 4);
+        QCOMPARE(startingGrade(-1, QStringLiteral("6B")), 9);
+        QCOMPARE(startingGrade(-1, QString()), kHbIndex);
+        QCOMPARE(startingGrade(-1, QStringLiteral("XX")), kHbIndex);
+    }
+
     // HU-91: la mesa de luz se cuenta desde la activa; en los extremos, las hojas que haya.
     void mesaDeLuzDesdeLaActiva()
     {

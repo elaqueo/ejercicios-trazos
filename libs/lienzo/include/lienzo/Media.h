@@ -44,6 +44,19 @@ using Grades = std::array<Lead, kGradeCount>;
 // Valores de fábrica: punto de partida para calibrar. La HB es la calibrada en HU-51.
 Grades factoryGrades();
 
+// La dureza con la que arranca el lienzo: la fija de la app (fixed ≥ 0, HU-98: Mesa de
+// animación tiene un solo grafito) o la guardada en config.json por su nombre ("HB"); si no
+// hay ninguna, la HB.
+inline int startingGrade(int fixed, const QString& saved)
+{
+    if (fixed >= 0 && fixed < kGradeCount)
+        return fixed;
+    for (int g = 0; g < kGradeCount; ++g)
+        if (saved == QLatin1String(kGradeNames[size_t(g)]))
+            return g;
+    return kHbIndex;
+}
+
 // La goma (HU-58), calibrable como las minas.
 struct Eraser {
     int strength = 20;  // fuerza (cuánto quita por distancia), 1..255
