@@ -57,6 +57,17 @@ inline int startingGrade(int fixed, const QString& saved)
     return kHbIndex;
 }
 
+// Lápices de color (HU-99, Mesa de animación), en el orden del plano de color: cada uno con
+// un significado fijo (docs/mesa-de-animacion/idea.md, "Los lápices"). No se calibran.
+struct ColorPencilName {
+    const char* name;
+    const char* use;
+};
+inline constexpr std::array<ColorPencilName, 4> kColorPencilNames{{{"Azul", "construcción"},
+                                                                   {"Rojo", "sombra 1"},
+                                                                   {"Verde", "sombra 2"},
+                                                                   {"Violeta", "cierres"}}};
+
 // La goma (HU-58), calibrable como las minas.
 struct Eraser {
     int strength = 20;  // fuerza (cuánto quita por distancia), 1..255

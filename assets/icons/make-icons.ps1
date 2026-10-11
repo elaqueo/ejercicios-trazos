@@ -112,7 +112,7 @@ public static class TrazosIcons
     }
 
     // Mesa de animación (mesa "Íconos" del canvas): tres hojas apiladas y corridas; en la de
-    // arriba, la pelota en grafito y, debajo, la del dibujo anterior en rojo, como la muestra
+    // arriba, la pelota en grafito y, debajo, la del dibujo anterior en naranja, como la muestra
     // la mesa de luz.
     static void Stack(Graphics g, float k)
     {
@@ -125,7 +125,7 @@ public static class TrazosIcons
         using (var top = new SolidBrush(Hoja))
         using (var path = Rounded(new RectangleF(40, 66, 140, 160), 12))
             g.FillPath(top, path);
-        using (var red = new Pen(Color.FromArgb(191, 0xC8, 0x35, 0x2E), 10 * k))
+        using (var red = new Pen(Color.FromArgb(191, 0xE8, 0x86, 0x2A), 10 * k))
             g.DrawEllipse(red, 92 - 24, 122 - 24, 48, 48);
         using (var ink = new Pen(Tinta, 12 * k))
             g.DrawEllipse(ink, 128 - 24, 170 - 24, 48, 48);

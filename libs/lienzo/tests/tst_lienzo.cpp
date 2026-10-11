@@ -211,6 +211,36 @@ private slots:
         QCOMPARE(image[size_t(m.sheetY + 11) * 200 + size_t(m.sheetX + 10)], kPaperColor);
     }
 
+    // HU-99: los lápices de color van sobre la hoja y bajo el grafito.
+    void colorBajoElGrafito()
+    {
+        drymedia::Paper paper({.seed = 1, .widthMm = 40, .heightMm = 30});
+        const SheetMapping m = SheetMapping::fit(200, 150, paper.width(), paper.height());
+        std::vector<uint32_t> image(size_t(200) * 150, 0);
+        const auto fill = [&](int px, int py, int plane, uint16_t value) {
+            int cx0, cx1, cy0, cy1;
+            m.cellsOfColumn(m.sheetX + px, cx0, cx1);
+            m.cellsOfRow(m.sheetY + py, cy0, cy1);
+            for (int y = cy0; y < cy1; ++y)
+                for (int x = cx0; x < cx1; ++x) {
+                    const int tx = x / drymedia::kTileSize, ty = y / drymedia::kTileSize;
+                    paper.depositTile(tx, ty)[plane * drymedia::kTileCells + (y % drymedia::kTileSize) * drymedia::kTileSize +
+                                              x % drymedia::kTileSize] = value;
+                    if (plane)
+                        paper.markTilePlanes(tx, ty, uint8_t(1 << plane));
+                }
+        };
+        const uint16_t azul = drymedia::colorCell(0, 65535);
+        fill(10, 10, drymedia::kColorPlane, azul); // solo azul
+        fill(20, 10, drymedia::kColorPlane, azul); // azul con grafito saturado encima
+        fill(20, 10, drymedia::kDepositPlane, 65535);
+        renderTone(paper, m, 0, 0, 200, 150, image.data());
+        QCOMPARE(image[size_t(m.sheetY + 10) * 200 + size_t(m.sheetX + 10)],
+                 mixTone(kPaperColor, kColorPencilColors[0], drymedia::cellColorAmount(azul)));
+        QCOMPARE(image[size_t(m.sheetY + 10) * 200 + size_t(m.sheetX + 20)], kGraphiteColor);
+        QCOMPARE(image[size_t(m.sheetY + 10) * 200 + size_t(m.sheetX + 15)], kPaperColor);
+    }
+
     // Textura del papel (HU-75), con 0 % la imagen de siempre: sin factor, y un factor
     // neutro (4096) da exactamente lo mismo.
     void texturaEnCeroEsLaImagenDeHoy()

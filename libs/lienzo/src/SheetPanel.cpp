@@ -167,6 +167,12 @@ QImage paintPanel(const PanelInfo& info, const PanelLayout& layout, const QColor
              theme::kTexto, Qt::AlignRight | Qt::AlignVCenter);
         y += px(30);
     };
+    if (info.leadColor.isValid()) { // HU-99: un cuadrito con el color, antes del nombre
+        const double leadW = QFontMetricsF(body).horizontalAdvance(info.lead);
+        p.setPen(Qt::NoPen);
+        p.setBrush(info.leadColor);
+        p.drawRoundedRect(QRectF(right - leadW - px(18), y + px(4), px(12), px(12)), px(3), px(3));
+    }
     row(QStringLiteral("Lápiz"), info.lead);
     // Mesa de luz: un cuadrito por capa, con su color, y "sí" o "no".
     const QString onOff = info.light.empty() ? QStringLiteral("no") : QStringLiteral("sí");

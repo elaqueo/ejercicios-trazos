@@ -406,7 +406,7 @@ bool Paper::deserializeTiles(const uint8_t* data, size_t size, TileSet& out) con
     const uint8_t* planes = r + count * 4;
     size_t cells = 0;
     for (size_t k = 0; k < count; ++k) {
-        if (index[k] >= d->set.m_tiles.size() || (k > 0 && index[k] <= index[k - 1]) || (planes[k] & ~0x0Eu))
+        if (index[k] >= d->set.m_tiles.size() || (k > 0 && index[k] <= index[k - 1]) || (planes[k] & ~0x1Eu))
             return false;
         cells += size_t(Impl::packedPlanes(planes[k])) * kTileCells;
     }
@@ -457,7 +457,10 @@ uint64_t Paper::hash() const
         if (!d->set.m_tiles[i])
             continue;
         fnv(h, &i, sizeof(i));
-        fnv(h, d->set.m_tiles[i], size_t(kTileStride) * sizeof(uint16_t));
+        // El plano de color (HU-99) entra solo si el tile lo usa: así una hoja sin color da el
+        // mismo hash que antes de que existiera (Cartuchera, Ejercicios).
+        const bool color = (d->set.m_planes[i] >> kColorPlane) & 1;
+        fnv(h, d->set.m_tiles[i], size_t(color ? kTilePlanes : kColorPlane) * kTileCells * sizeof(uint16_t));
     }
     return h;
 }

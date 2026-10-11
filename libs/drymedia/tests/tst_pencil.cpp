@@ -61,6 +61,33 @@ std::vector<uint16_t> depositOf(const Paper& paper)
     return all;
 }
 
+// El plano de color (HU-99) de toda la hoja, celda por celda (0 = sin color).
+std::vector<uint16_t> colorOf(const Paper& paper)
+{
+    std::vector<uint16_t> all(size_t(paper.width()) * size_t(paper.height()), 0);
+    for (int ty = 0; ty < paper.tilesY(); ++ty)
+        for (int tx = 0; tx < paper.tilesX(); ++tx) {
+            const uint16_t* tile = paper.findDepositTile(tx, ty);
+            if (!tile)
+                continue;
+            for (int y = 0; y < kTileSize; ++y)
+                for (int x = 0; x < kTileSize; ++x) {
+                    const int gx = tx * kTileSize + x, gy = ty * kTileSize + y;
+                    if (gx < paper.width() && gy < paper.height())
+                        all[size_t(gy) * size_t(paper.width()) + size_t(gx)] = tile[kColorPlane * kTileCells + y * kTileSize + x];
+                }
+        }
+    return all;
+}
+
+double colorTotal(const Paper& paper)
+{
+    double s = 0;
+    for (const uint16_t c : colorOf(paper))
+        s += cellColorAmount(c);
+    return s;
+}
+
 // Depósito medio (0..1) en el rectángulo [x0, x1) × [y0, y1).
 double meanDeposit(const Paper& paper, int x0, int x1, int y0, int y1)
 {
@@ -352,6 +379,113 @@ private slots:
         }
         qInfo() << "goma fuerte: hoja limpia en" << pasadas << "pasadas";
         QCOMPARE(total(depositOf(paper)), 0.0);
+    }
+
+    // HU-99: el grafito y los lápices de color depositan cada uno en su plano.
+    void colorEnSuPlano()
+    {
+        Paper paper(smallSheet());
+        Pencil hb(paper, Medium::hb());
+        draw(hb, lineAt, 40);
+        QCOMPARE(colorTotal(paper), 0.0);
+        const double grafito = total(depositOf(paper));
+
+        Pencil rojo(paper, Medium::colored(1));
+        draw(rojo, curveAt, 40);
+        QCOMPARE(total(depositOf(paper)), grafito); // el color no toca el grafito
+        QVERIFY(colorTotal(paper) > 0);
+        for (const uint16_t c : colorOf(paper))
+            if (c)
+                QCOMPARE(cellColor(c), 1);
+        // El color marca su plano en el tile (lo copia el contacto y lo guarda la toma).
+        bool marcado = false;
+        for (int ty = 0; ty < paper.tilesY(); ++ty)
+            for (int tx = 0; tx < paper.tilesX(); ++tx)
+                marcado |= (paper.tilePlanes(tx, ty) & (1 << kColorPlane)) != 0;
+        QVERIFY(marcado);
+    }
+
+    // Donde dos colores se pisan gana el último: azul sobre rojo deja azul.
+    void azulSobreRojo()
+    {
+        Paper paper(smallSheet());
+        Pencil rojo(paper, Medium::colored(1));
+        draw(rojo, lineAt, 40);
+        Pencil azul(paper, Medium::colored(0));
+        draw(azul, lineAt, 40);
+        int celdas = 0;
+        for (const uint16_t c : colorOf(paper))
+            if (c) {
+                QCOMPARE(cellColor(c), 0);
+                ++celdas;
+            }
+        QVERIFY(celdas > 1000);
+    }
+
+    // La goma con un color elegido borra ese color, pero más despacio que el grafito (cera):
+    // con la misma goma, después de una pasada queda más color que grafito; con varias, se va
+    // todo.
+    void gomaBorraColorMasDespacio()
+    {
+        Paper conGrafito(smallSheet()), conColor(smallSheet());
+        Pencil hb(conGrafito, Medium::hb());
+        Pencil azul(conColor, Medium::colored(0));
+        for (int pasada = 0; pasada < 3; ++pasada) {
+            draw(hb, lineAt, 40);
+            draw(azul, lineAt, 40);
+        }
+        const double grafito = total(depositOf(conGrafito)), color = colorTotal(conColor);
+        const auto fuerte = [](double t) { PencilSample s = lineAt(t); s.pressure = 1.0f; return s; };
+        Medium gomaAzul = Medium::eraser(5.0, 60);
+        gomaAzul.eraseColor = 0;
+        Pencil gomaA(conGrafito, Medium::eraser(5.0, 60)), gomaB(conColor, gomaAzul);
+        draw(gomaA, fuerte, 40);
+        draw(gomaB, fuerte, 40);
+        const double quedaGrafito = total(depositOf(conGrafito)) / grafito, quedaColor = colorTotal(conColor) / color;
+        qInfo() << "una pasada de goma: queda" << quedaGrafito * 100 << "% del grafito y" << quedaColor * 100 << "% del color";
+        QVERIFY(quedaColor > quedaGrafito);
+        int pasadas = 1;
+        while (colorTotal(conColor) > 0 && pasadas < 80) {
+            draw(gomaB, fuerte, 40);
+            ++pasadas;
+        }
+        qInfo() << "el color se borra en" << pasadas << "pasadas";
+        QCOMPARE(colorTotal(conColor), 0.0);
+    }
+
+    // La goma borra solo lo del lápiz elegido: con el grafito, el grafito; con el verde, solo
+    // el verde (el grafito y el rojo quedan).
+    void gomaPorLapiz()
+    {
+        Paper paper(smallSheet());
+        Pencil hb(paper, Medium::hb()), rojo(paper, Medium::colored(1)), verde(paper, Medium::colored(2));
+        draw(hb, lineAt, 40);
+        draw(rojo, curveAt, 40);
+        const auto abajo = [](double t) { return PencilSample{200 + t * 1200, 1100, 0.6f, 0.0f, 70.0f}; };
+        draw(verde, abajo, 40);
+        const auto amount = [&paper](int color) {
+            double s = 0;
+            for (const uint16_t c : colorOf(paper))
+                if (c && cellColor(c) == color)
+                    s += cellColorAmount(c);
+            return s;
+        };
+        const double grafito = total(depositOf(paper)), r = amount(1), v = amount(2);
+        QVERIFY(grafito > 0 && r > 0 && v > 0);
+        const auto barrer = [&](int color) {
+            Medium m = Medium::eraser(8.0, 255);
+            m.eraseColor = int8_t(color);
+            Pencil goma(paper, m);
+            for (int y = 200; y < 1300; y += 60)
+                draw(goma, [y](double t) { return PencilSample{100 + t * 1500, double(y), 1.0f, 0.0f, 90.0f}; }, 60);
+        };
+        barrer(2); // verde
+        QCOMPARE(total(depositOf(paper)), grafito);
+        QCOMPARE(amount(1), r);
+        QVERIFY(amount(2) < v * 0.8);
+        barrer(-1); // grafito
+        QVERIFY(total(depositOf(paper)) < grafito * 0.2);
+        QCOMPARE(amount(1), r);
     }
 
     // Borrar donde no hay grafito no crea tiles (ni memoria ni entradas en el historial).

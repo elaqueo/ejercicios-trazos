@@ -9,6 +9,7 @@ Mesa de animación corre sobre el lienzo de `libs/lienzo`, como Cartuchera. Lo q
 - **Toda la pila en memoria, y en la GPU una textura por hoja** (spike HU-81): el flip solo cambia qué textura se muestra, sin tocar el disco ni la simulación (RNF-01, menos de 16 ms).
 - **Sin reproducción automática, fps ni hold:** el timing lo siente la mano al flipear ([idea](idea.md)).
 - **La toma es una carpeta** legible sin la app (RNF-08) y **se guarda sola** en las pausas del lápiz; no hay "Guardar".
+- **Lápices de color** (HU-99): un medio aparte del grafito (`Medium::colored`: mina de 0,7 mm, techo 44000, blandura 16), que deposita en su propio plano con el mismo contacto. Los cuatro comparten el plano y gana el último color; la cera no cambia cómo agarra el grafito encima. En pantalla: la hoja, encima los colores según su cantidad y arriba el grafito (`renderTone`). La goma borra solo lo del lápiz elegido: con el grafito, el grafito; con un color, solo ese color, 4 veces más despacio que el grafito (en las pruebas, una pasada deja ~56 % del color y ~12 % del grafito; `Medium::eraseColor`). La mesa de luz pasó a naranja y turquesa para no confundirse con el rojo y el verde. 1 es el grafito y 2 a 5 los colores; en esta app los números no giran la vista. El plano de color se suma al tile de todas las apps: la hoja activa ocupa 25 % más en memoria; las guardadas, no (solo guardan los planos que usan). El hash de una hoja sin color no cambió.
 - **Deshacer común** para los trazos y las operaciones con las hojas (HU-87, HU-88); no se guarda en la toma.
 - **Instalador:** el mismo de Trazos (HU-110), con su ícono y su acceso en el menú Inicio. zstd se compila dentro del exe: no agrega DLL.
 
@@ -78,10 +79,12 @@ Binario, little endian. Una cabecera de 60 bytes y después dos bloques comprimi
 
 1. `tilesX`, `tilesY` y la cantidad de tiles tocados (u32 cada uno);
 2. el índice de cada tile (u32, creciente, fila por fila);
-3. sus planos (u8, como `tilePlanes`: bit 1 bruñido, 2 deformación, 3 daño de fibra);
+3. sus planos (u8, como `tilePlanes`: bit 1 bruñido, 2 deformación, 3 daño de fibra, 4 color);
 4. los planos que usa cada tile, en ese orden: el depósito y los marcados, de 64 × 64 u16 cada uno.
 
-En Mesa de animación (medio recortado) cada tile lleva solo el depósito.
+En Mesa de animación (medio recortado) cada tile lleva el depósito y, si se usaron lápices de color, el plano de color (HU-99). Las tomas guardadas antes de HU-99 abren igual: no tienen el bit 4.
+
+**El plano de color** (HU-99): cada celda, u16, guarda qué lápiz de color tiene en los 2 bits altos (0 azul, 1 rojo, 2 verde, 3 violeta) y cuánto en los 14 bajos (la escala del depósito dividida por 4); 0 = sin color.
 
 **La imagen** es la región de la hoja en la pantalla donde se guardó, en BGRA, para no redibujarla al abrir. Al abrir se usa si coincide con el tamaño de la hoja en esa pantalla; si no (otra máquina, otra área útil), la hoja se redibuja desde su depósito.
 

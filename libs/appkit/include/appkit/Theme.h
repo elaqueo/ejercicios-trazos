@@ -18,6 +18,11 @@ inline const QColor kTextoSecundario{0xA7, 0xAE, 0xB6};
 inline const QColor kSeleccion{0x3A, 0x2A, 0x12};      // fondo del ítem elegido
 inline const QColor kSeleccionTexto{0xF0, 0xA5, 0x41}; // texto del ítem elegido
 inline const QColor kGuardado{0x5F, 0xB4, 0x7A};       // estado "guardado" (HU-114, panel de hojas)
+// Lápices de color de Mesa de animación (HU-99), saturados (lienzo/Tone.h los repite en BGRA).
+inline const QColor kLapizAzul{0x4F, 0x8F, 0xD6};    // azul no-foto: construcción
+inline const QColor kLapizRojo{0xD0, 0x39, 0x2F};    // sombra 1
+inline const QColor kLapizVerde{0x3C, 0x9A, 0x52};   // sombra 2 o highlight
+inline const QColor kLapizVioleta{0x8B, 0x52, 0xC4}; // cierres
 
 // Lienzo y guías.
 inline const QColor kFuera{0x30, 0x33, 0x38};      // fuera del área útil y esquinas al rotar
@@ -31,8 +36,8 @@ inline const QColor kEnfasis{0xE0, 0x8A, 0x1E};    // dirección, PF, objetivos
 // Mesa de luz (HU-91, Mesa de animación; mesa "Mesa de luz" del canvas): las hojas anteriores
 // y las siguientes, teñidas como lápices de color; la opacidad según la distancia a la
 // activa, la más cercana primero.
-inline const QColor kMesaLuzAnterior{0xC8, 0x35, 0x2E};
-inline const QColor kMesaLuzSiguiente{0x2F, 0x8A, 0x4E};
+inline const QColor kMesaLuzAnterior{0xE8, 0x86, 0x2A}; // naranja (HU-99: el rojo se confundía con el lápiz rojo)
+inline const QColor kMesaLuzSiguiente{0x14, 0xA3, 0xA3}; // turquesa (ídem con el verde)
 inline constexpr float kMesaLuzOpacidad[] = {0.6f, 0.3f};
 
 // Medidas (px).

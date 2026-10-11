@@ -1,6 +1,7 @@
 #pragma once
 
 #include "drymedia/Medium.h"
+#include "drymedia/Paper.h"
 #include "drymedia/Tip.h"
 
 #include <array>
@@ -48,8 +49,15 @@ public:
     // techo de la mina; el llamador lo vuelve a escribir en los tiles (Pencil).
     const uint16_t* deposit() const { return m_deposit.data(); }
     void applyDeposit(uint16_t k, uint16_t ceiling = 65535);
-    // Goma (HU-58): quita del depósito de la huella ∝ penetración × k; llega a 0.
-    void applyErase(uint16_t k);
+    // Goma (HU-58): quita del depósito de la huella ∝ penetración × k; llega a 0. Con un
+    // color (HU-99, 0..3, el del lápiz elegido) no toca el grafito: quita solo ese color, con
+    // k / 4 (la cera cuesta más de borrar).
+    void applyErase(uint16_t k, int color = -1);
+    // Lápiz de color (HU-99): como applyDeposit pero en el plano de color, con el color
+    // `color`. Donde la celda tiene otro color, gana este: la celda pasa a ser de este color y
+    // se queda con la cantidad mayor entre la que tenía y la que deja la pasada.
+    void applyColor(uint16_t k, uint16_t ceiling, int color);
+    const uint16_t* color() const { return m_color.data(); }
     // Bruñido (HU-60): crece con la penetración × kb (∝ distancia × presión³ × tasa) donde hay
     // grafito, y sube el depósito de las celdas en contacto que están por debajo de su
     // promedio: arrastra grafito a los valles, nunca aclara.
@@ -69,10 +77,10 @@ public:
     void applyDamage(uint16_t kd);
     const uint16_t* deform() const { return m_deform.data(); }
     const uint16_t* damage() const { return m_damage.data(); }
-    // Los planos del tile en el orden de Paper (depósito, bruñido, deformación, daño).
+    // Los planos del tile en el orden de Paper (depósito, bruñido, deformación, daño, color).
     const uint16_t* plane(int index) const
     {
-        const std::vector<uint16_t>* planes[] = {&m_deposit, &m_burnish, &m_deform, &m_damage};
+        const std::vector<uint16_t>* planes[] = {&m_deposit, &m_burnish, &m_deform, &m_damage, &m_color};
         return planes[index]->data();
     }
     uint32_t force() const { return m_force; }
@@ -85,10 +93,10 @@ public:
 private:
     Path m_path;
     int m_cells = 0; // celdas de la última punta (los arreglos tienen ese tamaño)
-    std::vector<uint16_t> m_relief, m_crest, m_deposit, m_burnish, m_deform, m_damage, m_surface, m_penetration;
+    std::vector<uint16_t> m_relief, m_crest, m_deposit, m_burnish, m_deform, m_damage, m_color, m_surface, m_penetration;
     std::vector<uint32_t> m_contactCells;
-    std::array<bool, 4> m_planeDirty{}; // depósito, bruñido, deformación, daño
-    std::array<bool, 4> m_planeZero{};  // el arreglo del plano está todo en cero
+    std::array<bool, kTilePlanes> m_planeDirty{}; // depósito, bruñido, deformación, daño, color
+    std::array<bool, kTilePlanes> m_planeZero{};  // el arreglo del plano está todo en cero
     uint32_t m_force = 0;
     uint32_t m_lastDepth = kBase; // punto de partida de la búsqueda (HU-76)
 };

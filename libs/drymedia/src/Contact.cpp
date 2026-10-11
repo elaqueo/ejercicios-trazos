@@ -39,6 +39,7 @@ Contact::Contact(Path path)
     , m_burnish(size_t(Tip::kTipCells))
     , m_deform(size_t(Tip::kTipCells))
     , m_damage(size_t(Tip::kTipCells))
+    , m_color(size_t(Tip::kTipCells))
     , m_surface(size_t(Tip::kTipCells))
     , m_penetration(size_t(Tip::kTipCells))
 {
@@ -52,20 +53,20 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
     const int x0 = x - tip.originX(), y0 = y - tip.originY();
     if (m_cells != tip.cells()) {
         m_cells = tip.cells();
-        for (auto* v : {&m_relief, &m_crest, &m_deposit, &m_burnish, &m_deform, &m_damage, &m_surface, &m_penetration})
+        for (auto* v : {&m_relief, &m_crest, &m_deposit, &m_burnish, &m_deform, &m_damage, &m_color, &m_surface, &m_penetration})
             v->resize(size_t(m_cells));
         m_planeZero.fill(false);
     }
     m_planeDirty.fill(false);
-    // Planos opcionales (bruñido, deformación, daño): solo se copian si algún tile de la huella
+    // Planos opcionales (bruñido, deformación, daño, color): solo se copian si algún tile de la huella
     // los usa; si no, el arreglo queda en cero (y se borra una sola vez). HU-76: copiar y
     // escribir planos vacíos era la mitad del costo de cada subpaso.
     uint8_t used = 0;
     for (int ty = std::max(0, y0) / kTileSize; ty <= std::min(paper.height() - 1, y0 + h - 1) / kTileSize; ++ty)
         for (int tx = std::max(0, x0) / kTileSize; tx <= std::min(paper.width() - 1, x0 + w - 1) / kTileSize; ++tx)
             used |= paper.tilePlanes(tx, ty);
-    bool copy[kTilePlanes] = {true, false, false, false};
-    std::vector<uint16_t>* const planeVectors[kTilePlanes] = {&m_deposit, &m_burnish, &m_deform, &m_damage};
+    bool copy[kTilePlanes] = {true, false, false, false, false};
+    std::vector<uint16_t>* const planeVectors[kTilePlanes] = {&m_deposit, &m_burnish, &m_deform, &m_damage, &m_color};
     for (int pl = 1; pl < kTilePlanes; ++pl) {
         copy[pl] = (used >> pl) & 1;
         if (copy[pl]) {
@@ -81,7 +82,8 @@ uint16_t Contact::find(const Paper& paper, const Tip& tip, const Medium& medium,
         uint16_t* relief = m_relief.data() + size_t(r) * w;
         uint16_t* crest = m_crest.data() + size_t(r) * w;
         uint16_t* const planes[kTilePlanes] = {m_deposit.data() + size_t(r) * w, m_burnish.data() + size_t(r) * w,
-                                               m_deform.data() + size_t(r) * w, m_damage.data() + size_t(r) * w};
+                                               m_deform.data() + size_t(r) * w, m_damage.data() + size_t(r) * w,
+                                               m_color.data() + size_t(r) * w};
         int c = 0;
         while (c < w) {
             const int gx = x0 + c;
@@ -188,10 +190,53 @@ void Contact::applyDeposit(uint16_t k, uint16_t ceiling)
     m_planeDirty[kDepositPlane] = true;
 }
 
-void Contact::applyErase(uint16_t k)
+void Contact::applyErase(uint16_t k, int color)
 {
-    impl(m_path).erase(m_deposit.data(), m_burnish.data(), m_penetration.data(), m_cells, k);
-    m_planeDirty[kDepositPlane] = true;
+    if (color < 0) {
+        impl(m_path).erase(m_deposit.data(), m_burnish.data(), m_penetration.data(), m_cells, k);
+        m_planeDirty[kDepositPlane] = true;
+        return;
+    }
+    if (m_planeZero[kColorPlane])
+        return; // la huella no tiene color
+    // Ese color (HU-99), como el grafito en kernel::erase pero con k / 4. Escalar: solo corre
+    // donde hay color.
+    const uint32_t kc = k / 4u;
+    bool changed = false;
+    for (int i = 0; i < m_cells; ++i) {
+        const uint16_t cell = m_color[size_t(i)];
+        if (!cell || cellColor(cell) != color || !m_penetration[size_t(i)])
+            continue;
+        const uint32_t a = std::min<uint32_t>((uint32_t(m_penetration[size_t(i)]) * kc) >> 12, 65535u);
+        const uint32_t amount = cellColorAmount(cell), delta = ((a * amount) >> 16) + (a > 0 ? 4u : 0u);
+        m_color[size_t(i)] = colorCell(cellColor(cell), amount > delta ? amount - delta : 0);
+        changed = true;
+    }
+    if (changed)
+        m_planeDirty[kColorPlane] = true;
+}
+
+void Contact::applyColor(uint16_t k, uint16_t ceiling, int color)
+{
+    // Como kernel::deposit sin bruñido ni daño (el perfil de animación no los tiene), en la
+    // escala del depósito; la celda guarda la cantidad / 4.
+    for (int i = 0; i < m_cells; ++i) {
+        const uint32_t pen = m_penetration[size_t(i)];
+        if (!pen)
+            continue;
+        const uint32_t a = std::min<uint32_t>((pen * k) >> 12, 65535u);
+        const uint16_t cell = m_color[size_t(i)];
+        const uint32_t amount = cellColorAmount(cell);
+        if (cell && cellColor(cell) != color) { // gana el último
+            const uint32_t fresh = (a * ceiling) >> 16;
+            m_color[size_t(i)] = colorCell(color, std::max(amount, fresh));
+        } else {
+            const uint32_t room = ceiling > amount ? ceiling - amount : 0;
+            m_color[size_t(i)] = colorCell(color, amount + ((a * room) >> 16));
+        }
+    }
+    m_planeDirty[kColorPlane] = true;
+    m_planeZero[kColorPlane] = false;
 }
 
 const std::vector<uint32_t>& Contact::contactCells()

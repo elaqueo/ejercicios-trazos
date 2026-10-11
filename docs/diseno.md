@@ -24,8 +24,8 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | `guia` | `#2563EB` | Puntos a unir, líneas de muestra, ejes |
 | `guia-suave` | `#9DB8F2` | Construcción: horizonte, líneas a PF (punteada) |
 | `enfasis` | `#E08A1E` | Dirección, puntos de fuga, perfil de presión, selección |
-| `mesaLuzAnterior` | `#C8352E` | Mesa de luz (Mesa de animación): hojas anteriores, al 60 % la más cercana y al 30 % la segunda |
-| `mesaLuzSiguiente` | `#2F8A4E` | Mesa de luz: hojas siguientes, ídem |
+| `mesaLuzAnterior` | `#E8862A` | Mesa de luz (Mesa de animación): hojas anteriores, en naranja, al 60 % la más cercana y al 30 % la segunda (hasta HU-99 eran rojo `#C8352E`: se confundían con el lápiz rojo) |
+| `mesaLuzSiguiente` | `#14A3A3` | Mesa de luz: hojas siguientes, en turquesa, ídem (hasta HU-99, verde `#2F8A4E`) |
 
 ## Tipografía y medidas
 
@@ -50,9 +50,10 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Calibración | Pantalla oscura, indicador de pasos, marca ámbar en la esquina pedida | HU-10 |
 | Confirmación | Como la mesa "Confirmación": pregunta, detalle y la tecla que confirma en ámbar; cualquier otra tecla cancela | HU-87 |
 | Atajos (Ctrl+,) | Como la mesa "Atajos": título con el nombre de la app, los grupos en tres columnas (Lápiz · Hoja y papel, Vista · Ejercicios, Pantalla), teclas como chips y los gestos que no son teclas en gris claro. Sale del registro de atajos, así no se desactualiza | HU-78 |
-| Mesa de luz | Como la mesa "Mesa de luz": las hojas anteriores teñidas de rojo y las siguientes de verde, más tenues cuanto más lejos; se apaga mientras se flipea | HU-91 |
+| Mesa de luz | Como la mesa "Mesa de luz": las hojas anteriores teñidas de naranja y las siguientes de turquesa (rojo y verde hasta HU-99: se confundían con los lápices), más tenues cuanto más lejos; se apaga mientras se flipea | HU-91 |
+| Lápices de color | Como la mesa "Lápices de color": azul `#4F8FD6`, rojo `#D0392F`, verde `#3C9A52`, violeta `#8B52C4` (tokens `kLapiz*`), más tenues que el grafito y siempre bajo él; el panel de hojas muestra el activo con un cuadrito de su color | HU-99 |
 | Panel de hojas (Tab) | Como la mesa "Panel de hojas": angosto (240 px) a la derecha, con la toma y si está guardada, el número grande en ámbar y el total, las miniaturas de la activa (marco ámbar) y de 3 antes y 3 después, el lápiz, la mesa de luz y el giro | HU-114 |
-| Íconos | Como la mesa "Íconos": fondo gris oscuro redondeado; Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; Mesa de animación, tres hojas apiladas con la pelota en grafito y, debajo, la del dibujo anterior en rojo; el instalador, la hoja y el lápiz juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70, HU-110 |
+| Íconos | Como la mesa "Íconos": fondo gris oscuro redondeado; Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; Mesa de animación, tres hojas apiladas con la pelota en grafito y, debajo, la del dibujo anterior en naranja, como la mesa de luz; el instalador, la hoja y el lápiz juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70, HU-110 |
 
 ## Teclas (v1.3.0)
 
@@ -79,12 +80,12 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | F3 · F9 · F10 · F12 | Latencia · calibrar el área útil · monitor siguiente · captura | Igual |
 | Alt+F4 | Salir | Salir |
 
-**Mesa de animación:** las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), Ctrl+[ ] (el papel de animación no tiene textura visual, HU-97), y F5, las de calibración ([ ] , . - =) y Ctrl+S (un solo grafito, la HB, HU-98); el costado (I) arranca apagado, más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
+**Mesa de animación:** las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), Ctrl+[ ] (el papel de animación no tiene textura visual, HU-97), y F5, las de calibración ([ ] , . - =) y Ctrl+S (un solo grafito, la HB, HU-98), y 4 / 6 / 5 (los números eligen el lápiz, HU-99; la vista gira con la rueda y con Shift + arrastrar); el costado (I) arranca apagado, más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
 
 | Tecla | Qué hace |
 | --- | --- |
 | ← / → | Flip: mantener la flecha muestra la hoja anterior o la siguiente; al soltarla, esa hoja queda activa. Mientras tanto el lápiz no dibuja y la mesa de luz no se ve |
-| L | Mesa de luz: prende y apaga (queda guardada); 2 hojas atrás en rojo y 1 adelante en verde (mesa "Mesa de luz") |
+| L | Mesa de luz: prende y apaga (queda guardada); 2 hojas atrás en naranja y 1 adelante en turquesa (mesa "Mesa de luz") |
 | Insert | Hoja nueva en blanco después de la activa, que pasa a ser la activa |
 | Ctrl+D | Duplicar la activa: la copia queda después y pasa a ser la activa |
 | Ctrl+N | Limpiar la hoja activa |
@@ -92,4 +93,5 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | ↑ / ↓ | Mover la hoja activa un lugar antes o después en la pila (HU-88) |
 | Inicio / Fin | Ir a la primera o a la última hoja, sin deshacer, como un flip (HU-115) |
 | Tab | Mostrar u ocultar el panel de hojas (queda guardado; HU-114) |
+| 1 · 2 · 3 · 4 · 5 | Grafito (HB) · azul no-foto (construcción) · rojo (sombra 1) · verde (sombra 2 o highlight) · violeta (cierres); queda guardado (HU-99) |
 | Z / Ctrl+Y | Deshacer / rehacer lo más reciente: el último trazo de la hoja activa o la última operación con las hojas (incluido mover) |

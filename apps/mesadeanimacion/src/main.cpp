@@ -60,7 +60,8 @@ int main(int argc, char* argv[])
                            .tiltByDefault = false,
                            .paperColor = lienzo::bgra(sheetColor.red(), sheetColor.green(), sheetColor.blue()),
                            .paperGrain = kAnimationGrain,
-                           .paperTexture = false});
+                           .paperTexture = false,
+                           .colorPencils = true}); // 1 grafito, 2 a 5 azul, rojo, verde, violeta (HU-99)
 
     // Hojas (HU-87). Se ve cuál es la activa en F3; las acciones quedan en el log (las verifica
     // la prueba de la app real, scripts/smoke.ps1).

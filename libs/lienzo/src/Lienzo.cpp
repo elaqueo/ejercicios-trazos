@@ -286,6 +286,7 @@ struct Lienzo::Impl {
         if (recording)
             sim->setRecording(recording);
         applyMedia();
+        sim->setColorPencil(colorPencil);
         sim->setTilt(tilt);
         sim->setTexture(texture);
         sim->setGuides(guideLayer());
@@ -377,9 +378,14 @@ struct Lienzo::Impl {
         info.number = center + 1;
         info.total = order.count;
         info.strip = panelSlots(order, center);
-        info.lead = QStringLiteral("%1 · %2 mm")
-                        .arg(QString::fromLatin1(media.activeName()),
-                             QString::number(sim->lead().diameter / 100.0, 'f', 2).replace(QLatin1Char('.'), QLatin1Char(',')));
+        if (colorPencil >= 0) {
+            info.lead = QString::fromUtf8(kColorPencilNames[size_t(colorPencil)].name);
+            info.leadColor = QColor::fromRgb(QRgb(kColorPencilColors[size_t(colorPencil)]));
+        } else {
+            info.lead = QStringLiteral("%1 · %2 mm")
+                            .arg(QString::fromLatin1(media.activeName()),
+                                 QString::number(sim->lead().diameter / 100.0, 'f', 2).replace(QLatin1Char('.'), QLatin1Char(',')));
+        }
         const auto color = [](const Tint& t) {
             QColor c = QColor::fromRgb(QRgb(t.color));
             c.setAlphaF(t.opacity);
@@ -493,6 +499,23 @@ struct Lienzo::Impl {
             config->setValue(QStringLiteral("viewRotation"), viewDegrees);
     }
 
+    // Lápiz de color (HU-99): -1 el grafito, 0..3 los colores; queda guardado.
+    int colorPencil = -1;
+    void setColorPencil(int color, bool persist = true)
+    {
+        colorPencil = std::clamp(color, -1, drymedia::kColorCount - 1);
+        sim->setColorPencil(colorPencil);
+        if (persist)
+            config->setValue(QStringLiteral("pencil"), colorPencil);
+        if (colorPencil < 0)
+            qInfo() << "Lápiz:" << media.activeName();
+        else
+            qInfo().noquote() << QStringLiteral("Lápiz: %1 (%2)")
+                                     .arg(QString::fromUtf8(kColorPencilNames[size_t(colorPencil)].name),
+                                          QString::fromUtf8(kColorPencilNames[size_t(colorPencil)].use));
+        refreshSheetPanel();
+    }
+
     // Otra mina activa (F5 o 1 a 0); queda guardada para la próxima vez (HU-13).
     void setActive(int grade)
     {
@@ -512,6 +535,8 @@ struct Lienzo::Impl {
         texture = std::clamp(config->value(QStringLiteral("paperTexture"), 20, appkit::Config::Scope::Common).toInt(), 0, 100);
         if (!options.paperTexture)
             texture = 0; // papel liso (HU-97): no se lee ni se guarda la de la familia
+        if (options.colorPencils) // HU-99
+            colorPencil = std::clamp(config->value(QStringLiteral("pencil"), -1).toInt(), -1, drymedia::kColorCount - 1);
     }
 
     // Textura del papel (HU-75): de a 10 %, común a las apps de la familia.
@@ -989,8 +1014,18 @@ void Lienzo::registerShortcuts()
         keys.joinWithPrevious(QStringLiteral("Textura del papel"));
     }
 
+    if (d->options.colorPencils) { // HU-99: 1 el grafito, 2 a 5 los colores
+        keys.setGroup(kGroupLead);
+        keys.add(QStringLiteral("Grafito"), {{'1'}, {VK_NUMPAD1}}, [impl] { impl->setColorPencil(-1); });
+        for (int c = 0; c < drymedia::kColorCount; ++c) {
+            const ColorPencilName& n = kColorPencilNames[size_t(c)];
+            keys.add(QStringLiteral("Lápiz %1 (%2)").arg(QString::fromUtf8(n.name), QString::fromUtf8(n.use)),
+                     {{UINT('2' + c)}, {UINT(VK_NUMPAD2 + c)}}, [impl, c] { impl->setColorPencil(c); });
+        }
+    }
+
     keys.setGroup(kGroupView);
-    { // los números son de la vista (HU-40), en las dos apps; la dureza se elige con F5
+    if (!d->options.colorPencils) { // los números son de la vista (HU-40); la dureza se elige con F5
         keys.add(QStringLiteral("Girar la vista a la izquierda"), {{'4'}, {VK_NUMPAD4}}, [impl] {
             impl->setViewRotation(ViewRotation::snapped(impl->viewDegrees) - ViewRotation::kSnapStep);
             qInfo() << "Vista rotada" << impl->viewDegrees << "° (tecla)";

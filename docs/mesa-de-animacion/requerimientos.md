@@ -166,8 +166,9 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. Los colores comparten un plano, separado del grafito: cada celda guarda qué color tiene (2 bits) y cuánto (14 bits), y donde dos colores se pisan gana el último. El grafito va en su plano, encima: borrar grafito no borra el color, como con un col-erase real.
     3. Exportar (HU-109) conserva los colores.
     4. Prueba unitaria: el grafito y los colores depositan cada uno en su plano; pintar azul sobre rojo deja azul; el render pone el grafito encima.
+    5. *Hecho (11 oct 2026): decidido con el usuario que la goma borra solo lo del lápiz elegido (el grafito, o solo ese color, 4 veces más despacio; cambia el criterio 2), que la mesa de luz pasa a naranja y turquesa, y que las teclas 1 a 5 entran acá (de HU-100). Donde dos colores se pisan, la celda queda del último con la cantidad mayor de las dos. Detalle en arquitectura.md.*
 100. **HU-100 · F5 elige entre los cinco** (Must · 2 pts). Como animador, quiero elegir el lápiz con F5 o con una tecla por lápiz, para cambiar de color sin mirar.
-    1. F5 abre el selector con los cinco lápices (muestra real de cada uno); 1 a 5 eligen directo (los números quedan libres: en esta app 4/6/5 no giran la vista, el anillo y Shift + arrastrar sí).
+    1. F5 abre el selector con los cinco lápices (muestra real de cada uno); 1 a 5 eligen directo (hecho en HU-99: en esta app 4/6/5 no giran la vista, el anillo y Shift + arrastrar sí).
     2. El lápiz activo se ve en F3 y queda en config.
 
 ### E5 · Vista

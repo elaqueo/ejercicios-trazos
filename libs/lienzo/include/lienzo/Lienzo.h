@@ -63,6 +63,10 @@ struct LienzoOptions {
     uint32_t paperColor = kPaperColor;
     int paperGrain = 2047;
     bool paperTexture = true;
+    // Lápices de color (HU-99, Mesa de animación): 1 es el grafito y 2 a 5 los colores (azul,
+    // rojo, verde, violeta); los números dejan de girar la vista (gira la rueda y Shift +
+    // arrastrar). Queda guardado en config.json ("pencil").
+    bool colorPencils = false;
 };
 
 // El lienzo de baja latencia (HU-63, nacido en Cartuchera): una hoja de grafito del tamaño de

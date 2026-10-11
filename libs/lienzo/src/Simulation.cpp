@@ -284,12 +284,22 @@ void Simulation::run()
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
     uint64_t lead = m_lead, eraserParams = m_eraser;
     int grade = m_grade;
+    int colorPencil = m_colorPencil; // HU-99
     std::array<drymedia::LeadWear, kGradeCount> wears; // desgaste por dureza (HU-62)
     const auto leadMedium = [this](uint64_t packed) { return forProfile(Lead::unpack(packed).medium(), m_profile); };
-    const auto eraserMedium = [this](uint64_t packed) { return forProfile(Eraser::unpack(packed).medium(), m_profile); };
-    drymedia::Pencil pencil(m_paper, leadMedium(lead));
-    pencil.setWear(&wears[size_t(grade)]);
-    drymedia::Pencil eraser(m_paper, eraserMedium(eraserParams)); // goma (HU-58)
+    // La goma borra lo del lápiz elegido (HU-99): el grafito, o solo ese color.
+    const auto eraserMedium = [this](uint64_t packed, int color) {
+        drymedia::Medium m = forProfile(Eraser::unpack(packed).medium(), m_profile);
+        m.eraseColor = int8_t(color);
+        return m;
+    };
+    // La mina, o el lápiz de color si hay uno elegido (HU-99: sin desgaste).
+    const auto pencilMedium = [&](uint64_t packed, int color) {
+        return color >= 0 ? forProfile(drymedia::Medium::colored(color), m_profile) : leadMedium(packed);
+    };
+    drymedia::Pencil pencil(m_paper, pencilMedium(lead, colorPencil));
+    pencil.setWear(colorPencil >= 0 ? nullptr : &wears[size_t(grade)]);
+    drymedia::Pencil eraser(m_paper, eraserMedium(eraserParams, colorPencil)); // goma (HU-58)
     drymedia::Pencil stylus(m_paper, drymedia::Medium::stylus());           // punta seca (HU-61)
     // Deshacer y rehacer (HU-53): el lápiz y la goma avisan antes de la primera escritura
     // de cada tile en un trazo, y el historial de la hoja activa guarda cómo estaba (cada hoja
@@ -357,18 +367,21 @@ void Simulation::run()
             m_sheets.history().clear(); // la hoja nueva no se deshace
             renderAll();
         }
-        if (lead != m_lead || grade != m_grade) {
+        if (lead != m_lead || grade != m_grade || colorPencil != m_colorPencil) {
             grade = m_grade;
             lead = m_lead;
+            colorPencil = m_colorPencil;
             endStroke(); // cada trazo con una sola mina: se deshace con la que lo hizo
-            pencil.setMedium(leadMedium(lead), &wears[size_t(std::clamp(grade, 0, kGradeCount - 1))]);
+            pencil.setMedium(pencilMedium(lead, colorPencil),
+                             colorPencil >= 0 ? nullptr : &wears[size_t(std::clamp(grade, 0, kGradeCount - 1))]);
+            eraser.setMedium(eraserMedium(eraserParams, colorPencil));
         }
         if (m_sharpenRequested.exchange(false))
             pencil.sharpen();
         if (eraserParams != m_eraser) {
             eraserParams = m_eraser;
             endStroke();
-            eraser.setMedium(eraserMedium(eraserParams));
+            eraser.setMedium(eraserMedium(eraserParams, colorPencil));
         }
 
         // Las muestras y después los pedidos de la pila: cada pedido sabe cuántas muestras

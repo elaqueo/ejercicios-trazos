@@ -30,17 +30,22 @@ int16_t normalized(double v, double deviation)
 
 } // namespace
 
-uint32_t toneOf(uint32_t averageDeposit, uint32_t base)
+uint32_t mixTone(uint32_t base, uint32_t color, uint32_t amount)
 {
-    const uint32_t g = std::min<uint32_t>(averageDeposit, 65535);
+    const uint32_t g = std::min<uint32_t>(amount, 65535);
     uint32_t out = 0xFF000000u;
     for (const int shift : {0, 8, 16}) {
-        const uint32_t paper = channel(base, shift), graphite = channel(kGraphiteColor, shift);
-        // base + (grafito − base) · g, con redondeo, en enteros.
-        const uint32_t v = (paper * (65535 - g) + graphite * g + 32767) / 65535;
+        const uint32_t paper = channel(base, shift), ink = channel(color, shift);
+        // base + (color − base) · g, con redondeo, en enteros.
+        const uint32_t v = (paper * (65535 - g) + ink * g + 32767) / 65535;
         out |= v << shift;
     }
     return out;
+}
+
+uint32_t toneOf(uint32_t averageDeposit, uint32_t base)
+{
+    return mixTone(base, kGraphiteColor, averageDeposit);
 }
 
 uint32_t paperWithGuide(uint32_t guide, uint32_t paperColor)
@@ -179,16 +184,27 @@ void renderTone(const drymedia::Paper& paper, const SheetMapping& m, int px0, in
             int cx0, cx1;
             m.cellsOfColumn(px, cx0, cx1);
             uint64_t sum = 0;
+            uint64_t colors[drymedia::kColorCount] = {}; // HU-99: cantidad de cada color
+            bool anyColor = false;
             for (int cy = cy0; cy < cy1; ++cy) {
                 int cx = cx0;
                 while (cx < cx1) {
                     const int tx = cx / drymedia::kTileSize, ty = cy / drymedia::kTileSize;
                     const int run = std::min(cx1 - cx, drymedia::kTileSize - cx % drymedia::kTileSize);
                     if (const uint16_t* tile = paper.findDepositTile(tx, ty)) {
-                        const uint16_t* p = tile + size_t(cy % drymedia::kTileSize) * drymedia::kTileSize +
-                                            size_t(cx % drymedia::kTileSize);
+                        const size_t in = size_t(cy % drymedia::kTileSize) * drymedia::kTileSize +
+                                          size_t(cx % drymedia::kTileSize);
+                        const uint16_t* p = tile + in;
                         for (int i = 0; i < run; ++i)
                             sum += p[i];
+                        if (paper.tilePlanes(tx, ty) & (1 << drymedia::kColorPlane)) {
+                            const uint16_t* c = tile + size_t(drymedia::kColorPlane) * drymedia::kTileCells + in;
+                            for (int i = 0; i < run; ++i)
+                                if (c[i]) {
+                                    colors[drymedia::cellColor(c[i])] += drymedia::cellColorAmount(c[i]);
+                                    anyColor = true;
+                                }
+                        }
                     }
                     cx += run;
                 }
@@ -197,6 +213,10 @@ void renderTone(const drymedia::Paper& paper, const SheetMapping& m, int px0, in
             uint32_t base = guideRow ? paperWithGuide(guideRow[px], paperColor) : paperColor;
             if (shadeRow)
                 base = lit(base, shadeRow[px]);
+            if (anyColor)
+                for (int k = 0; k < drymedia::kColorCount; ++k)
+                    if (colors[k])
+                        base = mixTone(base, kColorPencilColors[k], uint32_t(colors[k] / cells));
             row[px] = toneOf(uint32_t(sum / cells), base);
         }
     }

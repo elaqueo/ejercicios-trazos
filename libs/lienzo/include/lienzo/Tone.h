@@ -20,6 +20,12 @@ constexpr uint32_t bgra(int r, int g, int b)
 constexpr uint32_t kPaperColor = bgra(0xF5, 0xF0, 0xE6);    // theme::kHoja
 constexpr uint32_t kOutsideColor = bgra(0x30, 0x33, 0x38);  // theme::kFuera
 constexpr uint32_t kGraphiteColor = bgra(0x3A, 0x3A, 0x3E); // grafito saturado
+// Los lápices de color de Mesa de animación (HU-99), saturados, en el orden del plano de color
+// (drymedia::cellColor): azul no-foto, rojo, verde, violeta. Los mismos que theme::kLapiz*.
+inline constexpr uint32_t kColorPencilColors[4] = {bgra(0x4F, 0x8F, 0xD6), bgra(0xD0, 0x39, 0x2F),
+                                                   bgra(0x3C, 0x9A, 0x52), bgra(0x8B, 0x52, 0xC4)};
+// La base mezclada con `color` según `amount` (0 = base, 65535 = color), como toneOf.
+uint32_t mixTone(uint32_t base, uint32_t color, uint32_t amount);
 
 // Valor tonal (Fase 1, sin iluminación): la base (la hoja, o la hoja con la guía encima)
 // mezclada con el grafito según el depósito promedio de las celdas que cubre cada píxel
@@ -65,7 +71,8 @@ private:
 // clientWidth). Fuera de la hoja pinta kOutsideColor. `guides` (opcional, mismo tamaño y
 // stride que image) es la capa de guías de los ejercicios (HU-64): va bajo el grafito.
 // `shade` (opcional, PaperTexture::shade) aclara u oscurece la hoja antes del grafito.
-// `paperColor`: el color de la hoja (HU-97: el papel de animación es otro).
+// `paperColor`: el color de la hoja (HU-97: el papel de animación es otro). Los lápices de
+// color (HU-99) van sobre la hoja y bajo el grafito, cada uno según su cantidad promedio.
 void renderTone(const drymedia::Paper& paper, const SheetMapping& mapping, int px0, int py0, int px1, int py1,
                 uint32_t* image, const uint32_t* guides = nullptr, const uint16_t* shade = nullptr,
                 uint32_t paperColor = kPaperColor);

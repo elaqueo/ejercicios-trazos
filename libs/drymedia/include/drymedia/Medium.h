@@ -13,14 +13,17 @@ constexpr double kCellsPerMm = 600.0 / 25.4;
 // Parámetros de un medio seco o de la goma. Las minas calibradas viven en la app
 // (medios.json de Cartuchera); acá están la HB de referencia y la forma de armarlos.
 struct Medium {
-    // La mina deposita grafito; la goma lo quita (HU-58) con una punta plana y ancha.
-    enum class Kind : uint8_t { Lead, Eraser };
+    // La mina deposita grafito; la goma lo quita (HU-58) con una punta plana y ancha; el
+    // lápiz de color (HU-99) deposita en el plano de color, no en el del grafito.
+    enum class Kind : uint8_t { Lead, Eraser, Color };
 
     static constexpr double kReferenceDiameterMm = 0.5;
     static constexpr uint32_t kReferenceForce = 120000;
 
     const char* name = "HB";
     Kind kind = Kind::Lead;
+    uint8_t color = 0; // lápiz de color: cuál (0..kColorCount − 1)
+    int8_t eraseColor = -1; // goma (HU-99): -1 borra solo el grafito; 0..3, solo ese color
     int maxStepCells = 1; // largo máximo de cada subpaso del barrido, en celdas
     int reliefShift = 0;  // la punta ve el relieve dividido por 2^reliefShift: una goma
                           // blanda se mete en el diente del papel; la mina, no (0)
@@ -85,6 +88,20 @@ struct Medium {
         m.softness = 20;
         m.burnishRate = 3000; // HU-60, a calibrar con la tableta
         m.wearRate = 6;       // HU-62, a calibrar con la tableta
+        return m;
+    }
+
+    // Lápiz de color (HU-99), como un col-erase o un lápiz de color de animación: mina de cera
+    // de 0,7 mm, más tenue que la HB (techo más bajo) y que deposita algo menos por pasada. La
+    // goma (con ese color elegido) lo borra 4 veces más despacio que al grafito.
+    static Medium colored(int color)
+    {
+        Medium m = Medium{}.withLeadDiameter(0.7);
+        m.name = "color";
+        m.kind = Kind::Color;
+        m.color = uint8_t(color & 3);
+        m.softness = 16;
+        m.ceiling = 44000;
         return m;
     }
 

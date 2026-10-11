@@ -206,11 +206,14 @@ DirtyRect Pencil::depositAt(int64_t fx, int64_t fy, float pressure, const Tip& t
     const int cx = int(floorDiv(fx, kOne)), cy = int(floorDiv(fy, kOne));
     m_contact.find(m_paper, tip, m_medium, cx, cy, pressure);
     const bool erasing = m_medium.kind == Medium::Kind::Eraser;
+    const bool coloring = m_medium.kind == Medium::Kind::Color; // HU-99: en el plano de color
     if (erasing)
-        m_contact.applyErase(k);
+        m_contact.applyErase(k, m_medium.eraseColor);
+    else if (coloring)
+        m_contact.applyColor(k, m_medium.ceiling, m_medium.color);
     else
         m_contact.applyDeposit(k, m_medium.ceiling);
-    if (!erasing && kb > 0)
+    if (!erasing && !coloring && kb > 0)
         m_contact.applyBurnish(kb);
     if (m_medium.deformRate > 0)
         m_contact.applyDeform(m_medium.deformRate);

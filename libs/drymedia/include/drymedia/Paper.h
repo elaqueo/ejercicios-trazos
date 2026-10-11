@@ -6,6 +6,7 @@
 
 #include "drymedia/Medium.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -18,9 +19,21 @@ namespace drymedia {
 constexpr int kTileSize = 64;
 constexpr int kTileCells = kTileSize * kTileSize;
 // Un tile guarda planos seguidos de kTileCells valores: el depósito, el bruñido (HU-60),
-// la deformación y el daño de fibra (HU-61). Copiar el tile entero (deshacer) restaura todo.
-constexpr int kDepositPlane = 0, kBurnishPlane = 1, kDeformPlane = 2, kDamagePlane = 3;
-constexpr int kTilePlanes = 4;
+// la deformación, el daño de fibra (HU-61) y el color (HU-99). Copiar el tile entero
+// (deshacer) restaura todo.
+constexpr int kDepositPlane = 0, kBurnishPlane = 1, kDeformPlane = 2, kDamagePlane = 3, kColorPlane = 4;
+constexpr int kTilePlanes = 5;
+// El plano de color (HU-99, lápices de color de Mesa de animación): los cuatro colores
+// comparten el plano, separado del grafito. Cada celda guarda qué color tiene (2 bits altos)
+// y cuánto (14 bits, en la misma escala que el depósito dividida por 4); donde dos colores se
+// pisan gana el último. Cantidad 0 = sin color.
+constexpr int kColorCount = 4;
+constexpr int cellColor(uint16_t cell) { return cell >> 14; }
+constexpr uint32_t cellColorAmount(uint16_t cell) { return uint32_t(cell & 0x3FFF) << 2; } // 0..65532
+constexpr uint16_t colorCell(int color, uint32_t amount)
+{
+    return amount >> 2 ? uint16_t((uint32_t(color & 3) << 14) | std::min<uint32_t>(amount >> 2, 0x3FFF)) : uint16_t(0);
+}
 constexpr int kTileStride = kTilePlanes * kTileCells;
 
 struct PaperSpec {
@@ -138,7 +151,7 @@ public:
     bool deserializeTiles(const uint8_t* data, size_t size, TileSet& out) const;
 
     // Hash del relieve (se calcula una vez) y del estado completo (relieve + depósito
-    // de los tiles tocados, en orden de tile).
+    // de los tiles tocados, en orden de tile; el plano de color, solo en los tiles que lo usan).
     uint64_t reliefHash() const;
     uint64_t hash() const;
 

@@ -189,7 +189,7 @@ private slots:
         TileSet guardada = paper.newTileSet();
         paper.swapTiles(guardada);
         QCOMPARE(guardada.tileCount(), size_t(touched));
-        qInfo("Hoja de %d tiles con %d dibujados: %.1f MB guardada (%.1f MB con 4 planos)", total, touched,
+        qInfo("Hoja de %d tiles con %d dibujados: %.1f MB guardada (%.1f MB con todos los planos)", total, touched,
               guardada.bytes() / 1048576.0, double(touched) * kTileStride * 2 / 1048576.0);
         QVERIFY(guardada.bytes() <= size_t(20) * 1024 * 1024);
         QVERIFY(guardada.bytes() < size_t(touched) * kTileStride * 2 / 3);
@@ -210,9 +210,11 @@ private slots:
             paper.depositTile(i % 5, i / 5)[(i * 97) % kTileCells] = uint16_t(500 + i);
         paper.depositTile(1, 1)[kBurnishPlane * kTileCells + 9] = 33; // un tile con bruñido
         paper.setTilePlanes(1, 1, 1 << kBurnishPlane);
+        paper.depositTile(2, 1)[drymedia::kColorPlane * kTileCells + 4] = drymedia::colorCell(3, 9000); // y uno con color (HU-99)
+        paper.setTilePlanes(2, 1, 1 << drymedia::kColorPlane);
         const uint64_t hoja = paper.hash();
         const std::vector<uint8_t> bytes = paper.serializeTiles();
-        QCOMPARE(bytes.size(), size_t(12 + 12 * 5 + 13 * kTileCells * 2)); // 12 tiles, uno con dos planos
+        QCOMPARE(bytes.size(), size_t(12 + 12 * 5 + 14 * kTileCells * 2)); // 12 tiles, dos con dos planos
         // HU-86: la copia se puede cortar (vacía) o dejar seguir (la misma).
         QVERIFY(paper.serializeTiles(nullptr, [] { return false; }).empty());
         QCOMPARE(paper.serializeTiles(nullptr, [] { return true; }), bytes);
@@ -228,6 +230,8 @@ private slots:
         otro.swapTiles(leida);
         QCOMPARE(otro.hash(), hoja);
         QCOMPARE(otro.tilePlanes(1, 1), uint8_t(1 << kBurnishPlane));
+        QCOMPARE(otro.tilePlanes(2, 1), uint8_t(1 << drymedia::kColorPlane));
+        QCOMPARE(otro.depositTile(2, 1)[drymedia::kColorPlane * kTileCells + 4], drymedia::colorCell(3, 9000));
 
         TileSet mala;
         QVERIFY(!otro.deserializeTiles(bytes.data(), bytes.size() - 1, mala));

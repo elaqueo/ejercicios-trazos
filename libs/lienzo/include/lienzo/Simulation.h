@@ -158,6 +158,10 @@ public:
     // Punta seca (HU-61, tecla E): en vez de la mina, un estilete que no deposita y hunde el
     // papel (líneas blancas). La goma sigue en el otro extremo.
     void setStylus(bool stylus) { m_stylus = stylus; }
+    // Lápiz de color (HU-99, Mesa de animación): 0..3 en vez de la mina (que sigue siendo la
+    // del grafito al volver con -1). Como cambiar de mina: cierra el trazo en curso.
+    void setColorPencil(int color) { m_colorPencil = color; }
+    int colorPencil() const { return m_colorPencil; }
     bool stylus() const { return m_stylus; }
     // Costado (HU-73, tecla I): si está apagado, la punta es siempre la vertical.
     void setTilt(bool tilt) { m_tilt = tilt; }
@@ -263,6 +267,7 @@ private:
     std::atomic<bool> m_erasing{false};
     std::atomic<bool> m_tilt{true};
     std::atomic<bool> m_stylus{false};
+    std::atomic<int> m_colorPencil{-1};
     std::atomic<int> m_grade{kHbIndex};
     std::atomic<bool> m_sharpenRequested{false};
     std::atomic<int> m_wearPercent{0};
