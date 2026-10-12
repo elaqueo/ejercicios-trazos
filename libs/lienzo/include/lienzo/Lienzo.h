@@ -199,6 +199,11 @@ public:
     void togglePlay();
     void rewindAudio();
     bool audioPlaying() const;
+    // Marcas (HU-108, mesa "Audio"): markAudio pone una en el cursor; removeAudioMark borra la
+    // más cercana. En la franja, el lápiz las pone (un toque) y las mueve (arrastrando una), y
+    // el mouse arrastra el cursor. Se numeran por tiempo y se guardan en toma.json.
+    void markAudio();
+    void removeAudioMark();
     QString audioFile() const;
     void setAudioStrip(bool visible);
     bool audioStrip() const;

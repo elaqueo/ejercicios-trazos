@@ -233,6 +233,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 108. **HU-108 · Marcas sobre la onda** (Should · 3 pts). Como animador, quiero poner marcas en el audio con una tecla, para señalar acentos y sílabas.
     1. Una tecla pone una marca en la posición actual; con el lápiz sobre la franja, un toque pone la marca ahí y arrastrarla la mueve; otra tecla borra la más cercana.
     2. Las marcas se numeran y se guardan en `toma.json`.
+    3. *Hecho (12 oct 2026): M en el cursor, Ctrl+M borra la más cercana. Con el lápiz en la franja: un toque fuera de las marcas pone una; a menos de 8 px de una, la agarra y la mueve (la franja atiende al lápiz: no dibuja). Además, a pedido del usuario, el mouse arrastra el cursor (si sonaba, sigue desde ahí al soltar). Turquesas, numeradas por tiempo; en toma.json en segundos. Al cambiar de audio, las marcas se borran.*
 
 ### E8 · Exportación
 

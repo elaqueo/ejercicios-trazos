@@ -100,6 +100,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Inicio / Fin | Ir a la primera o a la última hoja, sin deshacer, como un flip (HU-115); saltean la hoja fija |
 | A | Elegir el audio de referencia (WAV o MP3): se copia a la toma (HU-106) |
 | P / Retroceso | Play o pausa del audio / volver al principio (HU-107) |
+| M / Ctrl+M | Marca en el audio, en el cursor / borrar la más cercana; en la franja, el lápiz pone y mueve marcas y el mouse arrastra el cursor (HU-108) |
 | W | Mostrar u ocultar la franja de audio, con la onda y el cursor (HU-106) |
 | O | Pila en círculo: después de la última hoja viene la primera (flip, mesa de luz, panel); se guarda en la toma (HU-94) |
 | C | Mostrar u ocultar la carta de timing: rectángulo tenue de 35 × 22,5 mm arriba a la izquierda de las keys, para dibujar el chart a mano (HU-105) |

@@ -177,6 +177,9 @@ QString writeTakeIndex(const QString& dir, const drymedia::Paper& paper, const s
             sheet.insert(QStringLiteral("fija"), true);
         list.append(sheet);
     }
+    QJsonArray marks; // HU-108
+    for (const double t : view.marks)
+        marks.append(t);
     const QJsonObject root{
         {QStringLiteral("formato"), QStringLiteral("toma de Mesa de animación")},
         {QStringLiteral("version"), kTakeVersion},
@@ -189,7 +192,7 @@ QString writeTakeIndex(const QString& dir, const drymedia::Paper& paper, const s
                                               {QStringLiteral("pan"), QJsonArray{view.panX, view.panY}}}},
         // HU-106 a HU-108.
         {QStringLiteral("audio"),
-         QJsonObject{{QStringLiteral("archivo"), view.audio}, {QStringLiteral("marcas"), QJsonArray()}}},
+         QJsonObject{{QStringLiteral("archivo"), view.audio}, {QStringLiteral("marcas"), marks}}},
     };
     QSaveFile file(folder.filePath(kTakeFile));
     if (!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(root).toJson()) < 0 || !file.commit())
@@ -275,6 +278,11 @@ TakeResult openTake(const QString& dir, drymedia::Paper& paper, SheetStack& shee
     view.circle = root.value(QStringLiteral("circulo")).toBool(); // HU-94: las de antes, sin círculo
     // HU-106: solo el nombre, como las hojas: el audio está en la carpeta de la toma.
     view.audio = QFileInfo(root.value(QStringLiteral("audio")).toObject().value(QStringLiteral("archivo")).toString()).fileName();
+    view.marks.clear(); // HU-108: en orden, sin negativos
+    for (const QJsonValue v : root.value(QStringLiteral("audio")).toObject().value(QStringLiteral("marcas")).toArray())
+        if (v.isDouble() && v.toDouble() >= 0)
+            view.marks.push_back(v.toDouble());
+    std::sort(view.marks.begin(), view.marks.end());
     for (const QJsonValue v : root.value(QStringLiteral("hojas")).toArray()) {
         const QJsonObject o = v.toObject();
         const qint64 id = o.value(QStringLiteral("id")).toInteger();

@@ -18,6 +18,7 @@ struct AudioStripInfo {
     double position = 0;       // el cursor, en segundos
     std::vector<float> peaks;  // la onda, una columna por píxel del área de la onda
     bool loading = false;      // HU-107: se está leyendo (en un hilo aparte)
+    std::vector<double> marks; // HU-108: las marcas, en segundos, en orden
     bool operator==(const AudioStripInfo&) const = default;
 };
 
@@ -31,6 +32,17 @@ QRect audioWaveRect(const QSize& strip, double scale);
 
 // "0:03,2"
 QString audioTime(double seconds);
+
+// Marcas (HU-108): segundos, siempre en orden (el número de cada una es su lugar + 1).
+// addMark la inserta y devuelve su lugar; moveMark la cambia de tiempo y devuelve su lugar
+// nuevo; nearestMark es la más cercana a `seconds` (-1 si no hay).
+int addMark(std::vector<double>& marks, double seconds);
+int moveMark(std::vector<double>& marks, int index, double seconds);
+int nearestMark(const std::vector<double>& marks, double seconds);
+// La marca a menos de `tolerance` px de `x` en el área de la onda `wave` (-1 si ninguna).
+int markAt(const std::vector<double>& marks, double x, const QRect& wave, double duration, double tolerance);
+// El tiempo de la columna `x` del área de la onda (dentro de la duración).
+double timeAt(double x, const QRect& wave, double duration);
 
 QImage paintAudioStrip(const AudioStripInfo& info, const QSize& size, double scale, const QColor& outside);
 

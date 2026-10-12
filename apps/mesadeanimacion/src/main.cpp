@@ -146,6 +146,9 @@ int main(int argc, char* argv[])
     // Play y pausa (HU-107): P alterna; Retroceso vuelve al principio. Espacio no: es el pan.
     canvas.shortcuts().add(QStringLiteral("Play o pausa del audio"), {{'P'}}, [&canvas] { canvas.togglePlay(); });
     canvas.shortcuts().add(QStringLiteral("Audio al principio"), {{VK_BACK}}, [&canvas] { canvas.rewindAudio(); });
+    // Marcas (HU-108): M en el cursor; Ctrl+M borra la más cercana.
+    canvas.shortcuts().add(QStringLiteral("Marca en el audio"), {{'M'}}, [&canvas] { canvas.markAudio(); });
+    canvas.shortcuts().add(QStringLiteral("Borrar la marca más cercana"), {{'M', true}}, [&canvas] { canvas.removeAudioMark(); });
     canvas.shortcuts().add(QStringLiteral("Franja de audio"), {{'W'}}, [&] {
         stripOn = !stripOn;
         config.setValue(QStringLiteral("audioStrip"), stripOn);

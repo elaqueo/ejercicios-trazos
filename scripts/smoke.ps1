@@ -402,6 +402,18 @@ try {
         $failures.Add('Play')
     }
 
+    # HU-108: sin audio, M avisa que no hay y Ctrl+M que no hay marcas (las marcas las prueban
+    # tst_lienzo y la prueba con audio).
+    $ws.SendKeys('m'); Start-Sleep -Milliseconds 400
+    Ctrl 0x4D
+    $marks = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Audio: ' }) | Select-Object -Last 2) -join ' '
+    if ($marks -match 'no hay audio.*no hay marcas') {
+        Write-Host '  ok   M y Ctrl+M sin audio avisan'
+    } else {
+        Write-Host "  FALLA marcas sin audio: $marks"
+        $failures.Add('Marcas')
+    }
+
     # HU-106: W oculta la franja de audio y la vuelve a mostrar.
     foreach ($k in 'w', 'w') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
     $strip = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Franja de audio:' }) | Select-Object -Last 2) -join ' '

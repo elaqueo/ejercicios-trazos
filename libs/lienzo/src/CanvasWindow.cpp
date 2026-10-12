@@ -6,6 +6,8 @@
 
 #include <QDebug>
 
+#include <windowsx.h>
+
 #include <cmath>
 
 namespace lienzo {
@@ -91,6 +93,21 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
             m_barrel = s.barrel;
             // Gesto de rotación: apoyar con Shift empieza; mientras siga apoyado, gira.
             const bool touching = s.inContact && !s.eraser;
+            // La franja del audio (HU-108): apoyar en ella no dibuja; lo atiende la franja hasta
+            // levantar.
+            if (touching && !m_contact && !m_rotating && !m_panning && inStrip(s.x, s.y)) {
+                m_stripPen = true;
+                m_onStrip(0, s.x, s.y, true);
+            } else if (m_stripPen && touching) {
+                m_onStrip(1, s.x, s.y, true);
+            } else if (m_stripPen) {
+                m_stripPen = false;
+                m_onStrip(2, s.x, s.y, true);
+            }
+            if (m_stripPen) {
+                m_contact = touching;
+                continue;
+            }
             // Pan (HU-102): apoyar con Espacio empieza; mientras siga apoyado, mueve la vista.
             if (touching && !m_contact && !m_rotating && m_onPanGesture && (GetKeyState(VK_SPACE) & 0x8000)) {
                 m_panning = true;
@@ -175,6 +192,27 @@ LRESULT CanvasWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         break;
     case WM_ERASEBKGND:
         return 1; // lo pinta D3D
+    // HU-108: el mouse arrastra el cursor del audio en la franja (en la hoja no hace nada).
+    case WM_LBUTTONDOWN: {
+        const double x = GET_X_LPARAM(lParam), y = GET_Y_LPARAM(lParam);
+        if (inStrip(x, y)) {
+            m_stripMouse = true;
+            SetCapture(m_hwnd);
+            m_onStrip(0, x, y, false);
+        }
+        return 0;
+    }
+    case WM_MOUSEMOVE:
+        if (m_stripMouse)
+            m_onStrip(1, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), false);
+        return 0;
+    case WM_LBUTTONUP:
+        if (m_stripMouse) {
+            m_stripMouse = false;
+            ReleaseCapture();
+            m_onStrip(2, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), false);
+        }
+        return 0;
     default:
         break;
     }

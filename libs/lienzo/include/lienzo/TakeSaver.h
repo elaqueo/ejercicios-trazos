@@ -30,6 +30,7 @@ struct TakeIndex {
     uint64_t fixed = 0;                  // HU-89 (0: ninguna, o no está en la pila)
     bool circle = false;                 // HU-94
     QString audio;                       // HU-106
+    std::vector<double> marks;           // HU-108
     bool operator==(const TakeIndex&) const = default;
 };
 

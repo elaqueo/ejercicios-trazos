@@ -220,12 +220,13 @@ public:
         wake();
     }
 
-    // El audio de la toma (HU-106), para toma.json.
-    void setAudio(QString file)
+    // El audio de la toma (HU-106) y sus marcas (HU-108), para toma.json.
+    void setAudio(QString file, std::vector<double> marks)
     {
         {
             std::lock_guard lock(m_rotationMutex);
             m_audio = std::move(file);
+            m_audioMarks = std::move(marks);
         }
         wake();
     }
@@ -306,6 +307,7 @@ private:
     uint64_t m_fixedSheet = 0; // HU-89, con m_rotationMutex
     bool m_circle = false;     // HU-94, ídem
     QString m_audio;           // HU-106, ídem
+    std::vector<double> m_audioMarks; // HU-108, ídem
     std::atomic<uint64_t> m_lead;
     std::atomic<uint64_t> m_eraser;
     std::atomic<bool> m_erasing{false};

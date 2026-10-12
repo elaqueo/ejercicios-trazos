@@ -60,6 +60,50 @@ QString audioTime(double seconds)
         .arg(tenths % 10);
 }
 
+int addMark(std::vector<double>& marks, double seconds)
+{
+    const auto it = std::upper_bound(marks.begin(), marks.end(), seconds);
+    return int(marks.insert(it, seconds) - marks.begin());
+}
+
+int moveMark(std::vector<double>& marks, int index, double seconds)
+{
+    if (index < 0 || index >= int(marks.size()))
+        return -1;
+    marks.erase(marks.begin() + index);
+    return addMark(marks, seconds);
+}
+
+int nearestMark(const std::vector<double>& marks, double seconds)
+{
+    int best = -1;
+    for (int i = 0; i < int(marks.size()); ++i)
+        if (best < 0 || std::abs(marks[size_t(i)] - seconds) < std::abs(marks[size_t(best)] - seconds))
+            best = i;
+    return best;
+}
+
+int markAt(const std::vector<double>& marks, double x, const QRect& wave, double duration, double tolerance)
+{
+    if (duration <= 0)
+        return -1;
+    int best = -1;
+    double bestDistance = tolerance;
+    for (int i = 0; i < int(marks.size()); ++i) {
+        const double d = std::abs(wave.left() + wave.width() * marks[size_t(i)] / duration - x);
+        if (d <= bestDistance) {
+            best = i;
+            bestDistance = d;
+        }
+    }
+    return best;
+}
+
+double timeAt(double x, const QRect& wave, double duration)
+{
+    return std::clamp((x - wave.left()) / std::max(1, wave.width()), 0.0, 1.0) * std::max(0.0, duration);
+}
+
 QImage paintAudioStrip(const AudioStripInfo& info, const QSize& size, double scale, const QColor& outside)
 {
     namespace theme = appkit::theme;
@@ -115,6 +159,15 @@ QImage paintAudioStrip(const AudioStripInfo& info, const QSize& size, double sca
         const double x = wave.left() + i, a = std::max(0.5, double(info.peaks[size_t(i)]) * half);
         p.setPen(x < cursor ? played : ink);
         p.drawLine(QPointF(x, mid - a), QPointF(x, mid + a));
+    }
+    // Las marcas (HU-108): línea turquesa y su número arriba, a la derecha.
+    const QFont number = font(true, px(11));
+    p.setFont(number);
+    for (int i = 0; i < int(info.marks.size()); ++i) {
+        const double x = wave.left() + wave.width() * std::clamp(info.marks[size_t(i)] / info.seconds, 0.0, 1.0);
+        p.setPen(QPen(theme::kMesaLuzSiguiente, std::max(1.0, px(1.5))));
+        p.drawLine(QPointF(x, wave.top() + px(12)), QPointF(x, wave.bottom()));
+        p.drawText(QRectF(x + px(3), wave.top(), px(30), px(12)), Qt::AlignLeft | Qt::AlignVCenter, QString::number(i + 1));
     }
     p.setPen(QPen(theme::kSeleccionTexto, std::max(1.0, px(2))));
     p.drawLine(QPointF(cursor, wave.top()), QPointF(cursor, wave.bottom()));

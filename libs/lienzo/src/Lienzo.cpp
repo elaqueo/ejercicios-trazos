@@ -302,7 +302,7 @@ struct Lienzo::Impl {
         sim->setRoles(roles);
         sim->setFixedSheet(fixedSheet);
         sim->setCircle(circle);
-        sim->setAudio(audioFile);
+        sim->setAudio(audioFile, audioMarks);
         sim->setRotation(rotation());
         if (render)
             render->setRotation(rotation());
@@ -429,6 +429,7 @@ struct Lienzo::Impl {
     // Se lee en un hilo aparte (HU-107: la toma abre sin esperarlo); audioGeneration descarta
     // lo que llega de un audio que ya no es el de la toma.
     QString audioFile, audioProblem;
+    std::vector<double> audioMarks; // HU-108, en segundos, en orden
     std::shared_ptr<const audio::Clip> clip;
     bool audioLoading = false;
     uint64_t audioGeneration = 0;
@@ -529,6 +530,80 @@ struct Lienzo::Impl {
             startAudio(0);
         refreshStrip();
     }
+    // Marcas (HU-108): M en el cursor, Ctrl+M borra la más cercana; con el lápiz, un toque en la
+    // onda pone una y cerca de una la agarra y la mueve. El mouse arrastra el cursor.
+    int draggedMark = -1;
+    bool seekWasPlaying = false;
+    void saveMarks()
+    {
+        sim->setAudio(audioFile, audioMarks);
+        refreshStrip();
+    }
+    void addMarkHere(double seconds)
+    {
+        const int index = addMark(audioMarks, seconds);
+        qInfo().noquote() << QStringLiteral("Audio: marca %1 en %2").arg(index + 1).arg(audioTime(seconds));
+        saveMarks();
+    }
+    void markAtCursor()
+    {
+        if (!clip) {
+            qInfo() << "Audio: no hay audio (A elige uno)";
+            return;
+        }
+        addMarkHere(player.playing() ? double(player.position()) / clip->sampleRate : audioPosition);
+    }
+    void removeNearestMark()
+    {
+        const double at = clip && player.playing() ? double(player.position()) / clip->sampleRate : audioPosition;
+        const int index = nearestMark(audioMarks, at);
+        if (index < 0) {
+            qInfo() << "Audio: no hay marcas";
+            return;
+        }
+        qInfo().noquote() << QStringLiteral("Audio: marca %1 borrada (%2)").arg(index + 1).arg(audioTime(audioMarks[size_t(index)]));
+        audioMarks.erase(audioMarks.begin() + index);
+        saveMarks();
+    }
+    void stripInput(int phase, double x, double y, bool pen)
+    {
+        (void)y;
+        if (!clip)
+            return;
+        const double scale = screen->devicePixelRatio();
+        const QRect wave = audioWaveRect(stripRect.size(), scale).translated(stripRect.topLeft());
+        const double seconds = timeAt(x, wave, clip->seconds());
+        if (pen) {
+            if (phase == 0) {
+                draggedMark = markAt(audioMarks, x, wave, clip->seconds(), 8 * scale);
+                if (draggedMark < 0) { // un toque fuera de las marcas: una nueva
+                    addMarkHere(seconds);
+                    draggedMark = -2; // no se arrastra la recién puesta
+                }
+            } else if (draggedMark >= 0) {
+                draggedMark = moveMark(audioMarks, draggedMark, seconds);
+                if (phase == 2)
+                    qInfo().noquote() << QStringLiteral("Audio: marca %1 movida a %2").arg(draggedMark + 1).arg(audioTime(seconds));
+                saveMarks();
+            }
+            if (phase == 2)
+                draggedMark = -1;
+            return;
+        }
+        // El mouse: el cursor va adonde está; si sonaba, sigue desde ahí al soltar.
+        if (phase == 0) {
+            seekWasPlaying = player.playing();
+            stopAudio();
+        }
+        audioPosition = seconds;
+        refreshStrip();
+        if (phase == 2) {
+            qInfo().noquote() << QStringLiteral("Audio: cursor en %1").arg(audioTime(seconds));
+            if (seekWasPlaying)
+                startAudio(size_t(seconds * clip->sampleRate));
+        }
+    }
+
     void audioTick()
     {
         if (!clip)
@@ -549,6 +624,7 @@ struct Lienzo::Impl {
             if (stripSent)
                 render->hideStrip();
             stripSent = false;
+            canvas->setStrip({}, nullptr);
             return;
         }
         const double scale = screen->devicePixelRatio();
@@ -563,6 +639,7 @@ struct Lienzo::Impl {
         info.name = audioFile;
         info.problem = audioProblem;
         info.loading = audioLoading;
+        info.marks = audioMarks;
         info.seconds = clip ? clip->seconds() : 0;
         info.position = audioPosition;
         if (clip) {
@@ -573,6 +650,8 @@ struct Lienzo::Impl {
         }
         if (!force && stripSent && info == stripShown && rect == stripRect)
             return;
+        canvas->setStrip(RECT{rect.left(), rect.top(), rect.right() + 1, rect.bottom() + 1},
+                         [this](int phase, double x, double y, bool pen) { stripInput(phase, x, y, pen); });
         const QImage painted = paintAudioStrip(info, rect.size(), scale, appkit::theme::kFuera);
         const auto* bits = reinterpret_cast<const uint32_t*>(painted.constBits());
         render->setStrip(rect.x(), rect.y(), painted.width(), painted.height(),
@@ -856,7 +935,7 @@ struct Lienzo::Impl {
     {
         return {viewDegrees, viewScale, mapping.sheetWidth ? viewPanX / mapping.sheetWidth : 0,
                 mapping.sheetHeight ? viewPanY / mapping.sheetHeight : 0, roles,
-                fixedIndex(order, fixedSheet) >= 0 ? fixedSheet : 0, circle, audioFile};
+                fixedIndex(order, fixedSheet) >= 0 ? fixedSheet : 0, circle, audioFile, audioMarks};
     }
     int ringMode = -1; // el último modo de la rueda que se vio (HU-101: se anota al cambiar)
     // HU-95: el modo "Hojas" de la rueda (-1: sin hojas) y sus pasos. El flip de la rueda va como
@@ -1774,6 +1853,7 @@ bool Lienzo::openTake(const QString& dir)
     d->fixedReturn = 0;
     d->circle = view.circle; // HU-94
     d->audioFile = view.audio; // HU-106
+    d->audioMarks = view.marks; // HU-108
     d->loadAudio(dir);
     d->createSimulation(); // con la pila nueva (y la vista); pinta la activa
     d->applyLayers();
@@ -1919,8 +1999,9 @@ bool Lienzo::setAudioFile(const QString& path)
         }
     }
     d->audioFile = name;
+    d->audioMarks.clear(); // las de otro audio no sirven
     d->loadAudio(dir);
-    d->sim->setAudio(d->audioFile);
+    d->sim->setAudio(d->audioFile, d->audioMarks);
     d->refreshStrip(); // "leyendo…"
     qInfo().noquote() << QStringLiteral("Audio: %1 copiado a la toma como %2").arg(source.fileName(), name);
     d->refreshStrip();
@@ -1935,6 +2016,16 @@ void Lienzo::togglePlay()
 void Lienzo::rewindAudio()
 {
     d->rewindAudio();
+}
+
+void Lienzo::markAudio()
+{
+    d->markAtCursor();
+}
+
+void Lienzo::removeAudioMark()
+{
+    d->removeNearestMark();
 }
 
 bool Lienzo::audioPlaying() const

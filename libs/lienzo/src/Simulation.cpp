@@ -230,6 +230,7 @@ void Simulation::autosave(bool interruptible)
     uint64_t fixed = 0; // ídem
     bool circle = false;
     QString audioFile;
+    std::vector<double> audioMarks;
     {
         std::lock_guard rotationLock(m_rotationMutex);
         degrees = m_rotation.degrees;
@@ -243,8 +244,9 @@ void Simulation::autosave(bool interruptible)
             fixed = m_fixedSheet;
         circle = m_circle;
         audioFile = m_audio;
+        audioMarks = m_audioMarks;
     }
-    TakeIndex index{order.ids, order.active, degrees, std::move(roles), zoom, panX, panY, fixed, circle, audioFile};
+    TakeIndex index{order.ids, order.active, degrees, std::move(roles), zoom, panX, panY, fixed, circle, audioFile, std::move(audioMarks)};
     if (index != m_savedIndex) {
         m_savedIndex = index;
         m_saver->saveIndex(std::move(index));

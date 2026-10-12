@@ -36,6 +36,14 @@ public:
     }
     // Pan (HU-102): con Espacio apretado, apoyar el lápiz y arrastrar. Como el giro, mientras
     // dura no dibuja. phase: 0 empieza, 1 sigue, 2 termina; (x, y) en píxeles del cliente.
+    // La franja del audio (HU-108): lo que el lápiz o el mouse hacen dentro de `rect` (cliente)
+    // va a `callback` (fase 0 apoyar, 1 mover, 2 levantar; pen: lápiz o mouse) en lugar de
+    // dibujar. Rect vacío: sin franja.
+    void setStrip(RECT rect, std::function<void(int phase, double x, double y, bool pen)> callback)
+    {
+        m_stripRect = rect;
+        m_onStrip = std::move(callback);
+    }
     void setOnPanGesture(std::function<void(int phase, double x, double y)> callback)
     {
         m_onPanGesture = std::move(callback);
@@ -83,6 +91,13 @@ private:
     bool m_contact = false;  // el lápiz estaba apoyado en la muestra anterior
     bool m_rotating = false; // gesto de rotación en curso
     bool m_panning = false;  // gesto de pan en curso (HU-102)
+    RECT m_stripRect{};      // HU-108
+    std::function<void(int, double, double, bool)> m_onStrip;
+    bool m_stripPen = false, m_stripMouse = false; // el lápiz o el mouse están en la franja
+    bool inStrip(double x, double y) const
+    {
+        return m_onStrip && x >= m_stripRect.left && x < m_stripRect.right && y >= m_stripRect.top && y < m_stripRect.bottom;
+    }
     bool m_space = false;    // Espacio apretado: el cursor de mover (HU-102)
     std::function<void(int, double, double)> m_onPanGesture;
     HCURSOR m_panCursor = nullptr;

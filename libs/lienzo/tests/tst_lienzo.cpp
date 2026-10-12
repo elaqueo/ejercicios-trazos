@@ -1142,6 +1142,32 @@ private slots:
         QVERIFY(strip.pixel(16 + 488 / 2, 40 + 39) != strip.pixel(16 + 488 / 2, 40 + 2)); // la onda, al medio
     }
 
+    // HU-108: las marcas quedan en orden (el número es el lugar); mover una la reubica; la más
+    // cercana y la que está bajo el lápiz.
+    void marcasDelAudio()
+    {
+        std::vector<double> marks;
+        QCOMPARE(addMark(marks, 2.0), 0);
+        QCOMPARE(addMark(marks, 0.5), 0);
+        QCOMPARE(addMark(marks, 5.0), 2);
+        QCOMPARE(marks, (std::vector<double>{0.5, 2.0, 5.0}));
+        QCOMPARE(moveMark(marks, 0, 3.0), 1); // la primera pasa a ser la segunda
+        QCOMPARE(marks, (std::vector<double>{2.0, 3.0, 5.0}));
+        QCOMPARE(nearestMark(marks, 4.2), 2);
+        QCOMPARE(nearestMark({}, 1), -1);
+        const QRect wave(100, 0, 1000, 50); // 10 s: 100 px por segundo
+        QCOMPARE(markAt(marks, 100 + 305, wave, 10, 8), 1);
+        QCOMPARE(markAt(marks, 100 + 250, wave, 10, 8), -1);
+        QCOMPARE(timeAt(100 + 250, wave, 10), 2.5);
+        QCOMPARE(timeAt(0, wave, 10), 0.0);   // antes de la onda: el principio
+        QCOMPARE(timeAt(5000, wave, 10), 10.0); // después: el final
+        AudioStripInfo info{QStringLiteral("a.wav"), {}, 10, 0, std::vector<float>(488, 0.0f)};
+        info.marks = {5.0};
+        const QImage strip = paintAudioStrip(info, QSize(520, 130), 1, Qt::black);
+        const QColor mark = strip.pixelColor(16 + 244, 40 + 60);
+        QVERIFY(mark.green() > mark.red() + 40); // turquesa en la mitad de la onda
+    }
+
     // HU-103: la guía de campo: 12 campos de 1 pulgada en 16:9, centrados; las líneas tienen
     // cobertura y entre ellas no.
     void guiaDeCampo()
@@ -1399,7 +1425,8 @@ private slots:
                              .roles = {{ids[0], SheetRole::Key}, {ids[2], SheetRole::Breakdown}}, // HU-104
                              .fixed = ids[2], // HU-89
                              .circle = true, // HU-94
-                             .audio = QStringLiteral("audio.wav")}; // HU-106
+                             .audio = QStringLiteral("audio.wav"), // HU-106
+                             .marks = {0.5, 1.25}}; // HU-108
         const TakeResult saved = saveTake(dir.path(), paper, stack, roles,
                                           [&](uint64_t id) { return id == ids[0] ? image : PackedImage{}; });
         QVERIFY2(saved.ok, qPrintable(saved.error));
@@ -1434,6 +1461,7 @@ private slots:
         QCOMPARE(view.fixed, ids[2]);
         QVERIFY(view.circle);
         QCOMPARE(view.audio, QStringLiteral("audio.wav"));
+        QCOMPARE(view.marks, (std::vector<double>{0.5, 1.25}));
         QCOMPARE(root.value(QStringLiteral("audio")).toObject().value(QStringLiteral("archivo")).toString(),
                  QStringLiteral("audio.wav"));
         QCOMPARE(view.zoom, 2.0);
