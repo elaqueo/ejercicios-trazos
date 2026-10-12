@@ -145,6 +145,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 96. **HU-96 · Roll** (Could · 2 pts). Como animador, quiero ver las últimas hojas sin tinte manteniendo una tecla, como rolar el papel con los dedos.
     1. Mantener la tecla muestra la activa y las 3 anteriores sin tinte, con la más vieja más tenue; soltar vuelve al estado anterior.
     2. Se decide después de usar el flip en serio (idea.md, ideas abiertas): si no suma, se cierra sin hacer.
+    3. *Descartada (11 oct 2026): decisión del usuario.*
 
 ### E4 · Lápices y papel
 
@@ -224,6 +225,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     1. Un atajo abre el diálogo para elegir un WAV o MP3; la ruta queda en `toma.json` y el archivo se copia a la carpeta de la toma.
     2. La onda se dibuja en una franja al pie de la pantalla, fuera de la hoja, con un cursor de posición; un atajo muestra y oculta la franja.
     3. Decodificación con Qt Multimedia (ya está en la instalación de Qt); sin otra dependencia.
+    4. *Hecho (12 oct 2026): Qt Multimedia no estaba instalado; el usuario eligió Media Foundation (viene con Windows: el instalador no crece), en libs/audio. A abre el diálogo; el archivo se copia a la toma como audio.wav o audio.mp3. W muestra la franja (mesa "Audio"): en el hueco entre la hoja y el panel, abajo; en una pantalla sin hueco, sobre el pie de la hoja (opaca: el render la copia como el panel). Sin audio dice "A elige un WAV o MP3". Leer 12 s de WAV tarda unos 250 ms, al abrir la toma.*
 107. **HU-107 · Play y pausa** (Should · 2 pts). Como animador, quiero una tecla de play/pausa, para escuchar mientras flipeo a mano.
     1. Una tecla alterna play y pausa; otra vuelve al principio; el cursor de la onda sigue el audio.
     2. El audio no toca los hilos de simulación ni render (RNF-04).

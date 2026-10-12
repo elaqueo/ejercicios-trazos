@@ -138,6 +138,7 @@ $state['mesadeanimacion']['lightKeysOnly'] = $false # HU-93
 $state['mesadeanimacion']['sheetPanel'] = $true # HU-114: el panel de hojas visible
 $state['mesadeanimacion']['fieldGuide'] = $false # HU-103: la guía de campo oculta
 $state['mesadeanimacion']['timingChart'] = $true # HU-105: la carta de timing visible
+$state['mesadeanimacion']['audioStrip'] = $true # HU-106: la franja de audio visible
 $state | ConvertTo-Json -Depth 32 | Set-Content $config -Encoding utf8
 # La toma de la prueba (HU-85), en una carpeta temporal: la del usuario no se toca.
 $takeDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-toma-$PID"
@@ -205,11 +206,11 @@ try {
         $failures.Add('Mesa de luz')
     }
 
-    # HU-112: A y E no hacen nada (no hay desgaste ni punta seca).
-    foreach ($k in 'a', 'e') { $ws.SendKeys($k); Start-Sleep -Milliseconds 400 }
+    # HU-112: E no hace nada (no hay punta seca; A elige el audio, HU-106).
+    foreach ($k in @('e')) { $ws.SendKeys($k); Start-Sleep -Milliseconds 400 }
     $extra = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Afilada|Punta seca' })
     if ($extra.Count -eq 0) {
-        Write-Host '  ok   A y E no hacen nada en Mesa de animación'
+        Write-Host '  ok   E no hace nada en Mesa de animación'
     } else {
         Write-Host "  FALLA A o E hicieron algo · $($extra -join ' | ')"
         $failures.Add('Medio recortado')
@@ -389,6 +390,16 @@ try {
     } else {
         Write-Host "  FALLA pila en círculo: $circle"
         $failures.Add('Pila en círculo')
+    }
+
+    # HU-106: W oculta la franja de audio y la vuelve a mostrar.
+    foreach ($k in 'w', 'w') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    $strip = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Franja de audio:' }) | Select-Object -Last 2) -join ' '
+    if ($strip -match 'Franja de audio: oculta.*Franja de audio: visible') {
+        Write-Host '  ok   W oculta y muestra la franja de audio'
+    } else {
+        Write-Host "  FALLA franja de audio: $strip"
+        $failures.Add('Franja de audio')
     }
 
     # HU-103: G muestra la guía de campo y la oculta.

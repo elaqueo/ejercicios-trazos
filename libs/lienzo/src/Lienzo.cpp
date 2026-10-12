@@ -1,5 +1,6 @@
 #include "lienzo/Lienzo.h"
 
+#include "lienzo/AudioStrip.h"
 #include "lienzo/Bench.h"
 #include "lienzo/CanvasWindow.h"
 #include "lienzo/DisplayImage.h"
@@ -16,6 +17,8 @@
 #include "lienzo/TakeSaver.h"
 #include "lienzo/Timing.h"
 #include "lienzo/ToolPage.h"
+
+#include <audio/Audio.h>
 
 #include <cstring>
 #include <appkit/CalibrationOverlay.h>
@@ -298,6 +301,7 @@ struct Lienzo::Impl {
         sim->setRoles(roles);
         sim->setFixedSheet(fixedSheet);
         sim->setCircle(circle);
+        sim->setAudio(audioFile);
         sim->setRotation(rotation());
         if (render)
             render->setRotation(rotation());
@@ -419,6 +423,74 @@ struct Lienzo::Impl {
                          appkit::theme::kGuiaCampoOpacidad);
     }
     static constexpr double kChartWidthMm = 35, kChartHeightMm = 22.5, kChartMarginMm = 6;
+
+    // Audio de la toma (HU-106): el archivo (en la carpeta de la toma), lo leído y la franja.
+    QString audioFile, audioProblem;
+    audio::Clip clip;
+    double audioPosition = 0;
+    bool stripVisible = false, stripSent = false;
+    AudioStripInfo stripShown;
+    QRect stripRect;
+    void loadAudio(const QString& dir)
+    {
+        clip = {};
+        audioProblem.clear();
+        audioPosition = 0;
+        if (audioFile.isEmpty())
+            return;
+        std::string error;
+        const Stopwatch time;
+        if (!audio::decode(QDir(dir).filePath(audioFile).toStdWString(), clip, error)) {
+            audioProblem = QString::fromStdString(error);
+            qWarning().noquote() << QStringLiteral("Audio: no se pudo leer %1: %2").arg(audioFile, audioProblem);
+            return;
+        }
+        qInfo().noquote() << QStringLiteral("Audio: %1, %2 s, %3 Hz, %4 canales, leído en %5 ms")
+                                 .arg(audioFile)
+                                 .arg(clip.seconds(), 0, 'f', 1)
+                                 .arg(clip.sampleRate)
+                                 .arg(clip.channels)
+                                 .arg(time.ms(), 0, 'f', 0);
+    }
+    void refreshStrip(bool force = false)
+    {
+        if (!render || !options.sheets)
+            return;
+        if (!stripVisible) {
+            if (stripSent)
+                render->hideStrip();
+            stripSent = false;
+            return;
+        }
+        const double scale = screen->devicePixelRatio();
+        const int rightLimit =
+            panelVisible ? panelLayout(canvas->width(), canvas->height(), scale,
+                                       double(mapping.sheetWidth) / std::max(1, mapping.sheetHeight)).panel.left()
+                         : canvas->width();
+        const QRect rect = audioStripRect(canvas->width(), canvas->height(),
+                                          QRect(mapping.sheetX, mapping.sheetY, mapping.sheetWidth, mapping.sheetHeight),
+                                          rightLimit, scale);
+        AudioStripInfo info;
+        info.name = audioFile;
+        info.problem = audioProblem;
+        info.seconds = clip.seconds();
+        info.position = audioPosition;
+        if (!clip.empty()) {
+            const int columns = audioWaveRect(rect.size(), scale).width();
+            info.peaks = rect.size() == stripRect.size() && int(stripShown.peaks.size()) == columns && stripShown.name == info.name
+                             ? stripShown.peaks
+                             : audio::peaks(clip, columns);
+        }
+        if (!force && stripSent && info == stripShown && rect == stripRect)
+            return;
+        const QImage painted = paintAudioStrip(info, rect.size(), scale, appkit::theme::kFuera);
+        const auto* bits = reinterpret_cast<const uint32_t*>(painted.constBits());
+        render->setStrip(rect.x(), rect.y(), painted.width(), painted.height(),
+                         std::vector<uint32_t>(bits, bits + size_t(painted.width()) * size_t(painted.height())));
+        stripShown = std::move(info);
+        stripRect = rect;
+        stripSent = true;
+    }
 
     // Guía de campo (HU-103): se pinta una vez, del tamaño de la hoja en pantalla.
     bool fieldGuide = false;
@@ -694,7 +766,7 @@ struct Lienzo::Impl {
     {
         return {viewDegrees, viewScale, mapping.sheetWidth ? viewPanX / mapping.sheetWidth : 0,
                 mapping.sheetHeight ? viewPanY / mapping.sheetHeight : 0, roles,
-                fixedIndex(order, fixedSheet) >= 0 ? fixedSheet : 0, circle};
+                fixedIndex(order, fixedSheet) >= 0 ? fixedSheet : 0, circle, audioFile};
     }
     int ringMode = -1; // el último modo de la rueda que se vio (HU-101: se anota al cambiar)
     // HU-95: el modo "Hojas" de la rueda (-1: sin hojas) y sus pasos. El flip de la rueda va como
@@ -812,6 +884,7 @@ struct Lienzo::Impl {
         render->setSheetRect(sheetRect());
         markNumber = 0; // la marca va en la esquina de la hoja nueva
         applyGuide();   // y la guía, del tamaño nuevo
+        refreshStrip(true);
         applyLayers();
         if (!area)
             render->setOverlay(true);
@@ -1605,8 +1678,11 @@ bool Lienzo::openTake(const QString& dir)
     d->fixedSheet = view.fixed; // HU-89
     d->fixedReturn = 0;
     d->circle = view.circle; // HU-94
+    d->audioFile = view.audio; // HU-106
+    d->loadAudio(dir);
     d->createSimulation(); // con la pila nueva (y la vista); pinta la activa
     d->applyLayers();
+    d->refreshStrip(true); // HU-106: el audio de esta toma
     if (wasRunning)
         d->sim->start();
     qInfo().noquote() << QStringLiteral("Toma abierta de %1: %2 hojas, activa la %3, %4 redibujadas, %5 en blanco, en %6 ms")
@@ -1725,6 +1801,51 @@ void Lienzo::setSheetPanel(bool visible)
 {
     d->panelVisible = visible;
     d->refreshSheetPanel(true);
+    d->refreshStrip(); // HU-106: el hueco para la franja cambia
+}
+
+bool Lienzo::setAudioFile(const QString& path)
+{
+    if (!d->saver) {
+        qWarning() << "Audio: no hay toma donde copiarlo";
+        return false;
+    }
+    const QString dir = d->saver->dir();
+    const QFileInfo source(path);
+    const QString name = QStringLiteral("audio.") + source.suffix().toLower();
+    const QString target = QDir(dir).filePath(name);
+    if (QFileInfo(target).canonicalFilePath() != source.canonicalFilePath()) {
+        // El de antes se va (puede tener otra extensión); el nuevo se copia con nombre fijo.
+        for (const QString& old : QDir(dir).entryList({QStringLiteral("audio.*")}, QDir::Files))
+            QFile::remove(QDir(dir).filePath(old));
+        if (!QFile::copy(path, target)) {
+            qWarning().noquote() << QStringLiteral("Audio: no se pudo copiar %1 a %2").arg(path, dir);
+            return false;
+        }
+    }
+    d->audioFile = name;
+    d->loadAudio(dir);
+    d->sim->setAudio(d->audioFile);
+    qInfo().noquote() << QStringLiteral("Audio: %1 copiado a la toma como %2").arg(source.fileName(), name);
+    d->refreshStrip();
+    return d->audioProblem.isEmpty();
+}
+
+QString Lienzo::audioFile() const
+{
+    return d->audioFile;
+}
+
+void Lienzo::setAudioStrip(bool visible)
+{
+    d->stripVisible = visible;
+    d->refreshStrip(true);
+    qInfo() << "Franja de audio:" << (visible ? "visible" : "oculta");
+}
+
+bool Lienzo::audioStrip() const
+{
+    return d->stripVisible;
 }
 
 bool Lienzo::sheetPanel() const

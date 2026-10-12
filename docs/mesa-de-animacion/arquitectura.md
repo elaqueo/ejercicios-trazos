@@ -63,6 +63,7 @@ toma-1/
   - La marca de la esquina (el número y el rol de la hoja que se ve) no es grafito: la pinta Qt en una textura chica (lienzo/SheetRole.h) y el render la tiñe de gris tinta encima de la hoja. Con la vista sin girar y sin mesa de luz ni flip se pinta solo su recuadro sobre la copia de siempre (`Compositor::drawMark`); si no, va dentro de la composición, antes del giro, y gira con la hoja. Benchmark igual que Cartuchera (11,3 a 11,6 ms de mediana; la composición entera en cada frame costaba 0,5 ms).
 - **`activa`:** la posición de la hoja activa en `hojas`.
 - **`circulo`:** la pila en círculo (HU-94); las tomas de antes abren sin círculo.
+- **`audio`:** `archivo` es el audio de la toma (HU-106), copiado a su carpeta como `audio.wav` o `audio.mp3` (vacío: sin audio); `marcas`, las de HU-108. Lo lee libs/audio con Media Foundation (incluido en Windows) a PCM float; la onda son los picos por columna de la franja, que pinta Qt y copia el render como el panel.
 - **`papel`:** tiene que ser igual al del papel de la app. Una toma de otro papel no se abre.
 - **`audio`:** queda vacío hasta HU-106 a HU-108.
 - **Versiones:** una `version` mayor que la que conoce la app no se abre.

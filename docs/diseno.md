@@ -98,6 +98,8 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Supr | Borrar la hoja activa; si tiene trazos, un cartel pide Supr otra vez (mesa "Confirmación") |
 | ↑ / ↓ | Mover la hoja activa un lugar antes o después en la pila (HU-88) |
 | Inicio / Fin | Ir a la primera o a la última hoja, sin deshacer, como un flip (HU-115); saltean la hoja fija |
+| A | Elegir el audio de referencia (WAV o MP3): se copia a la toma (HU-106) |
+| W | Mostrar u ocultar la franja de audio, con la onda y el cursor (HU-106) |
 | O | Pila en círculo: después de la última hoja viene la primera (flip, mesa de luz, panel); se guarda en la toma (HU-94) |
 | C | Mostrar u ocultar la carta de timing: rectángulo tenue de 35 × 22,5 mm arriba a la izquierda de las keys, para dibujar el chart a mano (HU-105) |
 | G | Mostrar u ocultar la guía de campo: 12 campos en 16:9 a tamaño real, gris tinta bajo el grafito; gira con la hoja (HU-103) |

@@ -152,6 +152,24 @@ public:
         m_panelVisible = false;
     }
 
+    // La franja del audio (HU-106): una imagen opaca en (x, y) del cliente, encima de todo.
+    void setStrip(int x, int y, int width, int height, std::vector<uint32_t> pixels)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_stripVisible = true;
+        m_stripX = x;
+        m_stripY = y;
+        m_stripW = width;
+        m_stripH = height;
+        m_stripPixels = std::move(pixels);
+        m_stripChanged = true;
+    }
+    void hideStrip()
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_stripVisible = false;
+    }
+
     // La marca de la esquina de la hoja que se muestra (HU-104, rol y número): una imagen de
     // size × size (BGRA; se usa el alfa) en (x, y) desde la esquina de la hoja, pintada de
     // `color` encima del grafito y antes del giro. pixels vacío: sin marca. Llamarla junto con
@@ -229,6 +247,9 @@ private:
     int m_markX = 0, m_markY = 0, m_markSize = 0;
     std::vector<uint32_t> m_markPixels;
     uint32_t m_markColor = 0;
+    bool m_stripVisible = false, m_stripChanged = false;
+    int m_stripX = 0, m_stripY = 0, m_stripW = 0, m_stripH = 0;
+    std::vector<uint32_t> m_stripPixels;
     bool m_chartVisible = false;
     RECT m_chartRect{};
     float m_chartLine = 1;

@@ -1,5 +1,6 @@
 #include <lienzo/LeadController.h>
 #include <lienzo/Compositor.h>
+#include <lienzo/AudioStrip.h>
 #include <lienzo/Cursor.h>
 #include <lienzo/FieldGuide.h>
 #include <lienzo/FixedSheet.h>
@@ -1119,6 +1120,28 @@ private slots:
 
     // HU-93: solo keys: las keys más cercanas a cada lado, con los colores de la más cercana a la
     // más lejana; la activa no cuenta aunque sea key; sin keys, nada.
+    // HU-106: la franja del audio va en el hueco entre la hoja y el panel si entra; si no, sobre
+    // el pie de la hoja. El tiempo, en minutos, segundos y décimas.
+    void franjaDeAudio()
+    {
+        // Ultrawide: hoja de 1734 px, panel desde 2304: hueco de 570.
+        QRect r = audioStripRect(2560, 1080, QRect(0, 0, 1734, 1080), 2304, 1);
+        QCOMPARE(r, QRect(1734 + 24, 1080 - 16 - 130, 520, 130));
+        // 16:9 sin hueco: abajo de la hoja, adentro.
+        r = audioStripRect(1920, 1080, QRect(0, 0, 1728, 1080), 1664, 1);
+        QCOMPARE(r, QRect(16, 1080 - 16 - 130, 520, 130));
+        // Escala 125 %: todo más grande.
+        QCOMPARE(audioStripRect(2560, 1080, QRect(0, 0, 1734, 1080), 2560, 1.25).height(), 163);
+        QCOMPARE(audioWaveRect(QSize(520, 130), 1), QRect(16, 40, 488, 78));
+        QCOMPARE(audioTime(0), QStringLiteral("0:00,0"));
+        QCOMPARE(audioTime(3.24), QStringLiteral("0:03,2"));
+        QCOMPARE(audioTime(72.05), QStringLiteral("1:12,1"));
+        AudioStripInfo info{QStringLiteral("dialogo.wav"), {}, 12, 3, std::vector<float>(488, 0.5f)};
+        const QImage strip = paintAudioStrip(info, QSize(520, 130), 1, Qt::black);
+        QCOMPARE(strip.size(), QSize(520, 130));
+        QVERIFY(strip.pixel(16 + 488 / 2, 40 + 39) != strip.pixel(16 + 488 / 2, 40 + 2)); // la onda, al medio
+    }
+
     // HU-103: la guía de campo: 12 campos de 1 pulgada en 16:9, centrados; las líneas tienen
     // cobertura y entre ellas no.
     void guiaDeCampo()
@@ -1375,7 +1398,8 @@ private slots:
         const TakeView roles{.degrees = 45.0, .zoom = 2.0, .panX = 0.1, .panY = -0.25, // HU-101, HU-102
                              .roles = {{ids[0], SheetRole::Key}, {ids[2], SheetRole::Breakdown}}, // HU-104
                              .fixed = ids[2], // HU-89
-                             .circle = true}; // HU-94
+                             .circle = true, // HU-94
+                             .audio = QStringLiteral("audio.wav")}; // HU-106
         const TakeResult saved = saveTake(dir.path(), paper, stack, roles,
                                           [&](uint64_t id) { return id == ids[0] ? image : PackedImage{}; });
         QVERIFY2(saved.ok, qPrintable(saved.error));
@@ -1409,6 +1433,9 @@ private slots:
         QVERIFY(view.roles == roles.roles);
         QCOMPARE(view.fixed, ids[2]);
         QVERIFY(view.circle);
+        QCOMPARE(view.audio, QStringLiteral("audio.wav"));
+        QCOMPARE(root.value(QStringLiteral("audio")).toObject().value(QStringLiteral("archivo")).toString(),
+                 QStringLiteral("audio.wav"));
         QCOMPARE(view.zoom, 2.0);
         QCOMPARE(view.panX, 0.1);
         QCOMPARE(view.panY, -0.25);

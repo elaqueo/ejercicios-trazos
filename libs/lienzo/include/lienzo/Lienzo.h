@@ -188,6 +188,14 @@ public:
     // queda en las hojas. Al flipear sigue a la hoja de delante.
     void setTimingChart(bool visible);
     bool timingChart() const;
+    // Audio de referencia (HU-106, mesa "Audio"): setAudioFile copia el WAV o MP3 a la carpeta
+    // de la toma (audio.wav o audio.mp3; queda en toma.json), lo lee y lo muestra en la franja;
+    // false si no se pudo. La franja (onda y cursor) va fuera de la hoja; setAudioStrip la
+    // muestra o la oculta.
+    bool setAudioFile(const QString& path);
+    QString audioFile() const;
+    void setAudioStrip(bool visible);
+    bool audioStrip() const;
     // La hoja que se muestra en lugar de la activa (HU-83; -1 = la activa), por posición.
     void showSheet(int index);
     // Flip (HU-90): la hoja anterior (step = -1) o la siguiente (+1) se muestra sin activarla

@@ -29,6 +29,7 @@ struct TakeIndex {
     double zoom = 1, panX = 0, panY = 0; // HU-101, HU-102 (como TakeView)
     uint64_t fixed = 0;                  // HU-89 (0: ninguna, o no está en la pila)
     bool circle = false;                 // HU-94
+    QString audio;                       // HU-106
     bool operator==(const TakeIndex&) const = default;
 };
 

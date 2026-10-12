@@ -229,6 +229,7 @@ void Simulation::autosave(bool interruptible)
     SheetRoles roles; // solo de las hojas que están (las borradas guardan el suyo para deshacer)
     uint64_t fixed = 0; // ídem
     bool circle = false;
+    QString audioFile;
     {
         std::lock_guard rotationLock(m_rotationMutex);
         degrees = m_rotation.degrees;
@@ -241,8 +242,9 @@ void Simulation::autosave(bool interruptible)
         if (order.indexOf(m_fixedSheet) >= 0)
             fixed = m_fixedSheet;
         circle = m_circle;
+        audioFile = m_audio;
     }
-    TakeIndex index{order.ids, order.active, degrees, std::move(roles), zoom, panX, panY, fixed, circle};
+    TakeIndex index{order.ids, order.active, degrees, std::move(roles), zoom, panX, panY, fixed, circle, audioFile};
     if (index != m_savedIndex) {
         m_savedIndex = index;
         m_saver->saveIndex(std::move(index));

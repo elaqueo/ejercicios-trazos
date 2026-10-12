@@ -34,6 +34,7 @@ struct TakeView {
     SheetRoles roles;   // HU-104: key o breakdown, por id (solo las que tienen)
     uint64_t fixed = 0; // HU-89: la hoja fija, por id (0: ninguna)
     bool circle = false; // HU-94: la pila en círculo
+    QString audio;       // HU-106: el archivo del audio, en la carpeta de la toma (vacío: sin audio)
 };
 
 struct TakeResult {

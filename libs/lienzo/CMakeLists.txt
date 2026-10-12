@@ -9,6 +9,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/DisplayImage.h
     include/lienzo/LeadController.h
     include/lienzo/LeadPicker.h
+    include/lienzo/AudioStrip.h
     include/lienzo/FieldGuide.h
     include/lienzo/FixedSheet.h
     include/lienzo/LightTable.h
@@ -29,6 +30,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/Tone.h
     include/lienzo/ToolPage.h
     include/lienzo/ViewRotation.h
+    src/AudioStrip.cpp
     src/Bench.cpp
     src/CanvasWindow.cpp
     src/Compositor.cpp
@@ -55,7 +57,7 @@ qt_add_library(lienzo STATIC
 qt_add_resources(lienzo lienzo_imagenes PREFIX /lienzo BASE resources FILES resources/grafito.jpg)
 target_include_directories(lienzo PUBLIC include)
 target_link_libraries(lienzo PRIVATE et_zstd)
-target_link_libraries(lienzo PUBLIC drymedia tabletinput appkit d3d11 d3dcompiler dxgi dwmapi user32 gdi32)
+target_link_libraries(lienzo PUBLIC drymedia tabletinput audio appkit d3d11 d3dcompiler dxgi dwmapi user32 gdi32)
 et_target_defaults(lienzo)
 
 add_subdirectory(tests)

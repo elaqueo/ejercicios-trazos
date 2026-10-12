@@ -18,6 +18,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QDir>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QScreen>
 
@@ -123,6 +124,29 @@ int main(int argc, char* argv[])
         chartOn = !chartOn;
         config.setValue(QStringLiteral("timingChart"), chartOn);
         canvas.setTimingChart(chartOn);
+    });
+    // Audio de referencia (HU-106, mesa "Audio"): A elige el archivo; W muestra y oculta la
+    // franja con la onda (queda guardado).
+    bool stripOn = config.value(QStringLiteral("audioStrip"), true).toBool();
+    canvas.setAudioStrip(stripOn);
+    canvas.shortcuts().add(QStringLiteral("Elegir el audio"), {{'A'}}, [&] {
+        const QString path = QFileDialog::getOpenFileName(&shell, QStringLiteral("Audio de referencia"),
+                                                          config.value(QStringLiteral("audioDir")).toString(),
+                                                          QStringLiteral("Audio (*.wav *.mp3)"));
+        canvas.focusCanvas();
+        if (path.isEmpty())
+            return;
+        config.setValue(QStringLiteral("audioDir"), QFileInfo(path).absolutePath());
+        if (canvas.setAudioFile(path) && !stripOn) {
+            stripOn = true;
+            config.setValue(QStringLiteral("audioStrip"), true);
+            canvas.setAudioStrip(true);
+        }
+    });
+    canvas.shortcuts().add(QStringLiteral("Franja de audio"), {{'W'}}, [&] {
+        stripOn = !stripOn;
+        config.setValue(QStringLiteral("audioStrip"), stripOn);
+        canvas.setAudioStrip(stripOn);
     });
     // Panel de hojas (HU-114): Tab lo muestra y lo oculta; queda guardado.
     bool panelOn = config.value(QStringLiteral("sheetPanel"), true).toBool();
