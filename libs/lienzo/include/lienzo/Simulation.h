@@ -169,6 +169,11 @@ public:
 
     // Pinta toda la imagen (hoja y afuera). Llamar antes de start().
     void renderAll();
+    // Pila nueva (HU-121, Lienzo::resetSheets), con la simulación detenida y después de
+    // SheetStack::reset: descarta los pedidos de pila, deshacer y rehacer que quedaban (cuentan
+    // como atendidos), publica la pila nueva y pinta la activa. Sin crear otra simulación: armar
+    // la textura del papel otra vez costaba 250 ms.
+    void stackReplaced();
 
     // Textura del papel (HU-75), de 0 a 100 %. La luz está fija al escritorio: viene de
     // arriba a la izquierda de la pantalla, así que al girar la vista cambia sobre la hoja.

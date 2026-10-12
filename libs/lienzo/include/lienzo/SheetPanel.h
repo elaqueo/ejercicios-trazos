@@ -41,6 +41,7 @@ struct PanelInfo {
     // pone lo suyo: Ejercicios de animación, "PILA" y "no se guarda", sin estado).
     QString heading = QStringLiteral("TOMA");
     bool showState = true;
+    QString note; // sin estado, lo que va a la derecha del rótulo (HU-121: "modo mixto")
     // HU-109: en lugar del estado del guardado, "exportando 3/12" o, al terminar, "exportado"
     // (vacío: el del guardado); exportBusy pone el punto en acento.
     QString exportState;

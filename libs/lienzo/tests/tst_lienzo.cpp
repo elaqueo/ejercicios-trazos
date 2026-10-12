@@ -786,6 +786,40 @@ private slots:
     }
 
     // HU-82: cada hoja guarda su depósito y su deshacer; el papel trabaja con el de la activa.
+    // HU-121: una pila nueva de N hojas en blanco, activa la primera, sin deshacer y con ids que
+    // no repiten los de antes.
+    void pilaNueva()
+    {
+        drymedia::Paper paper({.seed = 3, .widthMm = 80, .heightMm = 60});
+        SheetStack stack(100);
+        drymedia::Pencil pencil(paper, drymedia::Medium::hb());
+        pencil.setTileObserver([&stack](int i, const uint16_t* before, uint8_t planes) {
+            stack.history().beforeTileWrite(i, before, planes);
+        });
+        const uint64_t blank = paper.reliefHash();
+        stack.add(paper, 1);
+        stack.activate(paper, 1);
+        stack.history().beginStroke();
+        pencil.beginStroke({200, 300, 0.6f, 0, 80});
+        pencil.strokeTo({1200, 300, 0.6f, 0, 80});
+        pencil.endStroke();
+        stack.history().endStroke(paper);
+        QVERIFY(paper.hash() != blank);
+        const std::vector<uint64_t> before = stack.order().ids;
+
+        stack.reset(paper, 12);
+        QCOMPARE(stack.count(), 12);
+        QCOMPARE(stack.active(), 0);
+        QCOMPARE(paper.hash(), blank);
+        QCOMPARE(stack.stackUndoCount(), size_t(0));
+        QVERIFY(stack.undo(paper).tiles.empty()); // el trazo de antes no se deshace
+        QCOMPARE(paper.hash(), blank);
+        for (const uint64_t id : stack.order().ids)
+            QVERIFY(std::find(before.begin(), before.end(), id) == before.end());
+        for (int i = 0; i < 12; ++i)
+            QCOMPARE(stack.hash(paper, i), blank);
+    }
+
     void pilaDeHojas()
     {
         drymedia::Paper paper({.seed = 3, .widthMm = 80, .heightMm = 60});

@@ -771,7 +771,7 @@ struct Lienzo::Impl {
     // acá; las miniaturas, el render). Lo llaman applyLayers (cada cambio de la pila o flip) y
     // un reloj, para el estado del guardado, el lápiz y el giro.
     bool panelVisible = false;
-    QString panelHeading, panelName; // HU-120: el encabezado sin toma
+    QString panelHeading, panelName, panelNote; // HU-120: el encabezado sin toma
     PanelInfo panelShown;
     QRect panelRect;
     bool panelSent = false;
@@ -796,6 +796,7 @@ struct Lienzo::Impl {
         if (!saver && !panelHeading.isEmpty()) { // HU-120
             info.heading = panelHeading;
             info.take = panelName;
+            info.note = panelNote;
             info.showState = false;
         }
         if (exportDone >= 0) { // HU-109
@@ -2204,10 +2205,11 @@ void Lienzo::removeSheet(int index)
     d->applyLayers();
 }
 
-void Lienzo::setPanelHeading(const QString& label, const QString& name)
+void Lienzo::setPanelHeading(const QString& label, const QString& name, const QString& note)
 {
     d->panelHeading = label;
     d->panelName = name;
+    d->panelNote = note;
     d->refreshSheetPanel(true);
 }
 
@@ -2382,6 +2384,35 @@ int Lienzo::flipSheetCount() const
 QString Lienzo::activeSheetLabel() const
 {
     return d->sheetLabel(d->syncOrder().active);
+}
+
+void Lienzo::resetSheets(int count)
+{
+    const Stopwatch time;
+    const bool wasRunning = d->running;
+    if (wasRunning)
+        d->sim->stop();
+    const std::vector<uint64_t> before = d->sheets.order().ids;
+    d->sheets.reset(d->paper, count);
+    for (const uint64_t id : before) // las texturas de las hojas de antes ya no sirven
+        d->render->dropSheet(id);
+    d->images.clear();
+    d->roles = {};
+    d->fixedSheet = 0;
+    d->fixedReturn = 0;
+    d->shownSheet = -1;
+    d->releasedTo = 0;
+    d->markNumber = 0;
+    clearSheetGuides();
+    d->sim->setRoles(d->roles);
+    d->sim->setFixedSheet(0);
+    d->sim->stackReplaced(); // pinta la activa (en blanco)
+    d->order = d->sheets.order();
+    d->sentRequests = d->sim->sheetState().applied;
+    d->applyLayers();
+    if (wasRunning)
+        d->sim->start();
+    qInfo().noquote() << QStringLiteral("Pila armada: %1 hojas en %2 ms").arg(sheetCount()).arg(time.ms(), 0, 'f', 0);
 }
 
 bool Lienzo::jumpToEdge(bool last)

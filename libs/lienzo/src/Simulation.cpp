@@ -120,6 +120,22 @@ void Simulation::renderAll()
     m_image.sheet = m_sheets.order().activeId();
 }
 
+void Simulation::stackReplaced()
+{
+    size_t dropped = 0;
+    {
+        std::lock_guard lock(m_sheetMutex);
+        dropped = m_sheetCommands.size();
+        m_sheetCommands.clear();
+    }
+    dropped += size_t(m_undoRequests.exchange(0)) + size_t(m_redoRequests.exchange(0));
+    m_clearRequested = false;
+    m_applied += dropped;
+    m_notified = m_applied;
+    publishSheetState();
+    renderAllParallel();
+}
+
 void Simulation::pushSheetCommand(SheetCommand command)
 {
     command.sample = m_queue.pushed(); // las muestras y los pedidos llegan del mismo hilo

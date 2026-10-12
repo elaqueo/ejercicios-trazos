@@ -174,3 +174,12 @@ Cada hoja de la pila puede tener su propia guía (el ghost de un ejercicio), que
 - **`setGuides` no cambia:** la guía única de Ejercicios de trazos y Cartuchera sigue en la imagen de pantalla.
 - **Costo:** en la GPU, nada medible (el flip, 0,39 ms con guía y sin ella, `tst_compositor`). Con guía se compone en cada frame, como con la guía de campo o la mesa de luz.
 - **RNF-01 con 12 hojas con guía:** `--guias-de-prueba` pone una guía distinta en cada hoja y el smoke mide 44 flips. Midiendo surgió que algunos flips (con guía o sin ella) pasaban de 18 ms cuando el frame del flip coincidía con la subida de la hoja que se acababa de dejar (una hoja entera, unos 1,3 ms). Ahora esa subida espera al frame siguiente, salvo que la hoja a mostrar sea esa. Quedó en 17,9 ms de máximo, con guías y sin ellas.
+
+## La pila nueva (HU-121, Ejercicios de animación)
+
+Cada ejercicio de Ejercicios de animación arma su pila: Enter (el siguiente) y R (repetir) la cambian por una de N hojas en blanco con su guía en cada una.
+
+- **`Lienzo::resetSheets(n)`:** con la simulación detenida, `SheetStack::reset` reemplaza la pila por N hojas en blanco con ids nuevos (no repite los de antes, que el render todavía puede tener en texturas), activa la primera y sin deshacer; se sueltan las texturas, las imágenes, los roles, la fija y las guías por hoja de antes.
+- **Sin crear otra simulación:** `Simulation::stackReplaced` descarta los pedidos de pila, deshacer y rehacer pendientes (cuentan como atendidos, así la interfaz no espera nada), publica la pila nueva y pinta la activa en varios hilos. Crear otra simulación, como al abrir una toma, volvía a armar la textura del papel: 250 ms de los 400 que tardaba.
+- **La sesión (`libs/exercises`, `StackSession`):** genera las N guías con una semilla (`StackExercise::generate`) y las pone en sus hojas (`setSheetGuide`). `SameOnEverySheet` lleva un ejercicio de Ejercicios a la pila con la misma guía en todas.
+- **RNF-04:** de la tecla a la pila lista con sus guías, 12 hojas: unos 120 ms ("Pila lista" en el log; lo verifica el smoke).

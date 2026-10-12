@@ -1,5 +1,7 @@
 #include "exercises/ExerciseSession.h"
 
+#include "exercises/ExerciseMenu.h"
+
 #include <QRandomGenerator>
 
 namespace ejercicios {
@@ -77,12 +79,7 @@ void ExerciseSession::loadParams(const QVariantMap& all)
 const Exercise* ExerciseSession::pickMixed(const QList<const Exercise*>& pool, const QStringList& recent,
                                            QRandomGenerator& rng)
 {
-    if (pool.isEmpty())
-        return nullptr;
-    QList<const Exercise*> candidates = pool;
-    if (recent.size() >= 2 && recent[recent.size() - 1] == recent[recent.size() - 2] && pool.size() > 1)
-        candidates.removeIf([&](const Exercise* e) { return e->id() == recent.last(); });
-    return candidates[int(rng.bounded(quint32(candidates.size())))];
+    return ejercicios::pickMixed(pool, recent, rng);
 }
 
 void ExerciseSession::startMixed()

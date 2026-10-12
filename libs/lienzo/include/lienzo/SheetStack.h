@@ -102,6 +102,10 @@ public:
     // Reemplaza la pila entera (abrir una toma): estas hojas con sus ids, en orden, y la
     // activa; sin deshacer. No avisa onLeave. Quedan como guardadas.
     void replace(drymedia::Paper& paper, std::vector<std::pair<uint64_t, drymedia::TileSet>> sheets, int active);
+    // Pila nueva (HU-121, Ejercicios de animación): `count` hojas en blanco, activa la primera,
+    // sin deshacer. Los ids siguen a los de antes, sin repetirlos (el render puede tener todavía
+    // texturas con esos).
+    void reset(drymedia::Paper& paper, int count);
 
     // Guardado automático (HU-86): cada hoja lleva una versión que cambia con cada trazo,
     // deshacer, rehacer o limpieza, y la última guardada. Una hoja nueva, o una que vuelve a

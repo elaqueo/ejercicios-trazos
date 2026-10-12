@@ -175,6 +175,10 @@ public:
     bool circle() const;
     // HU-115: activa la primera o la última hoja del flip; false si ya lo era.
     bool jumpToEdge(bool last);
+    // Pila nueva (HU-121, Ejercicios de animación): `count` hojas en blanco, activa la primera,
+    // sin deshacer, sin roles, hoja fija ni guías por hoja. Con la simulación detenida, como
+    // abrir una toma; queda en el log cuánto tardó (RNF-04). Sin toma: no guarda nada.
+    void resetSheets(int count);
 
     // Mesa de luz (HU-91): las hojas que se ven debajo de la activa, contadas desde ella (ver
     // LightTable.h); se recalcula sola cada vez que cambia la pila. Vacía = apagada. Cada hoja
@@ -241,8 +245,9 @@ public:
     // Solo con la pila de hojas (options.sheets); la app elige la tecla y lo guarda.
     void setSheetPanel(bool visible);
     // HU-120: sin toma, el encabezado del panel dice `label` y `name` en lugar de la toma, sin el
-    // estado del guardado (Ejercicios de animación: la pila no se guarda).
-    void setPanelHeading(const QString& label, const QString& name);
+    // estado del guardado (Ejercicios de animación: la pila no se guarda); `note`, a la derecha
+    // del rótulo (HU-121: "modo mixto").
+    void setPanelHeading(const QString& label, const QString& name, const QString& note = {});
     bool sheetPanel() const;
     // Panel de configuración (HU-12): agrega las pestañas del lienzo ("Lápiz": mina activa y
     // goma; "Pantalla": área útil y monitor) y lo muestra pegado al borde derecho del área

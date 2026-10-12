@@ -334,6 +334,15 @@ void SheetStack::replace(drymedia::Paper& paper, std::vector<std::pair<uint64_t,
     tiles = drymedia::TileSet{};
 }
 
+void SheetStack::reset(drymedia::Paper& paper, int count)
+{
+    const uint64_t first = m_order.nextId;
+    std::vector<std::pair<uint64_t, drymedia::TileSet>> blank;
+    for (int i = 0; i < std::max(1, count); ++i)
+        blank.emplace_back(first + uint64_t(i), drymedia::TileSet{});
+    replace(paper, std::move(blank), 0);
+}
+
 std::vector<int> SheetStack::unsaved() const
 {
     std::vector<int> out;

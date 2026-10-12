@@ -142,6 +142,10 @@ QImage paintPanel(const PanelInfo& info, const PanelLayout& layout, const QColor
         p.setPen(Qt::NoPen);
         p.setBrush((exporting ? !info.exportBusy : info.saved) ? theme::kGuardado : accent);
         p.drawEllipse(QPointF(right - stateW - px(10), y + px(8)), px(4), px(4));
+    } else if (!info.note.isEmpty()) {
+        const double noteW = QFontMetricsF(small).horizontalAdvance(info.note);
+        text(QRectF(right - noteW, y, noteW, px(16)), info.note, small, theme::kTextoSecundario,
+             Qt::AlignRight | Qt::AlignVCenter);
     }
     y += px(22);
     text(QRectF(left, y, right - left, px(22)),
