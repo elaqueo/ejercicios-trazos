@@ -213,6 +213,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 105. **HU-105 · Carta de timing** (Could · 2 pts). Como animador, quiero un rincón reservado en la hoja key para dibujar el chart a mano, para que viva con la clave.
     1. En las keys se ve un rectángulo tenue en la esquina superior izquierda; es solo una guía: ahí se dibuja con el lápiz como en el resto de la hoja.
     2. Un atajo lo muestra y oculta.
+    3. *Hecho (11 oct 2026): C, guardado en config (visible por defecto). 35 × 22,5 mm a 6 mm del borde (el usuario lo achicó a la mitad y lo acercó al borde después de probar 70 × 45 a 12 mm), en gris tinta como la guía de campo (mesa "Carta de timing"). Lo dibuja la composición, no la hoja; al flipear aparece con la key de delante. Sin giro se pinta solo su recuadro, como la marca (benchmark: 11,5 ms de mediana con una key en pantalla, 11,2 sin ella).*
 
 ### E7 · Audio
 

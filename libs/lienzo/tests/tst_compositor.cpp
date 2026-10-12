@@ -238,6 +238,47 @@ private slots:
         QCOMPARE(got[0], kPaperColor); // fuera de la hoja, tal cual
     }
 
+    // HU-105: la carta de timing tiñe solo el contorno de su rectángulo (de `line` px hacia
+    // adentro); adentro y afuera la hoja queda igual.
+    void cartaDeTiming()
+    {
+        const std::vector<uint32_t> screen(size_t(W) * H, kPaperColor);
+        const Texture in = makeTexture(device.Get(), W, H, screen);
+        const Texture out = makeTexture(device.Get(), W, H, std::vector<uint32_t>(size_t(W) * H), true);
+        const SheetChartLayer chart{{4, 3, 20, 13}, 2, kRed, 1.0f};
+        compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), nullptr, sheet, {}, out.texture.Get(), nullptr,
+                           nullptr, &chart);
+        const std::vector<uint32_t> got = readBack(device.Get(), context.Get(), out.texture.Get());
+        for (int sy = 0; sy < SH; ++sy)
+            for (int sx = 0; sx < SW; ++sx) {
+                const bool inRect = sx >= 4 && sx < 20 && sy >= 3 && sy < 13;
+                const bool edge = inRect && (sx < 6 || sx >= 18 || sy < 5 || sy >= 11);
+                const uint32_t px = got[size_t(sheet.top + sy) * W + sheet.left + sx];
+                const uint32_t want = edge ? bgra(uint8_t(0xF5 * 0xE0 / 255.0 + 0.5), uint8_t(0xF0 * 0x30 / 255.0 + 0.5),
+                                                  uint8_t(0xE6 * 0x30 / 255.0 + 0.5))
+                                           : kPaperColor;
+                QVERIFY2(similar(px, want, 2), qPrintable(QStringLiteral("(%1, %2): %3").arg(sx).arg(sy).arg(px, 8, 16)));
+            }
+    }
+
+    // HU-105: drawChart pinta lo mismo que compose con la carta, pero solo en su recuadro.
+    void cartaSola()
+    {
+        std::vector<uint32_t> screen(size_t(W) * H, kPaperColor);
+        screen[size_t(sheet.top + 3) * W + sheet.left + 8] = kGraphiteColor; // grafito sobre el borde
+        const Texture in = makeTexture(device.Get(), W, H, screen);
+        const Texture viaCompose = makeTexture(device.Get(), W, H, std::vector<uint32_t>(size_t(W) * H), true);
+        const Texture viaChart = makeTexture(device.Get(), W, H, screen, true);
+        const SheetChartLayer chart{{4, 3, 20, 13}, 2, kRed, 0.45f};
+        compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), nullptr, sheet, {}, viaCompose.texture.Get(),
+                           nullptr, nullptr, &chart);
+        compositor.drawChart(context.Get(), in.view.Get(), sheet, chart, viaChart.texture.Get());
+        const std::vector<uint32_t> a = readBack(device.Get(), context.Get(), viaCompose.texture.Get());
+        const std::vector<uint32_t> b = readBack(device.Get(), context.Get(), viaChart.texture.Get());
+        for (size_t i = 0; i < a.size(); ++i)
+            QVERIFY2(similar(a[i], b[i]), qPrintable(QStringLiteral("%1: %2 y %3").arg(i).arg(a[i], 8, 16).arg(b[i], 8, 16)));
+    }
+
     // Seis hojas de abajo a tamaño real (1734 × 1080) en menos de 8 ms de GPU.
     void seisCapasATamanoReal()
     {

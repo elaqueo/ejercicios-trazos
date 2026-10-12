@@ -38,6 +38,16 @@ struct SheetGuideLayer {
     float opacity = 1;
 };
 
+// El rectángulo de la carta de timing (HU-105): el contorno de `rect` (píxeles desde la esquina
+// de la hoja), de `line` px, multiplicado de `color` con `opacity` bajo el grafito, como la
+// guía. Sin textura: lo calcula el shader. Va antes del giro.
+struct SheetChartLayer {
+    RECT rect{};
+    float line = 1;
+    uint32_t color = 0; // BGRA
+    float opacity = 1;
+};
+
 // Arma la mesa de luz en la GPU (HU-83): la hoja que se muestra con las de abajo teñidas.
 // De cada hoja de abajo se toma solo el grafito (cuánto más oscuro que el papel es cada
 // píxel), se pinta de su color y se multiplica, como hojas sobre una mesa de luz; el papel
@@ -56,13 +66,19 @@ public:
     // cliente. out: textura del tamaño del cliente con D3D11_BIND_RENDER_TARGET.
     void compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, ID3D11ShaderResourceView* screenView,
                  ID3D11ShaderResourceView* base, const RECT& sheet, const std::vector<LightTableLayer>& layers,
-                 ID3D11Texture2D* out, const SheetMarkLayer* mark = nullptr, const SheetGuideLayer* guide = nullptr);
+                 ID3D11Texture2D* out, const SheetMarkLayer* mark = nullptr, const SheetGuideLayer* guide = nullptr,
+                 const SheetChartLayer* chart = nullptr);
 
     // Solo la marca (HU-104), sin girar ni capas: pinta su recuadro en `out` (que ya tiene la
     // imagen de pantalla copiada) leyendo la imagen de pantalla; el resto de out no se toca.
     // Mucho más barato que compose, que recorre toda la pantalla.
     void drawMark(ID3D11DeviceContext* context, ID3D11ShaderResourceView* screenView, const RECT& sheet,
                   const SheetMarkLayer& mark, ID3D11Texture2D* out);
+
+    // Solo la carta de timing (HU-105), sin girar ni capas: como drawMark, pinta su recuadro en
+    // `out` leyendo la imagen de pantalla.
+    void drawChart(ID3D11DeviceContext* context, ID3D11ShaderResourceView* screenView, const RECT& sheet,
+                   const SheetChartLayer& chart, ID3D11Texture2D* out);
 
     // La misma cuenta en la CPU, píxel por píxel (para las pruebas).
     static uint32_t reference(uint32_t shown, const uint32_t* below, const LightTableLayer* layers, int count,
@@ -75,6 +91,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D11VertexShader> m_vs;
     Microsoft::WRL::ComPtr<ID3D11PixelShader> m_ps;
     Microsoft::WRL::ComPtr<ID3D11PixelShader> m_markPs;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader> m_chartPs;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_constants;
     Microsoft::WRL::ComPtr<ID3D11SamplerState> m_sampler;
     uint32_t m_paperColor = kPaperColor;

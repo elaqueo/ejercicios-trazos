@@ -366,6 +366,7 @@ struct Lienzo::Impl {
             untilActive = true;
         }
         applyMark();
+        applyChart();
         render->setLayers(shown, std::move(below), untilActive);
         refreshSheetPanel();
     }
@@ -398,6 +399,25 @@ struct Lienzo::Impl {
         render->setMark(mapping.sheetWidth - margin - size, margin, size, std::move(pixels),
                         bgra(ink.red(), ink.green(), ink.blue()));
     }
+
+    // Carta de timing (HU-105): el rectángulo de la esquina superior izquierda, solo si la hoja
+    // que se ve (al flipear, la de delante) es key. Medidas de la mesa "Carta de timing".
+    bool timingChart = false;
+    void applyChart()
+    {
+        if (!options.sheets)
+            return;
+        const int index = flipping() && order.valid(shownSheet) ? shownSheet : order.active;
+        const bool visible = timingChart && order.valid(index) && roleOf(roles, order.ids[size_t(index)]) == SheetRole::Key;
+        const double k = mapping.sheetWidth / paper.spec().widthMm;
+        const auto mm = [k](double v) { return LONG(std::lround(v * k)); };
+        const QColor ink = appkit::theme::kMarcaHoja;
+        render->setChart(visible, RECT{mm(kChartMarginMm), mm(kChartMarginMm), mm(kChartMarginMm + kChartWidthMm),
+                                       mm(kChartMarginMm + kChartHeightMm)},
+                         float(std::max(1.0, screen->devicePixelRatio())), bgra(ink.red(), ink.green(), ink.blue()),
+                         appkit::theme::kGuiaCampoOpacidad);
+    }
+    static constexpr double kChartWidthMm = 35, kChartHeightMm = 22.5, kChartMarginMm = 6;
 
     // Guía de campo (HU-103): se pinta una vez, del tamaño de la hoja en pantalla.
     bool fieldGuide = false;
@@ -1677,6 +1697,18 @@ void Lienzo::setSheetPanel(bool visible)
 bool Lienzo::sheetPanel() const
 {
     return d->panelVisible;
+}
+
+void Lienzo::setTimingChart(bool visible)
+{
+    d->timingChart = visible;
+    d->applyLayers();
+    qInfo() << "Carta de timing:" << (visible ? "visible en las keys" : "oculta");
+}
+
+bool Lienzo::timingChart() const
+{
+    return d->timingChart;
 }
 
 void Lienzo::setFieldGuide(bool visible)

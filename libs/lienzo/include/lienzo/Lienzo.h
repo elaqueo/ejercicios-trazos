@@ -179,6 +179,11 @@ public:
     // tinta bajo el grafito; gira con la hoja y se ve al flipear. No queda en las hojas.
     void setFieldGuide(bool visible);
     bool fieldGuide() const;
+    // Carta de timing (HU-105, mesa "Carta de timing"): un rectángulo tenue de 35 × 22,5 mm en la
+    // esquina superior izquierda de las keys, para dibujar el chart a mano; como la guía, no
+    // queda en las hojas. Al flipear sigue a la hoja de delante.
+    void setTimingChart(bool visible);
+    bool timingChart() const;
     // La hoja que se muestra en lugar de la activa (HU-83; -1 = la activa), por posición.
     void showSheet(int index);
     // Flip (HU-90): la hoja anterior (step = -1) o la siguiente (+1) se muestra sin activarla

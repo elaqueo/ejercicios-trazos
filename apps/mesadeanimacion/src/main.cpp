@@ -115,6 +115,15 @@ int main(int argc, char* argv[])
         config.setValue(QStringLiteral("fieldGuide"), guideOn);
         canvas.setFieldGuide(guideOn);
     });
+    // Carta de timing (HU-105, mesa "Carta de timing"): C la muestra y la oculta en las keys;
+    // queda guardado.
+    bool chartOn = config.value(QStringLiteral("timingChart"), true).toBool();
+    canvas.setTimingChart(chartOn);
+    canvas.shortcuts().add(QStringLiteral("Carta de timing"), {{'C'}}, [&] {
+        chartOn = !chartOn;
+        config.setValue(QStringLiteral("timingChart"), chartOn);
+        canvas.setTimingChart(chartOn);
+    });
     // Panel de hojas (HU-114): Tab lo muestra y lo oculta; queda guardado.
     bool panelOn = config.value(QStringLiteral("sheetPanel"), true).toBool();
     canvas.setSheetPanel(panelOn);

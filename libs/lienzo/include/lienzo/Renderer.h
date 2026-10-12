@@ -181,6 +181,18 @@ public:
         m_guideChanged = true;
     }
 
+    // La carta de timing (HU-105): el contorno de `rect` (px desde la esquina de la hoja) en la
+    // hoja que se muestra, si `visible`. Llamarla junto con setLayers (cambia con el flip).
+    void setChart(bool visible, RECT rect, float line, uint32_t color, float opacity)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_chartVisible = visible;
+        m_chartRect = rect;
+        m_chartLine = line;
+        m_chartColor = color;
+        m_chartOpacity = opacity;
+    }
+
     // Resumen de la sesión para el log: latencias, adelanto final, vsyncs perdidos.
     std::string summary() const;
 
@@ -217,6 +229,11 @@ private:
     int m_markX = 0, m_markY = 0, m_markSize = 0;
     std::vector<uint32_t> m_markPixels;
     uint32_t m_markColor = 0;
+    bool m_chartVisible = false;
+    RECT m_chartRect{};
+    float m_chartLine = 1;
+    uint32_t m_chartColor = 0;
+    float m_chartOpacity = 1;
     bool m_guideChanged = false;
     int m_guideW = 0, m_guideH = 0;
     std::vector<uint32_t> m_guidePixels;

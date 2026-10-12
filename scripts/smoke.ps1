@@ -137,6 +137,7 @@ $state['mesadeanimacion']['lightTable'] = $true
 $state['mesadeanimacion']['lightKeysOnly'] = $false # HU-93
 $state['mesadeanimacion']['sheetPanel'] = $true # HU-114: el panel de hojas visible
 $state['mesadeanimacion']['fieldGuide'] = $false # HU-103: la guía de campo oculta
+$state['mesadeanimacion']['timingChart'] = $true # HU-105: la carta de timing visible
 $state | ConvertTo-Json -Depth 32 | Set-Content $config -Encoding utf8
 # La toma de la prueba (HU-85), en una carpeta temporal: la del usuario no se toca.
 $takeDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-toma-$PID"
@@ -385,6 +386,16 @@ try {
     } else {
         Write-Host "  FALLA guía de campo: $guide"
         $failures.Add('Guía de campo')
+    }
+
+    # HU-105: C oculta la carta de timing y la vuelve a mostrar.
+    foreach ($k in 'c', 'c') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    $chart = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Carta de timing:' }) | Select-Object -Last 2) -join ' '
+    if ($chart -match 'Carta de timing: oculta.*Carta de timing: visible en las keys') {
+        Write-Host '  ok   C oculta y muestra la carta de timing'
+    } else {
+        Write-Host "  FALLA carta de timing: $chart"
+        $failures.Add('Carta de timing')
     }
 
     # HU-114: Tab oculta el panel de hojas y lo vuelve a mostrar (los flips de arriba ya

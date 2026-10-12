@@ -690,6 +690,8 @@ void Renderer::run()
 
         // Pila de hojas (HU-83): las hojas que salieron, a sus texturas; las quitadas, afuera.
         RECT sheetRect;
+        bool chartVisible = false; // HU-105
+        SheetChartLayer chart;
         uint64_t shown;
         bool untilActive;
         int64_t flipQpc, lightQpc;
@@ -771,6 +773,8 @@ void Renderer::run()
                 }
                 m_guidePixels = {};
             }
+            chartVisible = m_chartVisible;
+            chart = {m_chartRect, m_chartLine, m_chartColor, m_chartOpacity};
             sheetRect = m_sheetRect;
             shown = m_shown;
             untilActive = m_untilActive;
@@ -834,15 +838,19 @@ void Renderer::run()
             // La marca sola (HU-104), con la vista sin girar, va después sobre su recuadro (drawMark).
             const SheetMarkLayer* mark = d.markLayer.view ? &d.markLayer : nullptr;
             const SheetGuideLayer* guide = d.guideLayer.view ? &d.guideLayer : nullptr; // HU-103
-            if (base || !layers.empty() || guide || (mark && !rotation.identity())) {
+            const SheetChartLayer* chartLayer = chartVisible ? &chart : nullptr;    // HU-105
+            // La carta sola (HU-105), como la marca: sin girar, solo su recuadro (drawChart).
+            if (base || !layers.empty() || guide || ((chartLayer || mark) && !rotation.identity())) {
                 d.compositor.compose(d.context.Get(), d.display.Get(), d.displayView.Get(), base, sheetRect, layers,
-                                     d.composed.Get(), mark, guide);
+                                     d.composed.Get(), mark, guide, chartLayer);
                 source = d.composed.Get();
                 sourceView = d.composedView.Get();
             }
         }
         if (rotation.identity() || !d.drawRotated(back.Get(), rotation, sourceView)) {
             d.context->CopyResource(back.Get(), source);
+            if (source == d.display.Get() && chartVisible && d.compositorReady)
+                d.compositor.drawChart(d.context.Get(), d.displayView.Get(), sheetRect, chart, back.Get());
             if (source == d.display.Get() && d.markLayer.view && d.compositorReady)
                 d.compositor.drawMark(d.context.Get(), d.displayView.Get(), sheetRect, d.markLayer, back.Get());
         }
