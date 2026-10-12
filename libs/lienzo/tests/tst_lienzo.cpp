@@ -1699,6 +1699,41 @@ private slots:
         QCOMPARE(QColor(image.pixel(0, 0)), QColor(0x30, 0x33, 0x38)); // la esquina redondeada
     }
 
+    // HU-120: sin toma, el encabezado lleva el rótulo de la app y no el estado del guardado: lo
+    // único que cambia es el encabezado, y el estado (a la derecha del rótulo) desaparece.
+    void panelSinToma()
+    {
+        SheetOrder o;
+        o.add(1);
+        PanelInfo info;
+        info.number = 1;
+        info.total = 2;
+        info.strip = panelSlots(o, 0);
+        info.lead = QStringLiteral("HB · 0,87 mm");
+        const PanelLayout layout = panelLayout(2560, 1080, 1.0, 1.6);
+        const QColor paper(0xFA, 0xF8, 0xF2), outside(0x30, 0x33, 0x38);
+        const QImage withState = paintPanel(info, layout, paper, outside);
+        info.heading = QStringLiteral("PILA");
+        info.take = QStringLiteral("no se guarda");
+        info.showState = false;
+        const QImage heading = paintPanel(info, layout, paper, outside);
+        info.heading = QStringLiteral("TOMA");
+        info.take.clear();
+        const QImage noState = paintPanel(info, layout, paper, outside);
+        const int top = layout.thumbs[0].top(); // ya es desde la esquina del panel
+        int changed = 0;
+        for (int y = 0; y < withState.height(); ++y)
+            for (int x = 0; x < withState.width(); ++x) {
+                if (heading.pixel(x, y) != withState.pixel(x, y)) {
+                    QVERIFY2(y < top, "cambia solo el encabezado");
+                    ++changed;
+                }
+                if (noState.pixel(x, y) != withState.pixel(x, y))
+                    QVERIFY2(y < top && x > withState.width() / 3, "sin estado: el rótulo queda, se va el estado");
+            }
+        QVERIFY(changed > 0);
+    }
+
     // HU-86: una toma que no se abre no se pisa: se usa la de al lado que abre, o una nueva;
     // arrancar otra vez vuelve a la misma (no crea una carpeta por arranque).
     void carpetaDeLaToma()

@@ -14,7 +14,7 @@ Apps de escritorio para dibujar con tableta digitalizadora sobre un lienzo propi
   F4 abre el menú y F2 el panel con los parámetros de cada ejercicio. La tabla completa de teclas está en [docs/diseno.md](docs/diseno.md#teclas-v140).
 - **Cartuchera** (`apps/cartuchera`): hoja libre para dibujar, con deshacer.
 - **Mesa de animación** (`apps/mesadeanimacion`): hojas apiladas para la etapa de rough animation, con un solo grafito (HB) sobre papel de animación. ← → flipean a mano (mantener la flecha muestra la hoja vecina; al soltar queda activa), L prende la mesa de luz (2 hojas atrás en naranja, 1 adelante en turquesa), 1 a 5 eligen el grafito o un lápiz de color (azul de construcción, rojo y verde de sombras, violeta de cierres), Insert agrega una hoja, ↑ ↓ la mueven en la pila, Inicio y Fin saltan a la primera y la última, K marca keys y breakdowns, + − y Espacio + arrastrar acercan y mueven la vista, el botón del lápiz abre un menú alrededor de la punta, F deja una hoja fija debajo de todas (el layout), G muestra la guía de campo, C la carta de timing de las keys, O pone la pila en círculo, A elige un audio de referencia (W muestra su onda, P lo reproduce, M pone marcas), Ctrl+E exporta la toma como PNG numerados, y Tab muestra el panel de hojas. Ctrl+, muestra todos los atajos y Ctrl+Q sale (en las tres apps). La toma se guarda sola. Sin reproducción automática ni fps: el timing lo da la mano. [Idea](docs/mesa-de-animacion/idea.md) · [requerimientos y backlog](docs/mesa-de-animacion/requerimientos.md) · [arquitectura y formato de la toma](docs/mesa-de-animacion/arquitectura.md).
-- **Ejercicios de animación** (idea en estudio): como Ejercicios de trazos, pero sobre la pila de hojas de la Mesa, con mesa de luz y flip; la misma consigna en varias hojas para practicar consistencia, y un prisma que gira hoja por hoja con su ghost. [Idea](docs/ejercicios-animacion/idea.md) · [requerimientos y backlog](docs/ejercicios-animacion/requerimientos.md).
+- **Ejercicios de animación** (`apps/ejerciciosanimacion`, en desarrollo): como Ejercicios de trazos, pero sobre la pila de hojas de la Mesa, con mesa de luz y flip; la misma consigna en varias hojas para practicar consistencia, y un prisma que gira hoja por hoja con su ghost. [Idea](docs/ejercicios-animacion/idea.md) · [requerimientos y backlog](docs/ejercicios-animacion/requerimientos.md).
 
 - [Alcance de la v1](docs/alcance-v1.md)
 - [Diseño (sistema visual y pantallas)](docs/diseno.md)
@@ -31,6 +31,7 @@ libs/exercises/    ejercicios de trazos: generadores por semilla, sesión y men�
 apps/ejercicios/   Ejercicios de trazos: el ejecutable sobre libs/exercises y libs/lienzo
 apps/cartuchera/   hoja libre
 apps/mesadeanimacion/  pila de hojas, flip y mesa de luz
+apps/ejerciciosanimacion/  ejercicios en pila (en desarrollo)
 libs/audio/        lectura del audio (Media Foundation) y reproducción (WASAPI)
 spikes/            mediciones de la Fase 0 de Cartuchera (se compilan para que no se rompan)
 cmake/             opciones comunes de los targets

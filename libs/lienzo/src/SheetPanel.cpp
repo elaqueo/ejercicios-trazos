@@ -128,18 +128,21 @@ QImage paintPanel(const PanelInfo& info, const PanelLayout& layout, const QColor
     };
     // La toma y si está guardada.
     double y = px(kPad);
-    text(QRectF(left, y, right - left, px(16)), QStringLiteral("TOMA"), font(false, px(12), QFont::DemiBold),
+    text(QRectF(left, y, right - left, px(16)), info.heading, font(false, px(12), QFont::DemiBold),
          theme::kTextoSecundario, Qt::AlignLeft | Qt::AlignVCenter);
     const bool exporting = !info.exportState.isEmpty(); // HU-109
-    const QString state = exporting   ? info.exportState
-                          : info.saved ? QStringLiteral("guardado")
-                                       : QStringLiteral("guardando…");
     const QFont small = font(false, px(13));
-    const double stateW = QFontMetricsF(small).horizontalAdvance(state);
-    text(QRectF(right - stateW, y, stateW, px(16)), state, small, theme::kTextoSecundario, Qt::AlignRight | Qt::AlignVCenter);
-    p.setPen(Qt::NoPen);
-    p.setBrush((exporting ? !info.exportBusy : info.saved) ? theme::kGuardado : accent);
-    p.drawEllipse(QPointF(right - stateW - px(10), y + px(8)), px(4), px(4));
+    if (info.showState) {
+        const QString state = exporting   ? info.exportState
+                              : info.saved ? QStringLiteral("guardado")
+                                           : QStringLiteral("guardando…");
+        const double stateW = QFontMetricsF(small).horizontalAdvance(state);
+        text(QRectF(right - stateW, y, stateW, px(16)), state, small, theme::kTextoSecundario,
+             Qt::AlignRight | Qt::AlignVCenter);
+        p.setPen(Qt::NoPen);
+        p.setBrush((exporting ? !info.exportBusy : info.saved) ? theme::kGuardado : accent);
+        p.drawEllipse(QPointF(right - stateW - px(10), y + px(8)), px(4), px(4));
+    }
     y += px(22);
     text(QRectF(left, y, right - left, px(22)),
          QFontMetricsF(font(false, px(16))).elidedText(info.take, Qt::ElideMiddle, right - left),

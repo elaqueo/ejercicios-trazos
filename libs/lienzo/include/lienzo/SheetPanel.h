@@ -37,6 +37,10 @@ std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int aroun
 struct PanelInfo {
     QString take;       // el nombre de la toma (vacío: sin toma)
     bool saved = true;  // todo lo cambiado está escrito
+    // HU-120: el rótulo del encabezado y si muestra el estado del guardado (sin toma, la app
+    // pone lo suyo: Ejercicios de animación, "PILA" y "no se guarda", sin estado).
+    QString heading = QStringLiteral("TOMA");
+    bool showState = true;
     // HU-109: en lugar del estado del guardado, "exportando 3/12" o, al terminar, "exportado"
     // (vacío: el del guardado); exportBusy pone el punto en acento.
     QString exportState;

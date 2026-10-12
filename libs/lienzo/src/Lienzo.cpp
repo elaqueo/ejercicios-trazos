@@ -771,6 +771,7 @@ struct Lienzo::Impl {
     // acá; las miniaturas, el render). Lo llaman applyLayers (cada cambio de la pila o flip) y
     // un reloj, para el estado del guardado, el lápiz y el giro.
     bool panelVisible = false;
+    QString panelHeading, panelName; // HU-120: el encabezado sin toma
     PanelInfo panelShown;
     QRect panelRect;
     bool panelSent = false;
@@ -792,6 +793,11 @@ struct Lienzo::Impl {
         PanelInfo info;
         info.take = saver ? QFileInfo(saver->dir()).fileName() : QString();
         info.saved = !saver || (!saver->pending() && sim->unsavedSheets() == 0);
+        if (!saver && !panelHeading.isEmpty()) { // HU-120
+            info.heading = panelHeading;
+            info.take = panelName;
+            info.showState = false;
+        }
         if (exportDone >= 0) { // HU-109
             info.exportState = QStringLiteral("exportando %1/%2").arg(exportDone).arg(exportTotal);
             info.exportBusy = true;
@@ -2196,6 +2202,13 @@ void Lienzo::removeSheet(int index)
         return;
     d->post([&] { d->sim->requestRemoveSheet(index); });
     d->applyLayers();
+}
+
+void Lienzo::setPanelHeading(const QString& label, const QString& name)
+{
+    d->panelHeading = label;
+    d->panelName = name;
+    d->refreshSheetPanel(true);
 }
 
 void Lienzo::setSheetPanel(bool visible)

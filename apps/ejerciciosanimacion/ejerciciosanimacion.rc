@@ -1,0 +1,2 @@
+// Ícono del ejecutable: por ahora el de la Mesa; el propio llega con el instalador (HU-124).
+IDI_ICON1 ICON "../../assets/icons/mesadeanimacion.ico"

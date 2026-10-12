@@ -577,5 +577,63 @@ finally {
     if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
     Remove-Item $takeDir -Recurse -Force -ErrorAction SilentlyContinue
 }
+# Ejercicios de animación (HU-120): arranca con su nombre y sus atajos, con 12 hojas en memoria;
+# el flip y la mesa de luz como en la Mesa.
+$anim = Join-Path $root 'build\release\ejerciciosanimacion.exe'
+$animLog = Join-Path $data 'ejerciciosanimacion.log'
+if (Get-Process ejerciciosanimacion -ErrorAction SilentlyContinue) { throw 'Ejercicios de animación está abierta: cerrarla antes de la prueba' }
+$backup = if (Test-Path $config) { [IO.File]::ReadAllBytes($config) } else { $null }
+$state = if ($backup) { Get-Content $config -Raw | ConvertFrom-Json -AsHashtable } else { @{} }
+if (-not $state.ContainsKey('ejerciciosanimacion')) { $state['ejerciciosanimacion'] = @{} }
+$state['ejerciciosanimacion']['lightTable'] = $true
+$state | ConvertTo-Json -Depth 32 | Set-Content $config -Encoding utf8
+$app = $null
+try {
+    $app = Start-Process $anim -PassThru
+    Start-Sleep 4
+    $ws = New-Object -ComObject WScript.Shell
+    $null = $ws.AppActivate($app.Id)
+    Start-Sleep 1
+    $ws.SendKeys('^,'); Start-Sleep -Milliseconds 800
+    $ws.SendKeys('{ESC}'); Start-Sleep -Milliseconds 600
+    $joined = @(Get-Content $animLog -Encoding utf8) -join ' '
+    if ($joined -match 'Ejercicios de animación' -and $joined -match 'Pila: 12 hojas en memoria' -and
+        $joined -match 'Atajos: abiertos.*Atajos: cerrados') {
+        Write-Host '  ok   Ejercicios de animación arranca con 12 hojas y Ctrl+, abre sus atajos'
+    } else {
+        Write-Host "  FALLA Ejercicios de animación arranca · $joined"
+        $failures.Add('Ejercicios de animación')
+    }
+
+    foreach ($k in (@('{RIGHT}') * 11 + @('{LEFT}') * 11)) { $ws.SendKeys($k); Start-Sleep -Milliseconds 150 }
+    Start-Sleep -Milliseconds 400
+    $flips = @(Get-Content $animLog -Encoding utf8 | ForEach-Object {
+        if ($_ -match 'Flip presentado en ([\d.]+) ms') { [double]$Matches[1] } })
+    $shown = @(Get-Content $animLog -Encoding utf8 | Where-Object { $_ -match 'Flip: hoja' }).Count
+    $slow = @($flips | Where-Object { $_ -ge 18 })
+    $max = ($flips | Measure-Object -Maximum).Maximum
+    foreach ($k in 'l', 'l') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    $toggles = (@(Get-Content $animLog -Encoding utf8 | Where-Object { $_ -match 'Mesa de luz: ' }) -join ' ')
+    if ($shown -eq 22 -and $flips.Count -ge 20 -and $slow.Count -eq 0 -and $toggles -match 'prendida.*apagada.*prendida') {
+        Write-Host "  ok   22 flips por las 12 hojas, el más lento en $max ms, y L apaga y prende la mesa de luz"
+    } else {
+        Write-Host "  FALLA flip en Ejercicios de animación: $shown pedidos, $($flips.Count) presentados, $($slow.Count) de 18 ms o más (máx. $max ms) · $toggles"
+        $failures.Add('Flip en Ejercicios de animación')
+    }
+    Ctrl 0x51
+    if ($app.WaitForExit(10000)) {
+        Write-Host '  ok   Ctrl+Q cierra Ejercicios de animación'
+    } else {
+        Write-Host '  FALLA Ctrl+Q no cerró Ejercicios de animación'
+        $failures.Add('Cierre de Ejercicios de animación')
+    }
+}
+finally {
+    if ($app -and -not $app.HasExited) {
+        $null = $app.CloseMainWindow()
+        if (-not $app.WaitForExit(15000)) { $app.Kill() }
+    }
+    if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
+}
 if ($failures.Count) { Write-Host "$($failures.Count) falla(s)"; exit 1 }
 Write-Host 'Prueba de la app real: todo bien'

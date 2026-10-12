@@ -240,6 +240,9 @@ public:
     // la toma, la hoja activa y sus vecinas en miniatura, el lápiz, la mesa de luz y el giro.
     // Solo con la pila de hojas (options.sheets); la app elige la tecla y lo guarda.
     void setSheetPanel(bool visible);
+    // HU-120: sin toma, el encabezado del panel dice `label` y `name` en lugar de la toma, sin el
+    // estado del guardado (Ejercicios de animación: la pila no se guarda).
+    void setPanelHeading(const QString& label, const QString& name);
     bool sheetPanel() const;
     // Panel de configuración (HU-12): agrega las pestañas del lienzo ("Lápiz": mina activa y
     // goma; "Pantalla": área útil y monitor) y lo muestra pegado al borde derecho del área
