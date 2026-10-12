@@ -61,7 +61,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Cilindro que gira (Ejercicios de animación) | Como la mesa "Cilindro que gira": el ghost del prisma (gris tinta al 50 %, lo oculto punteado, el ángulo abajo a la derecha); las tapas en elipses exactas, la silueta de canto y una costura (una generatriz y una marca en la tapa) que deja ver el giro; por defecto, sobre el eje horizontal | HU-130 |
 | Panel de hojas (Ejercicios de animación) | Como la variante de la mesa "Panel de hojas": en vez de la toma, "EJERCICIO" y el título del ejercicio, con "modo mixto" a la derecha si está prendido; sin estado de guardado (la pila no se guarda) | HU-120, HU-121 |
 
-## Teclas (v1.5.0)
+## Teclas (v1.5.1)
 
 Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden la misma tecla, la app avisa al iniciar.
 
