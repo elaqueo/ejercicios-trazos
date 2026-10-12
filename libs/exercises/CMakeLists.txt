@@ -2,10 +2,12 @@
 # generadores deterministas por semilla, la sesión (siguiente, repetir, modo mixto) y el menú
 # F4. Los usan Ejercicios de trazos y Ejercicios de animación.
 qt_add_library(exercises STATIC
+    include/exercises/CabezaQueGira.h
     include/exercises/Cajas.h
     include/exercises/CilindroQueGira.h
     include/exercises/CajasRotadas.h
     include/exercises/Concentricas.h
+    include/exercises/ConoQueGira.h
     include/exercises/Curva.h
     include/exercises/CurvaDireccion.h
     include/exercises/Direccion.h
@@ -29,10 +31,12 @@ qt_add_library(exercises STATIC
     include/exercises/StrokeStacks.h
     include/exercises/Turntable.h
     include/exercises/WritingCurve.h
+    src/CabezaQueGira.cpp
     src/Cajas.cpp
     src/CilindroQueGira.cpp
     src/CajasRotadas.cpp
     src/Concentricas.cpp
+    src/ConoQueGira.cpp
     src/Curva.cpp
     src/CurvaDireccion.cpp
     src/Direccion.cpp

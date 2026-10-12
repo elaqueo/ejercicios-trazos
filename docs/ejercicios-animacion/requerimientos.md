@@ -104,6 +104,9 @@ Las variantes y ejercicios nuevos que salieron de la idea. Se estiman y se refin
     4. La cámara, la perspectiva y el estilo del ghost son los del prisma, en común; el prisma no cambia.
     5. Diseño primero en el canvas (mesa "Cilindro que gira"). Pruebas: la elipse de la tapa, la silueta tangente a las tapas, lo oculto, un paso por hoja, la semilla y que entre en la hoja.
 131. **HU-131 · Cono y cabeza que giran** (Could · 5 pts). Como practicante, quiero un cono y una cabeza simplificada que giran como el prisma y el cilindro, para practicar más volúmenes curvos (salió de dividir la HU-130).
+    1. Cono: radio y altura al azar (de 1:3 a 3:1), la base en elipse exacta, la silueta del vértice tangente a la base (ninguna visto de punta), lo oculto punteado y la costura; por defecto sobre el eje horizontal.
+    2. Cabeza: Loomis simplificada, solo la estructura (la esfera del cráneo, la línea media y la de las cejas, los cortes laterales, la línea de la cara al mentón y la mandíbula); la línea media hace de costura; por defecto sobre el eje vertical (de lado a lado).
+    3. Diseño primero en el canvas (mesa "Cono y cabeza que giran"). Pruebas: la silueta del cono, lo oculto, el contorno de la esfera, la cabeza de frente y de costado, un paso por hoja, la semilla y que entren en la hoja.
 
 ## Plan por fases
 

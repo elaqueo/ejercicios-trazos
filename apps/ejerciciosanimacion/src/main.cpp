@@ -5,6 +5,7 @@
 // HU-121: la sesión de pila (libs/exercises/StackSession): cada ejercicio arma su pila con su
 // guía en cada hoja; Enter, R, G, F4 y F2, y lo elegido queda en config.
 // HU-123: el prisma que gira, primero en el menú (grupo "Volumen"). HU-130: el cilindro, a su lado.
+// HU-131: el cono y la cabeza.
 
 #include <appkit/Config.h>
 #include <appkit/Log.h>
@@ -13,7 +14,9 @@
 #include <appkit/SidePanel.h>
 #include <appkit/Theme.h>
 #include <drymedia/Paper.h>
+#include <exercises/CabezaQueGira.h>
 #include <exercises/CilindroQueGira.h>
+#include <exercises/ConoQueGira.h>
 #include <exercises/ExerciseMenu.h>
 #include <exercises/PrismaQueGira.h>
 #include <exercises/StackSession.h>
@@ -85,12 +88,14 @@ int main(int argc, char* argv[])
                            .colorPencils = true,
                            .zoom = true});
 
-    // Los ejercicios de pila: las formas que giran (HU-123, HU-130) y los trazos de Ejercicios en
+    // Los ejercicios de pila: las formas que giran (HU-123, HU-130, HU-131) y los trazos de Ejercicios en
     // pila (HU-122).
     const ejercicios::PrismaQueGira prism;
     const ejercicios::CilindroQueGira cylinder;
+    const ejercicios::ConoQueGira cone;
+    const ejercicios::CabezaQueGira head;
     const ejercicios::StrokeStacks strokes;
-    QList<const ejercicios::StackExercise*> exercises{&prism, &cylinder};
+    QList<const ejercicios::StackExercise*> exercises{&prism, &cylinder, &cone, &head};
     exercises.append(strokes.exercises());
 
     // Lo guardado (RNF-06): el último ejercicio, los parámetros de cada uno y el modo mixto.

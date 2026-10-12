@@ -14,7 +14,7 @@ Ejercicios de animación corre sobre el lienzo de `libs/lienzo` con la pila de h
 
 ```text
 apps/ejerciciosanimacion   main.cpp: Lienzo + StackSession + menú F4 + panel F2 + config
-libs/exercises             StackExercise, SameOnEverySheet, StrokeStacks, Turntable, PrismaQueGira, CilindroQueGira, StackSession
+libs/exercises             StackExercise, SameOnEverySheet, StrokeStacks, Turntable, PrismaQueGira, CilindroQueGira, ConoQueGira, CabezaQueGira, StackSession
 libs/lienzo                resetSheets, setSheetGuide, setSheetGuidesVisible, setPanelHeading
 libs/appkit                Param y ParamForm, MenuOverlay, SidePanel, Config, Shortcuts, Theme
 ```
@@ -25,7 +25,7 @@ Es como `Exercise`, pero `generate(params, seed, zone)` devuelve una guía y una
 
 - **`SameOnEverySheet`** (HU-122): lleva un ejercicio de Ejercicios a la pila con la misma guía en todas las hojas. Conserva su id, su título, su grupo y sus parámetros, más las hojas.
 - **`StrokeStacks`** (HU-122): los 11 trazos de Ejercicios que tienen sentido en pila (líneas, curvas, elipses y perspectiva; escritura, ghosting y presión no), con 6 hojas por defecto.
-- **`PrismaQueGira`** (HU-123) y **`CilindroQueGira`** (HU-130): las formas que giran, propias de la app, más abajo.
+- **`PrismaQueGira`** (HU-123), **`CilindroQueGira`** (HU-130), **`ConoQueGira`** y **`CabezaQueGira`** (HU-131): las formas que giran, propias de la app, más abajo.
 
 ### La sesión de pila (`StackSession`, HU-121)
 
@@ -43,7 +43,7 @@ La guía por hoja (`setSheetGuide`, textura por id en el render, capa `SheetPict
 
 ## Lo común de las formas que giran (`Turntable`, HU-130)
 
-El prisma y el cilindro comparten la cámara, los parámetros y el ghost (`libs/exercises/Turntable`):
+Las cuatro formas comparten la cámara, los parámetros y el ghost (`libs/exercises/Turntable`):
 
 - **`giro::place` y `giro::project`:** el giro sobre el eje, la inclinación de la cámara y la perspectiva.
 - **`giro::facesCamera`:** si una superficie mira a la cámara.
@@ -83,6 +83,25 @@ Cada forma solo sabe sus medidas, qué se ve y qué se dibuja.
 - **La silueta:** las dos generatrices de canto a la cámara. La condición es n(t)·(ojo − p) = 0, y como n(t)·p = r en todo el largo, queda A cos t + B sin t = r, que tiene solución exacta. Si se lo ve justo de punta, no hay silueta.
 - **La costura:** la generatriz que a 0° mira a la cámara, más una marca de ahí hacia el centro de la tapa de arriba. Sin ella, el giro sobre su propio eje no se ve. Un parámetro la saca.
 
+## El cono y la cabeza que giran (HU-131)
+
+**El cono** (`ConoQueGira`) es como el cilindro, con una sola tapa:
+
+- **La silueta:** toda generatriz pasa por el vértice, así que el costado en t mira a la cámara si n(t)·(ojo − vértice) > 0. Con n(t) = h·(cos t, 0, sin t) + r·(0, 1, 0) queda A cos t + B sin t + C > 0, y la silueta es su borde, con solución exacta. No hay silueta cuando el vértice cae adentro de la base, visto de punta.
+- **La base** se ve donde la ve su cara o el costado.
+- **La costura** es una generatriz más una marca en la base.
+
+**La cabeza** (`CabezaQueGira`) es la de Loomis simplificada, solo la estructura (mesa "Cono y cabeza que giran"):
+
+- **Las piezas:** la esfera del cráneo, con el pivote en su centro; la línea media y la de las cejas, que son círculos máximos; los cortes laterales, que son círculos planos donde va la oreja; la línea de la cara, de la base de la nariz al mentón, y la mandíbula, de los cortes al mentón.
+- **El contorno:** como el centro está en el eje de la cámara, los rayos tangentes tocan la esfera en un círculo, que proyectado es otro círculo de radio R·ojo/√(ojo² − R²).
+- **Qué se ve:**
+  - de la esfera, lo que mira a la cámara;
+  - un corte, si su plano mira a la cámara;
+  - la cara y la mandíbula, según planos aproximados.
+- **Lo que varía con la semilla:** poco, solo el corte y el largo de la cara.
+- **La costura** es la línea media.
+
 ## Rendimiento
 
 | Requisito | Medido |
@@ -108,6 +127,8 @@ Cada forma solo sabe sus medidas, qué se ve y qué se dibuja.
   - cada hoja suma un paso;
   - la semilla;
   - que entra en la hoja.
+- **`tst_cono`:** la silueta va al vértice y deja todo el cono de un lado (sin silueta, el vértice cae adentro de la base); lo oculto de la base; la base de frente; el paso por hoja, la costura, la semilla y que entra en la hoja.
+- **`tst_cabeza`:** el contorno exacto con todo adentro; de frente, la línea media vertical, todo simétrico y la mitad de adelante de las cejas; de costado, el corte de frente; el paso por hoja, la semilla y que entra en la hoja.
 - **`tst_lienzo`:** la guía de la hoja que se ve (`guiaDeLaHojaQueSeVe`), la pila nueva (`pilaNueva`) y el panel sin toma (`panelSinToma`).
 - **Prueba de la app real** (`scripts/smoke.ps1`): arranca en el prisma con 12 hojas y verifica:
   - Ctrl+, abre los atajos;
