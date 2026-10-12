@@ -359,6 +359,23 @@ try {
         $failures.Add('Inicio y Fin')
     }
 
+    # HU-89: F deja fija la 1 de 3 (queda en toma.json) y se sigue en la vecina: Fin e Inicio la
+    # saltean (hoja 2 de 2 y 1 de 2); Ctrl+F entra a dibujarla y vuelve; Ctrl+F y F la desmarcan
+    # y la pila vuelve a ser de 3, con la activa en la 1.
+    $ws.SendKeys('f'); Start-Sleep -Milliseconds 2500
+    $json = Get-Content (Join-Path $takeDir 'toma.json') -Raw -Encoding utf8 | ConvertFrom-Json
+    $fixedCount = @($json.hojas | Where-Object { $_.fija }).Count
+    foreach ($k in '{END}', '{HOME}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    Ctrl 0x46; Ctrl 0x46; Ctrl 0x46
+    $ws.SendKeys('f'); Start-Sleep -Milliseconds 500
+    $fixedLog = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Hoja fija|la última|la primera' }) | Select-Object -Last 7) -join ' '
+    if ($fixedCount -eq 1 -and $fixedLog -match 'Hoja fija: la activa.*la última · hoja 2 de 2.*la primera · hoja 1 de 2.*dibujando en ella.*vuelve a la hoja 1 de 2.*dibujando en ella.*ninguna \(vuelve al flip como hoja 1 de 3\)') {
+        Write-Host '  ok   F deja fija la hoja (en toma.json), Inicio y Fin la saltean, Ctrl+F entra y vuelve, F la desmarca'
+    } else {
+        Write-Host "  FALLA hoja fija: $fixedCount fija en toma.json · $fixedLog"
+        $failures.Add('Hoja fija')
+    }
+
     # HU-114: Tab oculta el panel de hojas y lo vuelve a mostrar (los flips de arriba ya
     # corrieron con el panel visible).
     foreach ($k in '{TAB}', '{TAB}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lienzo/FixedSheet.h"
 #include "lienzo/SheetRole.h"
 #include "lienzo/SheetStack.h"
 
@@ -28,13 +29,14 @@ struct PanelSlot {
     bool operator==(const PanelSlot&) const = default;
 };
 // La hoja `center` y `around` antes y después, en orden; los lugares fuera de la pila quedan
-// con id 0.
-std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int around = 3, const SheetRoles& roles = {});
+// con id 0. La hoja fija (HU-89) no está en la tira y no se numera; `center` no puede ser ella.
+std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int around = 3, const SheetRoles& roles = {},
+                                  uint64_t fixed = 0);
 
 struct PanelInfo {
     QString take;       // el nombre de la toma (vacío: sin toma)
     bool saved = true;  // todo lo cambiado está escrito
-    int number = 1;     // la hoja del centro, desde 1
+    int number = 1;     // la hoja del centro, desde 1; 0: la hoja fija (HU-89), "F"
     SheetRole role = SheetRole::None;
     int total = 1;
     std::vector<PanelSlot> strip;
@@ -44,6 +46,8 @@ struct PanelInfo {
     bool keysOnly = false;      // HU-93: la mesa de luz muestra solo las keys
     int degrees = 0;            // giro de la vista
     int zoom = 100;             // HU-101, en %
+    bool hasFixed = false;      // HU-89: hay hoja fija
+    bool onFixed = false;       // HU-89: se está dibujando en ella
     QString key = QStringLiteral("Tab");
     bool operator==(const PanelInfo&) const = default;
 };

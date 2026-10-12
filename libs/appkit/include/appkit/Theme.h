@@ -40,6 +40,8 @@ inline const QColor kMarcaHoja{0x6B, 0x71, 0x78};  // gris tinta: el número y e
 inline const QColor kMesaLuzAnterior{0xE8, 0x86, 0x2A}; // naranja (HU-99: el rojo se confundía con el lápiz rojo)
 inline const QColor kMesaLuzSiguiente{0x14, 0xA3, 0xA3}; // turquesa (ídem con el verde)
 inline constexpr float kMesaLuzOpacidad[] = {0.6f, 0.3f};
+inline const QColor kHojaFija{0x3A, 0x3A, 0x3E};   // la hoja fija debajo de todas: gris grafito, sin tinte (HU-89)
+inline constexpr float kHojaFijaOpacidad = 0.35f;
 
 // Medidas (px).
 inline constexpr int kEspacio[] = {4, 8, 12, 16, 24, 32};

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lienzo/FixedSheet.h"
 #include "lienzo/Renderer.h"
 #include "lienzo/SheetRole.h"
 #include "lienzo/SheetStack.h"
@@ -24,15 +25,16 @@ struct LightTable {
 };
 
 // Las capas para el render con la pila como está (en los extremos, las que haya), las más
-// lejanas primero.
+// lejanas primero. La hoja fija (HU-89) no cuenta: se saltea.
 inline std::vector<SheetLayer> lightTableLayers(const SheetOrder& order, const LightTable& table,
-                                                const SheetRoles& roles = {})
+                                                const SheetRoles& roles = {}, uint64_t fixed = 0)
 {
+    const int skip = fixedIndex(order, fixed);
     // Las posiciones que cuentan hacia cada lado, de la más cercana a la más lejana.
     const auto side = [&](int step, size_t count) {
         std::vector<int> found;
         for (int i = order.active + step; order.valid(i) && found.size() < count; i += step)
-            if (!table.keysOnly || roleOf(roles, order.ids[size_t(i)]) == SheetRole::Key)
+            if (i != skip && (!table.keysOnly || roleOf(roles, order.ids[size_t(i)]) == SheetRole::Key))
                 found.push_back(i);
         return found;
     };

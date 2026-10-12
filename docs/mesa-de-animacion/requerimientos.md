@@ -107,6 +107,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     1. Un atajo marca la activa como fija: pasa al fondo, sin tinte, visible con la mesa de luz prendida o apagada.
     2. ← → la saltean; ↑ ↓ no la mueven; solo puede haber una (marcar otra desmarca la anterior).
     3. Se puede dibujar en ella eligiéndola con un atajo propio (no con el flip).
+    4. *Hecho (11 oct 2026): F marca y desmarca, Ctrl+F entra a dibujarla y vuelve. No se mueve de su lugar en la pila (va por id, como el rol), así no pasa por el deshacer: borrarla y deshacer la trae fija. Se ve en gris grafito al 35 %; dibujándola, la hoja de la que se vino queda tenue de referencia y la esquina dice F. La numeración no la cuenta. Va en toma.json ("fija": true). Cuesta 0,4 ms por frame (se compone siempre que hay fija).*
 
 115. **HU-115 · Inicio y Fin saltan a la primera y la última hoja** (Must · 1 pt). Como animador, quiero saltar a la primera hoja con Inicio y a la última con Fin, para ir a un extremo de la toma sin flipear hoja por hoja (pedido del usuario del 11 de octubre de 2026).
     1. Inicio activa la primera hoja y Fin la última; si ya es la activa, no hace nada.

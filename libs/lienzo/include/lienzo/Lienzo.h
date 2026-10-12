@@ -154,6 +154,22 @@ public:
     // extremos (no hace nada).
     bool moveActiveSheet(int step);
     void activateSheet(int index);
+    // Hoja fija (HU-89, lienzo/FixedSheet.h; mesa "Hoja fija"): una hoja debajo de todas, gris y
+    // sin tinte, que el flip, Inicio, Fin, ↑ ↓ y la numeración saltean. toggleFixedSheet (F)
+    // marca la activa (desmarca la anterior; se sigue en la vecina) o, si ya es la fija, la
+    // desmarca. toggleDrawOnFixed (Ctrl+F) entra a dibujar en ella o vuelve a la hoja de la que
+    // se vino (false si no hay fija). Se guarda en toma.json; no va al deshacer.
+    void toggleFixedSheet();
+    bool toggleDrawOnFixed();
+    bool hasFixedSheet() const;
+    bool onFixedSheet() const;
+    // El número de la activa sin contar la fija (0: es la fija), cuántas flipean, y "hoja 3 de
+    // 12" o "hoja fija" para el log.
+    int sheetNumber() const;
+    int flipSheetCount() const;
+    QString activeSheetLabel() const;
+    // HU-115: activa la primera o la última hoja del flip; false si ya lo era.
+    bool jumpToEdge(bool last);
 
     // Mesa de luz (HU-91): las hojas que se ven debajo de la activa, contadas desde ella (ver
     // LightTable.h); se recalcula sola cada vez que cambia la pila. Vacía = apagada. Cada hoja

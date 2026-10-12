@@ -48,7 +48,7 @@ SheetRole roleOf(const SheetRoles& roles, uint64_t id)
 void drawRoleMark(QPainter& p, const QRectF& box, int number, SheetRole role, const QFont& font, const QColor& color,
                   double line)
 {
-    const QString text = QString::number(number);
+    const QString text = number > 0 ? QString::number(number) : QStringLiteral("F"); // 0: la hoja fija (HU-89)
     p.setFont(font);
     p.setPen(color);
     p.drawText(box, Qt::AlignCenter, text);

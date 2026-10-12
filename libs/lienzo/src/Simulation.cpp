@@ -227,6 +227,7 @@ void Simulation::autosave(bool interruptible)
     }
     double degrees, zoom, panX, panY;
     SheetRoles roles; // solo de las hojas que están (las borradas guardan el suyo para deshacer)
+    uint64_t fixed = 0; // ídem
     {
         std::lock_guard rotationLock(m_rotationMutex);
         degrees = m_rotation.degrees;
@@ -236,8 +237,10 @@ void Simulation::autosave(bool interruptible)
         for (const uint64_t id : order.ids)
             if (const SheetRole role = roleOf(m_roles, id); role != SheetRole::None)
                 roles[id] = role;
+        if (order.indexOf(m_fixedSheet) >= 0)
+            fixed = m_fixedSheet;
     }
-    TakeIndex index{order.ids, order.active, degrees, std::move(roles), zoom, panX, panY};
+    TakeIndex index{order.ids, order.active, degrees, std::move(roles), zoom, panX, panY, fixed};
     if (index != m_savedIndex) {
         m_savedIndex = index;
         m_saver->saveIndex(std::move(index));

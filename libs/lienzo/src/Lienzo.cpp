@@ -295,6 +295,7 @@ struct Lienzo::Impl {
         sim->setTexture(texture);
         sim->setGuides(guideLayer());
         sim->setRoles(roles);
+        sim->setFixedSheet(fixedSheet);
         sim->setRotation(rotation());
         if (render)
             render->setRotation(rotation());
@@ -343,8 +344,18 @@ struct Lienzo::Impl {
             return;
         syncOrder();
         std::vector<SheetLayer> below;
-        if (!flipping()) // mientras se flipea, la mesa de luz no se ve (HU-90)
-            below = lightTableLayers(order, lightTable, roles);
+        const int fixed = fixedIndex(order, fixedSheet);
+        const QColor gray = appkit::theme::kHojaFija;
+        const uint32_t fixedColor = bgra(gray.red(), gray.green(), gray.blue());
+        if (showingFixed()) { // HU-89: dibujando en la fija, la hoja de la que se vino de referencia
+            if (const int back = fixedReturnIndex(); back >= 0)
+                below.push_back({order.ids[size_t(back)], fixedColor, appkit::theme::kHojaFijaOpacidad});
+        } else {
+            if (!flipping()) // mientras se flipea, la mesa de luz no se ve (HU-90)
+                below = lightTableLayers(order, lightTable, roles, fixedSheet);
+            if (fixed >= 0) // HU-89: la fija, debajo de todas, siempre
+                below.insert(below.begin(), {fixedSheet, fixedColor, appkit::theme::kHojaFijaOpacidad});
+        }
         uint64_t shown = 0;
         bool untilActive = false;
         if (order.valid(shownSheet) && (flipping() || shownSheet != order.active))
@@ -363,17 +374,19 @@ struct Lienzo::Impl {
     SheetRoles roles;
     int markNumber = 0;
     SheetRole markRole = SheetRole::None;
+    bool markShown = false; // el número 0 ahora es la fija (HU-89): ya no sirve de "sin marca"
     void applyMark()
     {
         if (!options.sheets)
             return;
         const int index = flipping() && order.valid(shownSheet) ? shownSheet : order.active;
-        const int number = index + 1;
+        const int number = lienzo::sheetNumber(order, fixedSheet, index); // 0: la fija, "F" (HU-89)
         const SheetRole role = roleOf(roles, order.ids[size_t(index)]);
-        if (number == markNumber && role == markRole)
+        if (number == markNumber && role == markRole && markShown)
             return;
         markNumber = number;
         markRole = role;
+        markShown = true;
         const double scale = screen->devicePixelRatio();
         const int size = int(std::lround(64 * scale)), margin = int(std::lround(20 * scale));
         const QImage mark = paintSheetMark(number, role, size);
@@ -404,14 +417,21 @@ struct Lienzo::Impl {
             return;
         }
         syncOrder();
-        const int center = flipping() && order.valid(shownSheet) ? shownSheet : order.active;
+        const int shown = flipping() && order.valid(shownSheet) ? shownSheet : order.active;
+        // HU-89: dibujando en la fija, la tira sigue alrededor de la hoja de la que se vino.
+        const int center = showingFixed() ? fixedReturnIndex() : shown;
         PanelInfo info;
         info.take = saver ? QFileInfo(saver->dir()).fileName() : QString();
         info.saved = !saver || (!saver->pending() && sim->unsavedSheets() == 0);
-        info.number = center + 1;
-        info.role = roleOf(roles, order.ids[size_t(center)]);
-        info.total = order.count;
-        info.strip = panelSlots(order, center, 3, roles);
+        info.number = lienzo::sheetNumber(order, fixedSheet, shown);
+        info.role = roleOf(roles, order.ids[size_t(shown)]);
+        info.total = flipCount(order, fixedSheet);
+        info.strip = panelSlots(order, center, 3, roles, fixedSheet);
+        if (showingFixed())
+            for (PanelSlot& s : info.strip)
+                s.center = false;
+        info.hasFixed = fixedIndex(order, fixedSheet) >= 0;
+        info.onFixed = showingFixed();
         if (colorPencil >= 0) {
             info.lead = QString::fromUtf8(kColorPencilNames[size_t(colorPencil)].name);
             info.leadColor = QColor::fromRgb(QRgb(kColorPencilColors[size_t(colorPencil)]));
@@ -462,18 +482,24 @@ struct Lienzo::Impl {
     {
         SheetOrder& o = syncOrder();
         const bool starting = !flipping();
+        // HU-89: desde la fija, la primera flecha vuelve a la hoja de la que se vino.
+        const bool fromFixed = starting && fixedIndex(o, fixedSheet) == o.active;
+        if (fromFixed && fixedReturnIndex() < 0)
+            return; // la única hoja es la fija
         if (starting) {
             releasedTo = 0;
-            shownSheet = o.active;
+            shownSheet = fromFixed ? fixedReturnIndex() : o.active;
             canvas->setPenBlocked(true);
         }
         if (pressedKey && std::find(flipKeys.begin(), flipKeys.end(), pressedKey) == flipKeys.end())
             flipKeys.push_back(pressedKey);
-        const int next = shownSheet + step;
-        const bool moved = o.valid(next); // en los extremos se queda
+        const int next = fromFixed ? shownSheet : flipStep(o, fixedSheet, shownSheet, step); // -1: en el extremo se queda
+        const bool moved = next >= 0 && (fromFixed || next != shownSheet);
         if (moved) {
             shownSheet = next;
-            qInfo().noquote() << QStringLiteral("Flip: hoja %1 de %2").arg(next + 1).arg(o.count);
+            qInfo().noquote() << QStringLiteral("Flip: hoja %1 de %2")
+                                     .arg(lienzo::sheetNumber(o, fixedSheet, next))
+                                     .arg(flipCount(o, fixedSheet));
         }
         if (starting || moved)
             applyLayers();
@@ -502,7 +528,9 @@ struct Lienzo::Impl {
             o.activate(target);
             releasedTo = o.ids[size_t(target)];
             post([this, target] { sim->requestActivateSheet(target); });
-            qInfo().noquote() << QStringLiteral("Flip: activa la hoja %1 de %2").arg(target + 1).arg(o.count);
+            qInfo().noquote() << QStringLiteral("Flip: activa la hoja %1 de %2")
+                                     .arg(lienzo::sheetNumber(o, fixedSheet, target))
+                                     .arg(flipCount(o, fixedSheet));
         }
         applyLayers();
     }
@@ -516,6 +544,22 @@ struct Lienzo::Impl {
             releasedTo = 0;
             applyLayers();
         }
+    }
+
+    // Hoja fija (HU-89, lienzo/FixedSheet.h): por id, como los roles. fixedReturn: la hoja de
+    // la que se vino a dibujar en ella (Ctrl+F), a la que se vuelve.
+    uint64_t fixedSheet = 0, fixedReturn = 0;
+    bool showingFixed() const { return !flipping() && order.valid(order.active) && fixedIndex(order, fixedSheet) == order.active; }
+    int fixedReturnIndex() const
+    {
+        const int i = order.indexOf(fixedReturn);
+        return i >= 0 && i != fixedIndex(order, fixedSheet) ? i : flipEdge(order, fixedSheet, false);
+    }
+    // "la hoja 3 de 12" o "la hoja fija", para el log.
+    QString sheetLabel(int index) const
+    {
+        const int n = lienzo::sheetNumber(order, fixedSheet, index);
+        return n ? QStringLiteral("hoja %1 de %2").arg(n).arg(flipCount(order, fixedSheet)) : QStringLiteral("hoja fija");
     }
 
     // Zoom y corrimiento de la vista (HU-101, HU-102): el corrimiento en píxeles del cliente.
@@ -606,7 +650,8 @@ struct Lienzo::Impl {
     TakeView takeView() const
     {
         return {viewDegrees, viewScale, mapping.sheetWidth ? viewPanX / mapping.sheetWidth : 0,
-                mapping.sheetHeight ? viewPanY / mapping.sheetHeight : 0, roles};
+                mapping.sheetHeight ? viewPanY / mapping.sheetHeight : 0, roles,
+                fixedIndex(order, fixedSheet) >= 0 ? fixedSheet : 0};
     }
     int ringMode = -1; // el último modo de la rueda que se vio (HU-101: se anota al cambiar)
 
@@ -1484,6 +1529,8 @@ bool Lienzo::openTake(const QString& dir)
         d->viewPanY = view.panY * d->mapping.sheetHeight;
     }
     d->roles = view.roles;
+    d->fixedSheet = view.fixed; // HU-89
+    d->fixedReturn = 0;
     d->createSimulation(); // con la pila nueva (y la vista); pinta la activa
     d->applyLayers();
     if (wasRunning)
@@ -1545,10 +1592,8 @@ SheetRole Lienzo::cycleActiveRole()
         d->roles[id] = role;
     d->sim->setRoles(d->roles);
     d->applyLayers();
-    qInfo().noquote() << QStringLiteral("Rol: %1 · hoja %2 de %3")
-                             .arg(role == SheetRole::None ? QStringLiteral("sin rol") : roleName(role))
-                             .arg(order.active + 1)
-                             .arg(order.count);
+    qInfo().noquote() << QStringLiteral("Rol: %1 · %2")
+                             .arg(role == SheetRole::None ? QStringLiteral("sin rol") : roleName(role), d->sheetLabel(order.active));
     return role;
 }
 
@@ -1654,10 +1699,94 @@ bool Lienzo::moveActiveSheet(int step)
 {
     d->beforeSheetChange();
     const SheetOrder& order = d->syncOrder();
-    const int to = order.active + step;
-    if (!order.valid(to) || to == order.active)
+    if (fixedIndex(order, d->fixedSheet) == order.active)
+        return false; // HU-89: la fija no se mueve
+    const int to = flipStep(order, d->fixedSheet, order.active, step); // pasa por encima de la fija
+    if (to < 0)
         return false;
     moveSheet(order.active, to);
+    return true;
+}
+
+int Lienzo::sheetNumber() const
+{
+    const SheetOrder& order = d->syncOrder();
+    return lienzo::sheetNumber(order, d->fixedSheet, order.active);
+}
+
+int Lienzo::flipSheetCount() const
+{
+    return flipCount(d->syncOrder(), d->fixedSheet);
+}
+
+QString Lienzo::activeSheetLabel() const
+{
+    return d->sheetLabel(d->syncOrder().active);
+}
+
+bool Lienzo::jumpToEdge(bool last)
+{
+    const SheetOrder& order = d->syncOrder();
+    const int target = flipEdge(order, d->fixedSheet, last);
+    if (target < 0 || target == order.active)
+        return false;
+    activateSheet(target);
+    return true;
+}
+
+bool Lienzo::hasFixedSheet() const
+{
+    return fixedIndex(d->syncOrder(), d->fixedSheet) >= 0;
+}
+
+bool Lienzo::onFixedSheet() const
+{
+    const SheetOrder& order = d->syncOrder();
+    return fixedIndex(order, d->fixedSheet) == order.active;
+}
+
+void Lienzo::toggleFixedSheet()
+{
+    d->beforeSheetChange();
+    const SheetOrder& order = d->syncOrder();
+    if (fixedIndex(order, d->fixedSheet) == order.active) {
+        d->fixedSheet = 0;
+        qInfo().noquote() << QStringLiteral("Hoja fija: ninguna (vuelve al flip como %1)").arg(d->sheetLabel(order.active));
+    } else {
+        d->fixedSheet = order.activeId();
+        d->fixedReturn = 0;
+        qInfo() << "Hoja fija: la activa";
+        // Se sigue animando en la vecina (la siguiente, o la anterior en la última).
+        int next = flipStep(order, d->fixedSheet, order.active, 1);
+        if (next < 0)
+            next = flipStep(order, d->fixedSheet, order.active, -1);
+        if (next >= 0)
+            activateSheet(next);
+    }
+    d->sim->setFixedSheet(d->fixedSheet);
+    d->applyLayers();
+}
+
+bool Lienzo::toggleDrawOnFixed()
+{
+    d->beforeSheetChange();
+    const SheetOrder& order = d->syncOrder();
+    const int fixed = fixedIndex(order, d->fixedSheet);
+    if (fixed < 0) {
+        qInfo() << "Hoja fija: no hay (F marca la activa)";
+        return false;
+    }
+    if (fixed == order.active) {
+        const int back = d->fixedReturnIndex();
+        if (back < 0)
+            return false;
+        activateSheet(back);
+        qInfo().noquote() << QStringLiteral("Hoja fija: vuelve a la %1").arg(d->sheetLabel(back));
+    } else {
+        d->fixedReturn = order.activeId();
+        activateSheet(fixed);
+        qInfo() << "Hoja fija: dibujando en ella";
+    }
     return true;
 }
 

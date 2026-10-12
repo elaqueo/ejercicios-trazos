@@ -117,10 +117,7 @@ int main(int argc, char* argv[])
         qInfo() << "Panel de hojas:" << (panelOn ? "visible" : "oculto");
     });
     const auto logSheet = [&canvas](const char* what) {
-        qInfo().noquote() << QStringLiteral("Hojas: %1 · hoja %2 de %3")
-                                 .arg(QString::fromUtf8(what))
-                                 .arg(canvas.activeSheet() + 1)
-                                 .arg(canvas.sheetCount());
+        qInfo().noquote() << QStringLiteral("Hojas: %1 · %2").arg(QString::fromUtf8(what), canvas.activeSheetLabel());
     };
     canvas.shortcuts().add(QStringLiteral("Hoja nueva después"), {{VK_INSERT}}, [&] {
         canvas.insertSheet();
@@ -144,17 +141,18 @@ int main(int argc, char* argv[])
     canvas.shortcuts().joinWithPrevious(QStringLiteral("Mover la hoja"));
     // Saltar a un extremo (HU-115): como soltar un flip ahí, sin deshacer.
     const auto jumpTo = [&](bool last) {
-        const int target = last ? canvas.sheetCount() - 1 : 0;
-        if (target == canvas.activeSheet()) {
+        if (!canvas.jumpToEdge(last)) { // HU-89: la fija no cuenta
             qInfo() << "Hojas: ya está en" << (last ? "la última" : "la primera");
             return;
         }
-        canvas.activateSheet(target);
         logSheet(last ? "la última" : "la primera");
     };
     canvas.shortcuts().add(QStringLiteral("Primera hoja"), {{VK_HOME}}, [&] { jumpTo(false); });
     canvas.shortcuts().add(QStringLiteral("Última hoja"), {{VK_END}}, [&] { jumpTo(true); });
     canvas.shortcuts().joinWithPrevious(QStringLiteral("Primera o última hoja"));
+    // Hoja fija (HU-89, mesa "Hoja fija"): el layout debajo de todas, fuera del flip.
+    canvas.shortcuts().add(QStringLiteral("Hoja fija"), {{'F'}}, [&canvas] { canvas.toggleFixedSheet(); });
+    canvas.shortcuts().add(QStringLiteral("Dibujar en la hoja fija"), {{'F', true}}, [&canvas] { canvas.toggleDrawOnFixed(); });
     appkit::ConfirmOverlay confirm(&shell);
     const auto removeActive = [&] {
         canvas.removeSheet(canvas.activeSheet());
@@ -175,7 +173,8 @@ int main(int argc, char* argv[])
             removeActive();
             return;
         }
-        confirm.ask(QStringLiteral("¿Borrar la hoja %1?").arg(canvas.activeSheet() + 1),
+        confirm.ask(canvas.onFixedSheet() ? QStringLiteral("¿Borrar la hoja fija?")
+                                          : QStringLiteral("¿Borrar la hoja %1?").arg(canvas.sheetNumber()),
                     QStringLiteral("Tiene trazos. Se puede deshacer con Z."), Qt::Key_Delete, QStringLiteral("Supr"),
                     QStringLiteral("la borra"));
         canvas.showOverlay(&confirm);

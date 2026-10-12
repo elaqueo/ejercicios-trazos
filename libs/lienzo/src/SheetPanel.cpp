@@ -17,7 +17,7 @@ namespace {
 constexpr int kWidth = 240, kMargin = 16, kPad = 16, kGap = 16;
 constexpr int kHeader = 44;  // "TOMA" y el nombre
 constexpr int kNumber = 55;  // el número grande, con su raya abajo
-constexpr int kInfo = 95;    // lápiz, mesa de luz, vista, con su raya arriba
+constexpr int kInfo = 125;   // lápiz, mesa de luz, hoja fija, vista, con su raya arriba
 constexpr int kFooter = 28;  // la tecla
 constexpr int kRowGap = 6;   // entre miniaturas
 constexpr int kRowMax = 84, kRowMin = 40;
@@ -41,17 +41,29 @@ QFont font(bool mono, double px, int weight = QFont::Normal)
 
 } // namespace
 
-std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int around, const SheetRoles& roles)
+std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int around, const SheetRoles& roles,
+                                  uint64_t fixed)
 {
+    // Las posiciones del flip (sin la fija) y dónde cae el centro entre ellas.
+    const int skip = fixedIndex(order, fixed);
+    std::vector<int> positions;
+    int c = -1;
+    for (int i = 0; i < order.count; ++i) {
+        if (i == skip)
+            continue;
+        if (i == center)
+            c = int(positions.size());
+        positions.push_back(i);
+    }
     std::vector<PanelSlot> strip;
-    for (int i = center - around; i <= center + around; ++i) {
+    for (int k = c - around; k <= c + around; ++k) {
         PanelSlot s;
-        if (order.valid(i)) {
-            s.id = order.ids[size_t(i)];
-            s.number = i + 1;
+        if (c >= 0 && k >= 0 && k < int(positions.size())) {
+            s.id = order.ids[size_t(positions[size_t(k)])];
+            s.number = k + 1;
             s.role = roleOf(roles, s.id);
         }
-        s.center = i == center;
+        s.center = c >= 0 && k == c;
         strip.push_back(s);
     }
     return strip;
@@ -124,7 +136,7 @@ QImage paintPanel(const PanelInfo& info, const PanelLayout& layout, const QColor
     // La hoja del centro y el total.
     y = px(kPad + kHeader + kGap);
     const QFont big = font(true, px(40), QFont::Medium);
-    const QString number = QString::number(info.number);
+    const QString number = info.number > 0 ? QString::number(info.number) : QStringLiteral("F"); // HU-89
     double numberW = QFontMetricsF(big).horizontalAdvance(number);
     if (info.role == SheetRole::None) {
         text(QRectF(left, y, numberW + 1, px(40)), number, big, accent, Qt::AlignLeft | Qt::AlignBottom);
@@ -205,6 +217,9 @@ QImage paintPanel(const PanelInfo& info, const PanelLayout& layout, const QColor
         chipX -= px(6);
     }
     y += px(30);
+    row(QStringLiteral("Hoja fija"), !info.hasFixed ? QStringLiteral("no") // HU-89
+                                     : info.onFixed ? QStringLiteral("dibujando · Ctrl+F")
+                                                    : QStringLiteral("sí · Ctrl+F"));
     row(QStringLiteral("Vista"),
         info.zoom == 100 ? QStringLiteral("%1°").arg(info.degrees) : QStringLiteral("%1° · %2 %").arg(info.degrees).arg(info.zoom),
         true);

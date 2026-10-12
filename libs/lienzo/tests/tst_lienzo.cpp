@@ -1,6 +1,7 @@
 #include <lienzo/LeadController.h>
 #include <lienzo/Compositor.h>
 #include <lienzo/Cursor.h>
+#include <lienzo/FixedSheet.h>
 #include <lienzo/LeadPicker.h>
 #include <lienzo/LightTable.h>
 #include <lienzo/Media.h>
@@ -1117,6 +1118,53 @@ private slots:
 
     // HU-93: solo keys: las keys más cercanas a cada lado, con los colores de la más cercana a la
     // más lejana; la activa no cuenta aunque sea key; sin keys, nada.
+    // HU-89: la hoja fija no se mueve de la pila; el flip, los extremos, la numeración, la mesa
+    // de luz y la tira del panel la saltean.
+    void hojaFija()
+    {
+        SheetOrder o;
+        for (int i = 1; i < 6; ++i)
+            o.add(i); // ids 1 a 6
+        const uint64_t fixed = 3; // la tercera
+        QCOMPARE(fixedIndex(o, fixed), 2);
+        QCOMPARE(fixedIndex(o, 0), -1);
+        QCOMPARE(fixedIndex(o, 99), -1); // borrada: no cuenta
+        QCOMPARE(flipStep(o, fixed, 1, 1), 3);
+        QCOMPARE(flipStep(o, fixed, 3, -1), 1);
+        QCOMPARE(flipStep(o, fixed, 5, 1), -1); // en el extremo
+        QCOMPARE(flipStep(o, 99, 1, 1), 2);
+        QCOMPARE(sheetNumber(o, fixed, 2), 0);
+        QCOMPARE(sheetNumber(o, fixed, 1), 2);
+        QCOMPARE(sheetNumber(o, fixed, 3), 3);
+        QCOMPARE(sheetNumber(o, fixed, 5), 5);
+        QCOMPARE(flipCount(o, fixed), 5);
+        QCOMPARE(flipCount(o, 99), 6);
+        QCOMPARE(flipEdge(o, 1, false), 1); // la fija es la primera
+        QCOMPARE(flipEdge(o, 6, true), 4);  // la fija es la última
+        QCOMPARE(flipEdge(o, fixed, true), 5);
+        SheetOrder one;
+        QCOMPARE(flipEdge(one, 1, false), -1); // la única es la fija
+
+        // Mesa de luz: alrededor de la 4 (índice 3), la fija no es la anterior.
+        o.activate(3);
+        LightTable table{{{0xA1, 0.6f}, {0xA2, 0.3f}}, {{0xB1, 0.6f}}};
+        std::vector<uint64_t> ids;
+        for (const SheetLayer& l : lightTableLayers(o, table, {}, fixed))
+            ids.push_back(l.sheet);
+        QCOMPARE(ids, (std::vector<uint64_t>{1, 2, 5}));
+
+        // Panel: la tira no la muestra y numera sin ella.
+        const std::vector<PanelSlot> strip = panelSlots(o, 3, 3, {}, fixed);
+        QCOMPARE(strip.size(), size_t(7));
+        QCOMPARE(strip[0].id, uint64_t(0));
+        QCOMPARE(strip[1].id, uint64_t(1));
+        QCOMPARE(strip[2].id, uint64_t(2));
+        QVERIFY(strip[3].center && strip[3].id == 4 && strip[3].number == 3);
+        QCOMPARE(strip[4].id, uint64_t(5));
+        QCOMPARE(strip[5].number, 5);
+        QCOMPARE(strip[6].id, uint64_t(0));
+    }
+
     void mesaDeLuzSoloKeys()
     {
         SheetOrder order;
@@ -1264,7 +1312,8 @@ private slots:
 
         QTemporaryDir dir;
         const TakeView roles{.degrees = 45.0, .zoom = 2.0, .panX = 0.1, .panY = -0.25, // HU-101, HU-102
-                             .roles = {{ids[0], SheetRole::Key}, {ids[2], SheetRole::Breakdown}}}; // HU-104
+                             .roles = {{ids[0], SheetRole::Key}, {ids[2], SheetRole::Breakdown}}, // HU-104
+                             .fixed = ids[2]}; // HU-89
         const TakeResult saved = saveTake(dir.path(), paper, stack, roles,
                                           [&](uint64_t id) { return id == ids[0] ? image : PackedImage{}; });
         QVERIFY2(saved.ok, qPrintable(saved.error));
@@ -1280,6 +1329,8 @@ private slots:
         QCOMPARE(root.value(QStringLiteral("hojas")).toArray()[0].toObject().value(QStringLiteral("rol")).toString(),
                  QStringLiteral("key"));
         QCOMPARE(root.value(QStringLiteral("hojas")).toArray()[1].toObject().value(QStringLiteral("rol")).toString(), QString());
+        QVERIFY(root.value(QStringLiteral("hojas")).toArray()[2].toObject().value(QStringLiteral("fija")).toBool());
+        QVERIFY(!root.value(QStringLiteral("hojas")).toArray()[0].toObject().contains(QStringLiteral("fija")));
 
         drymedia::Paper other(spec);
         SheetStack opened(100);
@@ -1294,6 +1345,7 @@ private slots:
             QCOMPARE(opened.hash(other, i), hashes[size_t(i)]);
         QCOMPARE(view.degrees, 45.0);
         QVERIFY(view.roles == roles.roles);
+        QCOMPARE(view.fixed, ids[2]);
         QCOMPARE(view.zoom, 2.0);
         QCOMPARE(view.panX, 0.1);
         QCOMPARE(view.panY, -0.25);

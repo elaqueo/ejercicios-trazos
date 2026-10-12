@@ -200,6 +200,16 @@ public:
         wake();
     }
 
+    // La hoja fija (HU-89), por id, para toma.json (como los roles).
+    void setFixedSheet(uint64_t id)
+    {
+        {
+            std::lock_guard lock(m_rotationMutex);
+            m_fixedSheet = id;
+        }
+        wake();
+    }
+
     // Capa de guías (HU-64): BGRA premultiplicado del tamaño de la imagen, o vacía para
     // sacarla. Se puede llamar en cualquier momento: el hilo de simulación la toma y repinta
     // todo una vez.
@@ -273,6 +283,7 @@ private:
     std::mutex m_rotationMutex;
     ViewRotation m_rotation;
     SheetRoles m_roles; // con m_rotationMutex
+    uint64_t m_fixedSheet = 0; // HU-89, con m_rotationMutex
     std::atomic<uint64_t> m_lead;
     std::atomic<uint64_t> m_eraser;
     std::atomic<bool> m_erasing{false};

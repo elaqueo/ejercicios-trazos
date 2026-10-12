@@ -19,7 +19,7 @@ Una toma es una carpeta que se puede copiar a otra máquina y leer sin la app (R
 
 ```text
 toma-1/
-  toma.json        el papel, el orden de las hojas con su rol, la activa, la vista; lugar para el audio
+  toma.json        el papel, el orden de las hojas con su rol y cuál es la fija, la activa, la vista; lugar para el audio
   hoja-1.hoja      una hoja: su depósito y su imagen de pantalla, comprimidos con zstd
   hoja-2.hoja
   ...
@@ -42,7 +42,8 @@ toma-1/
     "papel": { "semilla": 1, "dpi": 300, "grano": 300, "anchoCeldas": 3840, "altoCeldas": 2400 },
     "hojas": [
         { "id": 1, "archivo": "hoja-1.hoja", "rol": "key" },
-        { "id": 3, "archivo": "hoja-3.hoja", "rol": "" }
+        { "id": 3, "archivo": "hoja-3.hoja", "rol": "" },
+        { "id": 4, "archivo": "hoja-4.hoja", "rol": "", "fija": true }
     ],
     "activa": 0,
     "vista": { "giro": 0, "zoom": 1, "pan": [0, 0] },
@@ -53,6 +54,7 @@ toma-1/
 - **`hojas`:** las hojas en orden.
   - `id` no cambia al mover ni al agregar otras hojas (es el de `SheetOrder`).
   - `rol`: `key`, `breakdown` o vacío (HU-104). Va por hoja, así sigue a su hoja al reordenar; una toma sin roles abre igual.
+  - `fija`: `true` en la hoja fija (HU-89), como mucho una; las demás no lo llevan. La hoja fija no se mueve de su lugar en la pila: el flip, Inicio, Fin, ↑ ↓ y la numeración la saltean (lienzo/FixedSheet.h). El render la pone como una capa más debajo de todas, gris grafito al 35 %, con la mesa de luz prendida o apagada y al flipear; eso compone la imagen en cada frame (benchmark: 12,1 ms de mediana con hoja fija, 11,7 sin ella).
   - `vista`: el giro en grados, el zoom (HU-101; las tomas de antes abren a 100 %) y el corrimiento (HU-102) en fracción del ancho y el alto de la hoja, así no depende de la pantalla.
   - Zoom (HU-101): la vista es una transformación completa, `pantalla = c + pan + escala · R · (imagen − c)` (lienzo/ViewRotation.h). La simulación lleva cada muestra a la hoja con la inversa (el trazo cae bajo la punta) y el render agranda la imagen de pantalla en la GPU, con filtro bilineal; al alejar promedia los texeles que cubre cada píxel, así una línea fina se aclara en vez de desaparecer. No se redibuja el papel a la resolución del zoom: más allá de 100 % la línea se ve suave (opción A, elegida por el usuario; volver a dibujar desde las celdas queda como historia aparte si hace falta). Benchmark igual con zoom (11,0 ms de mediana a 207 %).
   - La marca de la esquina (el número y el rol de la hoja que se ve) no es grafito: la pinta Qt en una textura chica (lienzo/SheetRole.h) y el render la tiñe de gris tinta encima de la hoja. Con la vista sin girar y sin mesa de luz ni flip se pinta solo su recuadro sobre la copia de siempre (`Compositor::drawMark`); si no, va dentro de la composición, antes del giro, y gira con la hoja. Benchmark igual que Cartuchera (11,3 a 11,6 ms de mediana; la composición entera en cada frame costaba 0,5 ms).

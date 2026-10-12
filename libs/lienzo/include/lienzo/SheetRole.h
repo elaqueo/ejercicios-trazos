@@ -28,7 +28,7 @@ SheetRole parseRole(const QString& name);
 SheetRole roleOf(const SheetRoles& roles, uint64_t id);
 
 // El número con su marca, centrado en `box`: solo, con círculo (key) o con una raya debajo
-// (breakdown). Lo usan la marca de la hoja y el panel de hojas.
+// (breakdown). Lo usan la marca de la hoja y el panel de hojas. Número 0: la hoja fija (HU-89), "F".
 void drawRoleMark(QPainter& p, const QRectF& box, int number, SheetRole role, const QFont& font, const QColor& color,
                   double line);
 

@@ -97,7 +97,9 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Ctrl+N | Limpiar la hoja activa |
 | Supr | Borrar la hoja activa; si tiene trazos, un cartel pide Supr otra vez (mesa "Confirmación") |
 | ↑ / ↓ | Mover la hoja activa un lugar antes o después en la pila (HU-88) |
-| Inicio / Fin | Ir a la primera o a la última hoja, sin deshacer, como un flip (HU-115) |
+| Inicio / Fin | Ir a la primera o a la última hoja, sin deshacer, como un flip (HU-115); saltean la hoja fija |
+| F | Marcar la activa como hoja fija (o desmarcarla): debajo de todas, gris, fuera del flip y de la numeración; se sigue en la vecina (HU-89) |
+| Ctrl+F | Dibujar en la hoja fija, con la hoja de la que se vino tenue de referencia; Ctrl+F, ← o → vuelven (HU-89) |
 | Tab | Mostrar u ocultar el panel de hojas (queda guardado; HU-114) |
 | 1 · 2 · 3 · 4 · 5 | Grafito (HB) · azul no-foto (construcción) · rojo (sombra 1) · verde (sombra 2 o highlight) · violeta (cierres); queda guardado (HU-99) |
 | F5 | Selector de lápices, centrado sobre la hoja: el grafito y los cuatro colores con su muestra; F5 o Esc lo cierran (HU-100) |
