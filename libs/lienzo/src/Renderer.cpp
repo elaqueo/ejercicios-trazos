@@ -662,11 +662,20 @@ void Renderer::run()
         FrameRecord frame;
         const Stopwatch latch;
         std::vector<RetiredSheet> retired;
+        // Un flip a otra hoja que ya tiene textura (HU-90, RNF-01): este frame no muestra la
+        // imagen, así que lo que falta subir de ella espera al siguiente (subir un pedazo cuesta
+        // hasta 1,5 ms, y el flip tiene que llegar a este vsync; medido en HU-122).
+        uint64_t flipTo = 0;
+        {
+            std::lock_guard layersLock(m_layersMutex);
+            if (m_flipQpc && m_shown && d.sheets.count(m_shown))
+                flipTo = m_shown;
+        }
         {
             std::unique_lock lock(m_image.mutex, std::try_to_lock);
             if (m_timings)
                 m_timings->renderLockBusy.add(lock.owns_lock() ? 0.0 : 1.0);
-            const bool pendingBefore = lock.owns_lock() && m_image.hasDirty;
+            const bool pendingBefore = lock.owns_lock() && m_image.hasDirty && !(flipTo && flipTo != m_image.sheet);
             if (pendingBefore) {
                 RECT& r = m_image.dirty;
                 const LONG width = r.right - r.left;

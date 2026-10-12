@@ -1,6 +1,7 @@
 #include <exercises/ExerciseMenu.h>
 #include <exercises/Recta.h>
 #include <exercises/StackSession.h>
+#include <exercises/StrokeStacks.h>
 
 #include <QPainter>
 #include <QTest>
@@ -176,6 +177,43 @@ private slots:
         QCOMPARE(session.exercise(), &cambia);
         QCOMPARE(findExercise(all, QStringLiteral("cambia")), &cambia);
         QCOMPARE(exerciseMenu(all).size(), 3); // el modo mixto y dos grupos
+    }
+
+    // HU-122: los trazos de Ejercicios en pila son los de líneas, curvas, elipses y perspectiva
+    // (sin escritura, ghosting ni presión), con 6 hojas por defecto; cada uno pone la misma guía
+    // (y la misma geometría ideal) en todas las hojas, repetir da las mismas y otra semilla otras.
+    void trazosEnPila()
+    {
+        const StrokeStacks strokes;
+        QStringList ids;
+        QSet<QString> groups;
+        for (const StackExercise* exercise : strokes.exercises()) {
+            ids.append(exercise->id());
+            groups.insert(exercise->group());
+        }
+        QCOMPARE(ids, (QStringList{"recta", "hatching", "radiales", "direccion", "curva", "curvaDireccion", "elipse",
+                                   "concentricas", "elipsePerspectiva", "cajas", "cajasRotadas"}));
+        QCOMPARE(groups, (QSet<QString>{"Líneas", "Curvas", "Elipses", "Perspectiva"}));
+        for (const StackExercise* exercise : strokes.exercises()) {
+            const QByteArray name = exercise->id().toUtf8();
+            QCOMPARE(sheetCount(exercise->defaults()), kStrokeSheets);
+            FakeStack canvas;
+            StackSession session(&canvas, exercise);
+            session.next();
+            QVERIFY2(canvas.sheets == kStrokeSheets, name.constData());
+            const QByteArray first = bytes(canvas.guides[0]);
+            QVERIFY2(!first.isEmpty(), name.constData());
+            const QList<QPainterPath> ideal = session.current().sheets[0].ideal;
+            for (int i = 1; i < canvas.sheets; ++i) {
+                QVERIFY2(bytes(canvas.guides[i]) == first, name.constData());
+                QVERIFY2(session.current().sheets[i].ideal == ideal, name.constData());
+            }
+            session.repeat();
+            for (int i = 0; i < canvas.sheets; ++i)
+                QVERIFY2(bytes(canvas.guides[i]) == first, name.constData());
+            session.next();
+            QVERIFY2(bytes(canvas.guides[0]) != first, name.constData());
+        }
     }
 };
 

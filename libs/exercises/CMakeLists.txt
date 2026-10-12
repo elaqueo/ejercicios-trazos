@@ -24,6 +24,7 @@ qt_add_library(exercises STATIC
     include/exercises/RenglonCurvo.h
     include/exercises/StackExercise.h
     include/exercises/StackSession.h
+    include/exercises/StrokeStacks.h
     include/exercises/WritingCurve.h
     src/Cajas.cpp
     src/CajasRotadas.cpp
@@ -46,6 +47,7 @@ qt_add_library(exercises STATIC
     src/RenglonCurvo.cpp
     src/StackExercise.cpp
     src/StackSession.cpp
+    src/StrokeStacks.cpp
     src/WritingCurve.cpp
 )
 target_include_directories(exercises PUBLIC include)

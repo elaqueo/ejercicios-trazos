@@ -13,8 +13,8 @@
 #include <appkit/Theme.h>
 #include <drymedia/Paper.h>
 #include <exercises/ExerciseMenu.h>
-#include <exercises/Recta.h>
 #include <exercises/StackSession.h>
+#include <exercises/StrokeStacks.h>
 #include <lienzo/Lienzo.h>
 #include <lienzo/Tone.h>
 
@@ -29,8 +29,6 @@ namespace {
 
 // Grano del papel de animación (HU-97), el mismo de la Mesa.
 constexpr int kAnimationGrain = 300;
-// Hojas por defecto de los trazos de Ejercicios en pila (HU-122).
-constexpr int kStrokeSheets = 6;
 
 // El lienzo para la sesión de pila.
 class StackSheets : public ejercicios::StackCanvas {
@@ -84,11 +82,9 @@ int main(int argc, char* argv[])
                            .colorPencils = true,
                            .zoom = true});
 
-    // Los ejercicios de pila. Por ahora la recta de Ejercicios en pila, para la sesión; el resto
-    // del catálogo llega con HU-122 y el prisma con HU-123.
-    const ejercicios::Recta recta;
-    const ejercicios::SameOnEverySheet rectaEnPila(recta, kStrokeSheets);
-    const QList<const ejercicios::StackExercise*> exercises{&rectaEnPila};
+    // Los ejercicios de pila: los trazos de Ejercicios en pila (HU-122). El prisma llega con HU-123.
+    const ejercicios::StrokeStacks strokes;
+    const QList<const ejercicios::StackExercise*> exercises = strokes.exercises();
 
     // Lo guardado (RNF-06): el último ejercicio, los parámetros de cada uno y el modo mixto.
     StackSheets sheets(canvas);

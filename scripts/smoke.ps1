@@ -126,6 +126,15 @@ finally {
     }
     if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
 }
+# RNF-01 (HU-90): ningún flip pierde un frame (todos por debajo de 20 ms; uno perdido daría unos
+# 33) y como mucho 1 de cada 30 entre 18 y 20 ms: de la tecla al Present va de 0 a un frame según
+# cuándo cae, más el render (< 1 ms) y alguna demora de Windows al despertar el hilo (decisión del
+# usuario del 12 de octubre de 2026, con HU-122: con 18 estricto, casi cada corrida tenía uno de 18,x).
+function FlipsOk([double[]]$flips) {
+    $late = @($flips | Where-Object { $_ -ge 18 })
+    $lost = @($flips | Where-Object { $_ -ge 20 })
+    return $lost.Count -eq 0 -and $late.Count -le [math]::Max(1, [math]::Floor($flips.Count / 30))
+}
 # Mesa de animación (HU-84): arranca con su nombre y tiene los atajos del lienzo.
 $mesa = Join-Path $root 'build\release\mesadeanimacion.exe'
 $mesaLog = Join-Path $data 'mesadeanimacion.log'
@@ -185,7 +194,7 @@ try {
     $shown = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Flip: hoja' }).Count
     $slow = @($flips | Where-Object { $_ -ge 18 })
     $max = ($flips | Measure-Object -Maximum).Maximum
-    if ($shown -eq 32 -and $flips.Count -ge 30 -and $slow.Count -eq 0) {
+    if ($shown -eq 32 -and $flips.Count -ge 30 -and (FlipsOk $flips)) {
         Write-Host "  ok   32 flips con flechas, $($flips.Count) presentados, el más lento en $max ms"
     } else {
         Write-Host "  FALLA flips: $shown pedidos, $($flips.Count) presentados, $($slow.Count) de 18 ms o más (máx. $max ms)"
@@ -562,7 +571,7 @@ try {
         if ($_ -match 'Mesa de luz presentada en ([\d.]+) ms') { [double]$Matches[1] } })
     $late = @($lights | Where-Object { $_ -ge 50 })
     $lmax = ($lights | Measure-Object -Maximum).Maximum
-    if ($start -eq 1 -and $sheets -gt 0 -and $shown -eq 44 -and $flips.Count -ge 40 -and $slow.Count -eq 0 -and $late.Count -eq 0) {
+    if ($start -eq 1 -and $sheets -gt 0 -and $shown -eq 44 -and $flips.Count -ge 40 -and (FlipsOk $flips) -and $late.Count -eq 0) {
         Write-Host "  ok   con guía en las 12 hojas: 44 flips, el más lento en $max ms; la mesa de luz en $lmax ms"
     } else {
         Write-Host "  FALLA flip con guías: arranque $start, $shown pedidos, $($flips.Count) presentados, $($slow.Count) de 18 ms o más (máx. $max ms), mesa de luz máx. $lmax ms"
@@ -633,7 +642,7 @@ try {
     $max = ($flips | Measure-Object -Maximum).Maximum
     foreach ($k in 'l', 'l') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
     $toggles = (@(Get-Content $animLog -Encoding utf8 | Where-Object { $_ -match 'Mesa de luz: ' }) -join ' ')
-    if ($shown -eq 22 -and $flips.Count -ge 20 -and $slow.Count -eq 0 -and $toggles -match 'prendida.*apagada.*prendida') {
+    if ($shown -eq 22 -and $flips.Count -ge 20 -and (FlipsOk $flips) -and $toggles -match 'prendida.*apagada.*prendida') {
         Write-Host "  ok   22 flips por las 12 hojas, el más lento en $max ms, y L apaga y prende la mesa de luz"
     } else {
         Write-Host "  FALLA flip en Ejercicios de animación: $shown pedidos, $($flips.Count) presentados, $($slow.Count) de 18 ms o más (máx. $max ms) · $toggles"
