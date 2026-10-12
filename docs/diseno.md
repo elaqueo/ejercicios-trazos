@@ -62,7 +62,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Cono y cabeza que giran (Ejercicios de animación) | Como la mesa "Cono y cabeza que giran", con el ghost del prisma. El cono: la base en elipse, la silueta del vértice y la costura; por defecto sobre el eje horizontal. La cabeza: Loomis simplificada, solo la estructura (la esfera, la línea media y la de las cejas, los cortes laterales, la línea de la cara y la mandíbula), sin nariz ni boca; por defecto sobre el eje vertical | HU-131 |
 | Panel de hojas (Ejercicios de animación) | Como la variante de la mesa "Panel de hojas": en vez de la toma, "EJERCICIO" y el título del ejercicio, con "modo mixto" a la derecha si está prendido; sin estado de guardado (la pila no se guarda) | HU-120, HU-121 |
 
-## Teclas (v1.5.1)
+## Teclas (v1.5.2)
 
 Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden la misma tecla, la app avisa al iniciar.
 
