@@ -586,8 +586,8 @@ finally {
     if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
     Remove-Item $takeDir -Recurse -Force -ErrorAction SilentlyContinue
 }
-# Ejercicios de animación (HU-120, HU-121): arranca con su nombre y sus atajos en el último
-# ejercicio (aquí la recta en 12 hojas); Enter, R y G arman la pila en menos de 300 ms (RNF-04);
+# Ejercicios de animación (HU-120, HU-121, HU-123): arranca con su nombre y sus atajos en el último
+# ejercicio (aquí el prisma que gira en 12 hojas); Enter, R y G arman la pila en menos de 300 ms (RNF-04);
 # el flip y la mesa de luz como en la Mesa.
 $anim = Join-Path $root 'build\release\ejerciciosanimacion.exe'
 $animLog = Join-Path $data 'ejerciciosanimacion.log'
@@ -596,9 +596,9 @@ $backup = if (Test-Path $config) { [IO.File]::ReadAllBytes($config) } else { $nu
 $state = if ($backup) { Get-Content $config -Raw | ConvertFrom-Json -AsHashtable } else { @{} }
 if (-not $state.ContainsKey('ejerciciosanimacion')) { $state['ejerciciosanimacion'] = @{} }
 $state['ejerciciosanimacion']['lightTable'] = $true
-$state['ejerciciosanimacion']['exercise'] = 'recta'
+$state['ejerciciosanimacion']['exercise'] = 'prismaQueGira'
 $state['ejerciciosanimacion']['mixed'] = $false
-$state['ejerciciosanimacion']['params'] = @{ recta = @{ hojas = 12 } }
+$state['ejerciciosanimacion']['params'] = @{ prismaQueGira = @{ hojas = 12 } }
 $state | ConvertTo-Json -Depth 32 | Set-Content $config -Encoding utf8
 $app = $null
 try {
@@ -612,7 +612,7 @@ try {
     $joined = @(Get-Content $animLog -Encoding utf8) -join ' '
     if ($joined -match 'Ejercicios de animación' -and $joined -match 'Pila armada: 12 hojas' -and
         $joined -match 'Atajos: abiertos.*Atajos: cerrados') {
-        Write-Host '  ok   Ejercicios de animación arranca en la recta con 12 hojas y Ctrl+, abre sus atajos'
+        Write-Host '  ok   Ejercicios de animación arranca en el prisma que gira con 12 hojas y Ctrl+, abre sus atajos'
     } else {
         Write-Host "  FALLA Ejercicios de animación arranca · $joined"
         $failures.Add('Ejercicios de animación')
@@ -625,8 +625,8 @@ try {
     $builds = @($l | ForEach-Object { if ($_ -match 'Pila lista: 12 hojas con sus guías en (\d+) ms') { [int]$Matches[1] } })
     $joined = $l -join ' '
     $bmax = ($builds | Measure-Object -Maximum).Maximum
-    if ($builds.Count -eq 2 -and $bmax -lt 300 -and $joined -match 'Ejercicio: "recta"' -and
-        $joined -match 'Repetir: "recta"' -and $joined -match 'Guías de las hojas: ocultas.*Guías de las hojas: visibles') {
+    if ($builds.Count -eq 2 -and $bmax -lt 300 -and $joined -match 'Ejercicio: "prismaQueGira"' -and
+        $joined -match 'Repetir: "prismaQueGira"' -and $joined -match 'Guías de las hojas: ocultas.*Guías de las hojas: visibles') {
         Write-Host "  ok   Enter y R arman la pila de 12 hojas (la más lenta en $bmax ms) y G oculta y muestra las guías"
     } else {
         Write-Host "  FALLA Enter, R y G: $($builds.Count) pilas armadas (máx. $bmax ms) · $joined"

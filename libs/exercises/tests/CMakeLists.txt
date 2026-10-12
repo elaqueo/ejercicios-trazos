@@ -16,4 +16,5 @@ et_add_qt_test(tst_elipse_perspectiva SOURCES tst_elipse_perspectiva.cpp LIBS ex
 et_add_qt_test(tst_ghosting SOURCES tst_ghosting.cpp LIBS exercises)
 et_add_qt_test(tst_presion SOURCES tst_presion.cpp LIBS exercises)
 et_add_qt_test(tst_session SOURCES tst_session.cpp LIBS exercises)
+et_add_qt_test(tst_prisma SOURCES tst_prisma.cpp LIBS exercises)
 et_add_qt_test(tst_stack_session SOURCES tst_stack_session.cpp LIBS exercises)

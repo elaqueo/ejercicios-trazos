@@ -4,6 +4,7 @@
 // HU-120: el armazón. Sin toma: la pila vive en memoria y no se guarda.
 // HU-121: la sesión de pila (libs/exercises/StackSession): cada ejercicio arma su pila con su
 // guía en cada hoja; Enter, R, G, F4 y F2, y lo elegido queda en config.
+// HU-123: el prisma que gira, primero en el menú (grupo "Volumen").
 
 #include <appkit/Config.h>
 #include <appkit/Log.h>
@@ -13,6 +14,7 @@
 #include <appkit/Theme.h>
 #include <drymedia/Paper.h>
 #include <exercises/ExerciseMenu.h>
+#include <exercises/PrismaQueGira.h>
 #include <exercises/StackSession.h>
 #include <exercises/StrokeStacks.h>
 #include <lienzo/Lienzo.h>
@@ -82,9 +84,11 @@ int main(int argc, char* argv[])
                            .colorPencils = true,
                            .zoom = true});
 
-    // Los ejercicios de pila: los trazos de Ejercicios en pila (HU-122). El prisma llega con HU-123.
+    // Los ejercicios de pila: el prisma que gira (HU-123) y los trazos de Ejercicios en pila (HU-122).
+    const ejercicios::PrismaQueGira prism;
     const ejercicios::StrokeStacks strokes;
-    const QList<const ejercicios::StackExercise*> exercises = strokes.exercises();
+    QList<const ejercicios::StackExercise*> exercises{&prism};
+    exercises.append(strokes.exercises());
 
     // Lo guardado (RNF-06): el último ejercicio, los parámetros de cada uno y el modo mixto.
     StackSheets sheets(canvas);

@@ -97,7 +97,7 @@ Las variantes y ejercicios nuevos que salieron de la idea. Se estiman y se refin
 127. **HU-127 · Intercalar entre dos keys** (Could · 5 pts). Como practicante, quiero dos keys dadas como guía y un chart de spacing (mitades, tercios, ease), para dibujar los intermedios a mano.
 128. **HU-128 · Arcos y spacing** (Could · 5 pts). Como practicante, quiero una trayectoria en arco con marcas de spacing, para dibujar el objeto en cada posición, hoja por hoja.
 129. **HU-129 · La pelota que rebota** (Could · 5 pts). Como practicante, quiero la consigna de la pelota que rebota (posiciones, squash y stretch), para el ejercicio clásico de animación.
-130. **HU-130 · Otras formas que giran** (Could · 5 pts). Como practicante, quiero un cilindro, un cono y una cabeza simplificada que giran como el prisma, para practicar volúmenes curvos.
+130. **HU-130 · Otras formas que giran** (Could · 5 pts). Como practicante, quiero un cilindro, un cono y una cabeza simplificada que giran como el prisma, para practicar volúmenes curvos. Primero el cilindro (pedido del 12 oct 2026).
 
 ## Plan por fases
 
@@ -117,6 +117,6 @@ Cada pantalla nueva tiene su mesa en el canvas de diseño de Trazos antes de imp
 
 Cada una se cierra en la historia que la toca.
 
-1. Cuántas hojas por defecto en el prisma: una vuelta entera a 15° son 24; se propone 12 (media vuelta) (HU-123).
-2. Si la hoja muestra el ángulo del prisma (como el número en la esquina) o queda solo el ghost (HU-123).
+1. ~~Cuántas hojas por defecto en el prisma~~: 12, media vuelta a 15° (HU-123).
+2. ~~Si la hoja muestra el ángulo del prisma~~: sí, chico abajo a la derecha, en el gris del número de la hoja (HU-123, mesa "Prisma que gira"). El ghost va en gris tinta al 50 % (`kGhostOpacidad`) y las aristas ocultas punteadas y más finas.
 3. Qué ejercicios de Ejercicios entran en pila, más allá de la primera selección (HU-122).

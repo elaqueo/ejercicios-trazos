@@ -43,6 +43,7 @@ inline constexpr float kMesaLuzOpacidad[] = {0.6f, 0.3f};
 inline const QColor kHojaFija{0x3A, 0x3A, 0x3E};   // la hoja fija debajo de todas: gris grafito, sin tinte (HU-89)
 inline constexpr float kHojaFijaOpacidad = 0.35f;
 inline constexpr float kGuiaCampoOpacidad = 0.45f; // la guía de campo, en gris tinta (HU-103; el azul se confundía con el lápiz azul)
+inline constexpr float kGhostOpacidad = 0.5f; // el ghost del prisma que gira, en gris tinta (HU-123, Ejercicios de animación)
 
 // Medidas (px).
 inline constexpr int kEspacio[] = {4, 8, 12, 16, 24, 32};

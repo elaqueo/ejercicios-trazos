@@ -18,6 +18,7 @@ qt_add_library(exercises STATIC
     include/exercises/Hatching.h
     include/exercises/Parrafo.h
     include/exercises/Presion.h
+    include/exercises/PrismaQueGira.h
     include/exercises/Radiales.h
     include/exercises/Recta.h
     include/exercises/Renglon.h
@@ -41,6 +42,7 @@ qt_add_library(exercises STATIC
     src/Hatching.cpp
     src/Parrafo.cpp
     src/Presion.cpp
+    src/PrismaQueGira.cpp
     src/Radiales.cpp
     src/Recta.cpp
     src/Renglon.cpp
