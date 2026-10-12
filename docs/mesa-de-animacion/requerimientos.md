@@ -141,6 +141,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     1. El anillo se registra con tres funciones, "Girar la vista", "Zoom" y "Hojas"; el botón central alterna entre ellas y el overlay de Wacom muestra el nombre.
     2. En "Hojas", cada paso del anillo es una hoja (sentido horario = siguiente); mismas reglas que ← → (RNF-01, mesa de luz apagada mientras gira).
     3. Depende de HU-101 para la función "Zoom"; hasta entonces son dos funciones.
+    4. *Hecho (11 oct 2026): tercer modo de la rueda, "Hojas" (los de la Intuos4 quedan Girar la vista, Zoom, Hojas, Girar la vista). Una hoja cada 30° (seis posiciones; con una por posición, y después con dos, era demasiado sensible), como mantener la flecha: muestra sin activar, mesa de luz apagada; al levantar el dedo la que se ve queda activa. Respeta el círculo y la hoja fija.*
 96. **HU-96 · Roll** (Could · 2 pts). Como animador, quiero ver las últimas hojas sin tinte manteniendo una tecla, como rolar el papel con los dedos.
     1. Mantener la tecla muestra la activa y las 3 anteriores sin tinte, con la más vieja más tenue; soltar vuelve al estado anterior.
     2. Se decide después de usar el flip en serio (idea.md, ideas abiertas): si no suma, se cierra sin hacer.

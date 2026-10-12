@@ -180,6 +180,20 @@ private slots:
 
     // En el borde de la superficie activa el driver deja el lápiz clavado: esas muestras se
     // marcan (la app corta el trazo ahí). Adentro, aunque sea cerca, no.
+    // HU-95: una hoja cada 10° (dos posiciones de la rueda), en los dos sentidos.
+    void ruedaPasaHojas()
+    {
+        tabletinput::RingStepper s(10);
+        QCOMPARE(s.feed(5), 0);
+        QCOMPARE(s.feed(5), 1);
+        QCOMPARE(s.feed(25), 2); // sobran 5
+        QCOMPARE(s.feed(-10), 0); // vuelve a -5: no llega a un paso para atrás
+        QCOMPARE(s.feed(-5), -1);
+        s.feed(5);
+        s.reset();
+        QCOMPARE(s.feed(5), 0); // al levantar el dedo se olvida lo que sobraba
+    }
+
     void nombresDeLosModos()
     {
         using tabletinput::TouchRing;

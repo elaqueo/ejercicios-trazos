@@ -110,5 +110,6 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Ctrl+1 | Zoom 100 %, centrada, sin cambiar el giro (HU-101) |
 | Espacio + arrastrar con el lápiz | Pan: la hoja sigue a la punta y no se dibuja; el cursor pasa a la flecha de cuatro puntas mientras Espacio está apretado. El centro de la hoja no sale de la pantalla. Se guarda en la toma (HU-102) |
 | Rueda, en su segundo modo (botón del centro) | Zoom continuo: un cuarto de vuelta duplica o reduce a la mitad (HU-101); el overlay de Wacom lo muestra como "Zoom" |
+| Rueda, en su tercer modo | "Hojas": flipea como mantener la flecha, una hoja cada 30° (horario = la siguiente); al levantar el dedo queda activa (HU-95) |
 | Botón lateral del lápiz | Menú del lápiz en la punta: los cinco lápices y mesa de luz, hojas, deshacer, rehacer y vista inicial (HU-116) |
 | Z / Ctrl+Y | Deshacer / rehacer lo más reciente: el último trazo de la hoja activa o la última operación con las hojas (incluido mover) |

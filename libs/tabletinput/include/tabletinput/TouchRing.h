@@ -46,6 +46,25 @@ private:
     int64_t m_liftUs = 0;
 };
 
+// Grados de la rueda → pasos enteros (HU-95, la rueda pasa hojas): junta los grados y da un paso
+// cada `perStep` (positivo: sentido horario); lo que sobra queda para el giro siguiente. Pura.
+class RingStepper {
+public:
+    explicit RingStepper(double perStep) : m_perStep(perStep) {}
+    int feed(double degrees)
+    {
+        m_accum += degrees;
+        const int steps = int(m_accum / m_perStep); // hacia cero: lo que falta para un paso queda
+        m_accum -= steps * m_perStep;
+        return steps;
+    }
+    void reset() { m_accum = 0; } // al levantar el dedo
+
+private:
+    double m_perStep;
+    double m_accum = 0;
+};
+
 class TouchRing {
 public:
     using Log = std::function<void(const std::string&)>;

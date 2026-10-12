@@ -697,6 +697,18 @@ struct Lienzo::Impl {
                 fixedIndex(order, fixedSheet) >= 0 ? fixedSheet : 0, circle};
     }
     int ringMode = -1; // el último modo de la rueda que se vio (HU-101: se anota al cambiar)
+    // HU-95: el modo "Hojas" de la rueda (-1: sin hojas) y sus pasos. El flip de la rueda va como
+    // una tecla más (kRingKey, que no es una tecla real): termina al levantar el dedo.
+    int ringSheetsMode = -1;
+    tabletinput::RingStepper ringSheets{30};
+    static constexpr UINT kRingKey = 0x10000;
+    void ringFlip(int step)
+    {
+        const UINT pressed = pressedKey;
+        pressedKey = kRingKey;
+        flip(step);
+        pressedKey = pressed;
+    }
 
     // Lápiz de color (HU-99): -1 el grafito, 0..3 los colores; queda guardado.
     int colorPencil = -1;
@@ -1095,6 +1107,10 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     std::vector<std::string> ringModes{"Girar la vista"};
     if (d->options.zoom)
         ringModes.push_back("Zoom");
+    if (d->options.sheets) { // HU-95
+        d->ringSheetsMode = int(ringModes.size());
+        ringModes.push_back("Hojas");
+    }
     d->canvas = std::make_unique<CanvasWindow>(reinterpret_cast<HWND>(shell.winId()), d->queue, dispatch,
                                                std::move(ringModes));
     d->canvas->setOnKeyUp(keyUp);
@@ -1144,6 +1160,19 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
         if (mode != impl->ringMode) {
             impl->ringMode = mode;
             qInfo() << "Rueda: modo" << mode;
+            impl->ringSheets.reset(); // HU-95: cambiar de modo a mitad de un flip lo suelta
+            impl->keyUp(Impl::kRingKey);
+        }
+        // HU-95: en el modo "Hojas", la rueda flipea como mantener la flecha: una hoja cada 30°
+        // (sentido horario = la siguiente); al levantar el dedo, la que se ve queda activa.
+        if (mode == impl->ringSheetsMode) {
+            for (int steps = impl->ringSheets.feed(degrees); steps != 0; steps -= steps > 0 ? 1 : -1)
+                impl->ringFlip(steps > 0 ? 1 : -1);
+            if (ended) {
+                impl->ringSheets.reset();
+                impl->keyUp(Impl::kRingKey);
+            }
+            return;
         }
         // HU-101: en el segundo modo (el botón del centro), zoom continuo: un cuarto de vuelta
         // duplica o reduce a la mitad.
