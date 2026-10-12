@@ -19,6 +19,7 @@
 #include "lienzo/ToolPage.h"
 
 #include <audio/Audio.h>
+#include <audio/Player.h>
 
 #include <cstring>
 #include <appkit/CalibrationOverlay.h>
@@ -425,32 +426,120 @@ struct Lienzo::Impl {
     static constexpr double kChartWidthMm = 35, kChartHeightMm = 22.5, kChartMarginMm = 6;
 
     // Audio de la toma (HU-106): el archivo (en la carpeta de la toma), lo leído y la franja.
+    // Se lee en un hilo aparte (HU-107: la toma abre sin esperarlo); audioGeneration descarta
+    // lo que llega de un audio que ya no es el de la toma.
     QString audioFile, audioProblem;
-    audio::Clip clip;
-    double audioPosition = 0;
+    std::shared_ptr<const audio::Clip> clip;
+    bool audioLoading = false;
+    uint64_t audioGeneration = 0;
+    std::thread audioLoader;
+    double audioPosition = 0; // el cursor, en segundos
     bool stripVisible = false, stripSent = false;
     AudioStripInfo stripShown;
     QRect stripRect;
     void loadAudio(const QString& dir)
     {
-        clip = {};
+        stopAudio();
+        clip.reset();
         audioProblem.clear();
         audioPosition = 0;
-        if (audioFile.isEmpty())
+        ++audioGeneration;
+        if (audioLoader.joinable())
+            audioLoader.join();
+        audioLoading = !audioFile.isEmpty();
+        if (!audioLoading)
             return;
-        std::string error;
-        const Stopwatch time;
-        if (!audio::decode(QDir(dir).filePath(audioFile).toStdWString(), clip, error)) {
-            audioProblem = QString::fromStdString(error);
-            qWarning().noquote() << QStringLiteral("Audio: no se pudo leer %1: %2").arg(audioFile, audioProblem);
+        audioLoader = std::thread([this, generation = audioGeneration, name = audioFile,
+                                   path = QDir(dir).filePath(audioFile).toStdWString()] {
+            auto read = std::make_shared<audio::Clip>();
+            std::string error;
+            const Stopwatch time;
+            const bool ok = audio::decode(path, *read, error);
+            const double ms = time.ms();
+            QMetaObject::invokeMethod(
+                &relay,
+                [this, generation, name, read, ok, error, ms] {
+                    if (generation != audioGeneration)
+                        return;
+                    audioLoading = false;
+                    if (!ok) {
+                        audioProblem = QString::fromStdString(error);
+                        qWarning().noquote() << QStringLiteral("Audio: no se pudo leer %1: %2").arg(name, audioProblem);
+                    } else {
+                        clip = read;
+                        qInfo().noquote() << QStringLiteral("Audio: %1, %2 s, %3 Hz, %4 canales, leído en %5 ms")
+                                                 .arg(name)
+                                                 .arg(read->seconds(), 0, 'f', 1)
+                                                 .arg(read->sampleRate)
+                                                 .arg(read->channels)
+                                                 .arg(ms, 0, 'f', 0);
+                    }
+                    refreshStrip();
+                },
+                Qt::QueuedConnection);
+        });
+    }
+
+    // Play y pausa (HU-107): el reproductor tiene su hilo; acá un reloj mueve el cursor con la
+    // posición que se escucha.
+    audio::Player player;
+    QTimer playTimer;
+    void stopAudio()
+    {
+        player.pause();
+        playTimer.stop();
+    }
+    void togglePlay()
+    {
+        if (!clip) {
+            qInfo() << (audioLoading ? "Audio: todavía se está leyendo" : "Audio: no hay audio (A elige uno)");
             return;
         }
-        qInfo().noquote() << QStringLiteral("Audio: %1, %2 s, %3 Hz, %4 canales, leído en %5 ms")
-                                 .arg(audioFile)
-                                 .arg(clip.seconds(), 0, 'f', 1)
-                                 .arg(clip.sampleRate)
-                                 .arg(clip.channels)
-                                 .arg(time.ms(), 0, 'f', 0);
+        if (player.playing()) {
+            stopAudio();
+            audioPosition = double(player.position()) / clip->sampleRate;
+            qInfo().noquote() << QStringLiteral("Audio: pausa en %1").arg(audioTime(audioPosition));
+            refreshStrip();
+            return;
+        }
+        size_t from = size_t(audioPosition * clip->sampleRate);
+        if (from + 1 >= clip->frames())
+            from = 0; // terminó: otra vez desde el principio
+        startAudio(from);
+    }
+    void startAudio(size_t from)
+    {
+        std::string error;
+        if (!player.play(clip, from, error)) {
+            qWarning().noquote() << QStringLiteral("Audio: no se pudo reproducir: %1").arg(QString::fromStdString(error));
+            return;
+        }
+        audioPosition = double(from) / clip->sampleRate;
+        qInfo().noquote() << QStringLiteral("Audio: play desde %1").arg(audioTime(audioPosition));
+        playTimer.start();
+        refreshStrip();
+    }
+    void rewindAudio()
+    {
+        const bool wasPlaying = player.playing();
+        stopAudio();
+        audioPosition = 0;
+        qInfo() << "Audio: al principio";
+        if (wasPlaying && clip)
+            startAudio(0);
+        refreshStrip();
+    }
+    void audioTick()
+    {
+        if (!clip)
+            return;
+        audioPosition = double(player.position()) / clip->sampleRate;
+        if (!player.playing()) {
+            playTimer.stop();
+            audioPosition = clip->seconds();
+            qInfo() << "Audio: terminó";
+        }
+        refreshStrip();
     }
     void refreshStrip(bool force = false)
     {
@@ -473,13 +562,14 @@ struct Lienzo::Impl {
         AudioStripInfo info;
         info.name = audioFile;
         info.problem = audioProblem;
-        info.seconds = clip.seconds();
+        info.loading = audioLoading;
+        info.seconds = clip ? clip->seconds() : 0;
         info.position = audioPosition;
-        if (!clip.empty()) {
+        if (clip) {
             const int columns = audioWaveRect(rect.size(), scale).width();
             info.peaks = rect.size() == stripRect.size() && int(stripShown.peaks.size()) == columns && stripShown.name == info.name
                              ? stripShown.peaks
-                             : audio::peaks(clip, columns);
+                             : audio::peaks(*clip, columns);
         }
         if (!force && stripSent && info == stripShown && rect == stripRect)
             return;
@@ -1210,6 +1300,8 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     if (!d->area)
         d->render->setOverlay(true); // el aviso tiene que verse sin apretar nada
     if (d->options.sheets) { // panel de hojas (HU-114): el guardado, el lápiz y el giro cambian solos
+        d->playTimer.setInterval(33); // HU-107: el cursor del audio, a 30 cuadros por segundo
+        QObject::connect(&d->playTimer, &QTimer::timeout, [impl = d.get()] { impl->audioTick(); });
         d->panelTimer.setInterval(200);
         QObject::connect(&d->panelTimer, &QTimer::timeout, [impl = d.get()] { impl->refreshSheetPanel(); });
         d->panelTimer.start();
@@ -1323,6 +1415,9 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
 Lienzo::~Lienzo()
 {
     stop();
+    d->stopAudio();
+    if (d->audioLoader.joinable()) // antes que relay, al que avisa
+        d->audioLoader.join();
 }
 
 appkit::Shortcuts& Lienzo::shortcuts()
@@ -1826,9 +1921,25 @@ bool Lienzo::setAudioFile(const QString& path)
     d->audioFile = name;
     d->loadAudio(dir);
     d->sim->setAudio(d->audioFile);
+    d->refreshStrip(); // "leyendo…"
     qInfo().noquote() << QStringLiteral("Audio: %1 copiado a la toma como %2").arg(source.fileName(), name);
     d->refreshStrip();
     return d->audioProblem.isEmpty();
+}
+
+void Lienzo::togglePlay()
+{
+    d->togglePlay();
+}
+
+void Lienzo::rewindAudio()
+{
+    d->rewindAudio();
+}
+
+bool Lienzo::audioPlaying() const
+{
+    return d->player.playing();
 }
 
 QString Lienzo::audioFile() const

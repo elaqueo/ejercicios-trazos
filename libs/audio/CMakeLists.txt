@@ -2,6 +2,8 @@
 add_library(audio STATIC
     include/audio/Audio.h
     src/Audio.cpp
+    include/audio/Player.h
+    src/Player.cpp
 )
 target_include_directories(audio PUBLIC include)
 target_link_libraries(audio PUBLIC ole32 mfplat mfreadwrite mfuuid)

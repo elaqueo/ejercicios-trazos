@@ -1,10 +1,13 @@
 #include <audio/Audio.h>
+#include <audio/Player.h>
 
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <chrono>
 #include <cmath>
+#include <thread>
 #include <cstdint>
 
 namespace {
@@ -63,6 +66,31 @@ private slots:
             peak = std::max(peak, std::abs(clip.samples[i]));
         QVERIFY(std::abs(peak - 0.5f) < 0.01f);
         QVERIFY(std::abs(clip.samples[1]) < 1e-4f); // el segundo canal, en silencio
+    }
+
+    // HU-107: un audio corto (en silencio) suena hasta el final en la salida de Windows; la
+    // posición avanza y termina en el último cuadro. Pausar lo detiene donde estaba.
+    void reproduce()
+    {
+        auto clip = std::make_shared<audio::Clip>();
+        clip->sampleRate = 48000;
+        clip->channels = 2;
+        clip->samples.assign(size_t(48000 * 0.4) * 2, 0.0f);
+        audio::Player player;
+        std::string error;
+        if (!player.play(clip, 0, error))
+            QSKIP(qPrintable(QStringLiteral("sin salida de audio: %1").arg(QString::fromStdString(error))));
+        QVERIFY(player.playing());
+        for (int i = 0; i < 200 && player.playing(); ++i)
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        QVERIFY(!player.playing());
+        QCOMPARE(player.position(), clip->frames() - 1);
+
+        QVERIFY2(player.play(clip, 4800, error), error.c_str()); // desde 0,1 s
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        player.pause();
+        QVERIFY(!player.playing());
+        QVERIFY(player.position() > 4800 && player.position() < clip->frames() - 1);
     }
 
     void archivoQueNoExiste()

@@ -97,11 +97,12 @@ QImage paintAudioStrip(const AudioStripInfo& info, const QSize& size, double sca
 
     // La onda, o por qué no está.
     const QRect wave = audioWaveRect(size, scale);
-    if (info.name.isEmpty() || !info.problem.isEmpty() || info.peaks.empty()) {
+    if (info.name.isEmpty() || !info.problem.isEmpty() || info.peaks.empty() || info.loading) {
         p.setFont(body);
         p.setPen(theme::kTextoSecundario);
         p.drawText(wave, Qt::AlignCenter,
-                   info.name.isEmpty()     ? QStringLiteral("A elige un WAV o MP3")
+                   info.name.isEmpty()       ? QStringLiteral("A elige un WAV o MP3")
+                   : info.loading            ? QStringLiteral("leyendo…")
                    : !info.problem.isEmpty() ? QStringLiteral("No se pudo leer: %1").arg(info.problem)
                                              : QString());
         return image;

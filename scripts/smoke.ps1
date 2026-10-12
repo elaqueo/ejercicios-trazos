@@ -392,6 +392,16 @@ try {
         $failures.Add('Pila en círculo')
     }
 
+    # HU-107: sin audio, P avisa que no hay (la reproducción la prueba tst_audio).
+    $ws.SendKeys('p'); Start-Sleep -Milliseconds 400
+    $play = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Audio: ' }) | Select-Object -Last 1) -join ' '
+    if ($play -match 'no hay audio') {
+        Write-Host '  ok   P sin audio avisa que no hay'
+    } else {
+        Write-Host "  FALLA play sin audio: $play"
+        $failures.Add('Play')
+    }
+
     # HU-106: W oculta la franja de audio y la vuelve a mostrar.
     foreach ($k in 'w', 'w') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
     $strip = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Franja de audio:' }) | Select-Object -Last 2) -join ' '

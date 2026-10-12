@@ -229,6 +229,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 107. **HU-107 · Play y pausa** (Should · 2 pts). Como animador, quiero una tecla de play/pausa, para escuchar mientras flipeo a mano.
     1. Una tecla alterna play y pausa; otra vuelve al principio; el cursor de la onda sigue el audio.
     2. El audio no toca los hilos de simulación ni render (RNF-04).
+    3. *Hecho (12 oct 2026): P alterna play y pausa (Espacio no: es el pan); Retroceso vuelve al principio (si sonaba, sigue desde ahí); al terminar, P empieza de nuevo. Suena por WASAPI en su propio hilo (libs/audio, audio::Player), con el formato del archivo y la conversión de Windows. El cursor sigue la posición que se escucha, a 30 cuadros por segundo. El audio se lee en un hilo aparte: la toma abre sin esperarlo y la franja dice "leyendo…".*
 108. **HU-108 · Marcas sobre la onda** (Should · 3 pts). Como animador, quiero poner marcas en el audio con una tecla, para señalar acentos y sílabas.
     1. Una tecla pone una marca en la posición actual; con el lápiz sobre la franja, un toque pone la marca ahí y arrastrarla la mueve; otra tecla borra la más cercana.
     2. Las marcas se numeran y se guardan en `toma.json`.

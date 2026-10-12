@@ -143,6 +143,9 @@ int main(int argc, char* argv[])
             canvas.setAudioStrip(true);
         }
     });
+    // Play y pausa (HU-107): P alterna; Retroceso vuelve al principio. Espacio no: es el pan.
+    canvas.shortcuts().add(QStringLiteral("Play o pausa del audio"), {{'P'}}, [&canvas] { canvas.togglePlay(); });
+    canvas.shortcuts().add(QStringLiteral("Audio al principio"), {{VK_BACK}}, [&canvas] { canvas.rewindAudio(); });
     canvas.shortcuts().add(QStringLiteral("Franja de audio"), {{'W'}}, [&] {
         stripOn = !stripOn;
         config.setValue(QStringLiteral("audioStrip"), stripOn);

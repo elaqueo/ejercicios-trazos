@@ -17,6 +17,7 @@ struct AudioStripInfo {
     double seconds = 0;        // duración
     double position = 0;       // el cursor, en segundos
     std::vector<float> peaks;  // la onda, una columna por píxel del área de la onda
+    bool loading = false;      // HU-107: se está leyendo (en un hilo aparte)
     bool operator==(const AudioStripInfo&) const = default;
 };
 

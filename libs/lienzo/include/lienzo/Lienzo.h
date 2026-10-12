@@ -193,6 +193,12 @@ public:
     // false si no se pudo. La franja (onda y cursor) va fuera de la hoja; setAudioStrip la
     // muestra o la oculta.
     bool setAudioFile(const QString& path);
+    // Play y pausa (HU-107): togglePlay alterna (al terminar, vuelve a empezar); rewindAudio
+    // lleva el cursor al principio (si sonaba, sigue sonando desde ahí). El audio suena en su
+    // propio hilo; el cursor de la franja lo sigue.
+    void togglePlay();
+    void rewindAudio();
+    bool audioPlaying() const;
     QString audioFile() const;
     void setAudioStrip(bool visible);
     bool audioStrip() const;
