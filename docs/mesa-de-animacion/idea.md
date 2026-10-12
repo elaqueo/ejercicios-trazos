@@ -140,7 +140,7 @@ Todo lo que no se nombra acá es como en Cartuchera (goma, tamaño, calibración
 
 ## Apps que salen de esta
 
-- **Ejercicios para animación** (pedido del usuario el 10 de octubre de 2026, para más adelante): los mismos ejercicios de trazo de Ejercicios, pero con el papel y los lápices de Mesa de animación (papel de animación, grafito único sin desgaste, lápices de color). Practicar el trazo con la herramienta con la que después se anima. Sale casi gratis cuando exista el perfil de medio por app (HU-82): es Ejercicios con otro perfil.
+- **Ejercicios para animación** (pedido del usuario el 10 de octubre de 2026, para más adelante): los mismos ejercicios de trazo de Ejercicios, pero con el papel y los lápices de Mesa de animación (papel de animación, grafito único sin desgaste, lápices de color). Practicar el trazo con la herramienta con la que después se anima. Sale casi gratis cuando exista el perfil de medio por app (HU-82): es Ejercicios con otro perfil. *Ahora es una app con ejercicios propios: [Ejercicios de animación](../ejercicios-animacion/idea.md) (12 de octubre de 2026).*
 
 ## Qué se reutiliza y qué habría que hacer
 
