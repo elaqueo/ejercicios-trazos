@@ -175,6 +175,10 @@ public:
     // LightTable.h); se recalcula sola cada vez que cambia la pila. Vacía = apagada. Cada hoja
     // se ve como quedó la última vez que estuvo activa.
     void setLightTable(const LightTable& table);
+    // Guía de campo (HU-103, lienzo/FieldGuide.h): 12 campos en 16:9 a tamaño real, en gris
+    // tinta bajo el grafito; gira con la hoja y se ve al flipear. No queda en las hojas.
+    void setFieldGuide(bool visible);
+    bool fieldGuide() const;
     // La hoja que se muestra en lugar de la activa (HU-83; -1 = la activa), por posición.
     void showSheet(int index);
     // Flip (HU-90): la hoja anterior (step = -1) o la siguiente (+1) se muestra sin activarla

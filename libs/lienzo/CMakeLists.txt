@@ -9,6 +9,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/DisplayImage.h
     include/lienzo/LeadController.h
     include/lienzo/LeadPicker.h
+    include/lienzo/FieldGuide.h
     include/lienzo/FixedSheet.h
     include/lienzo/LightTable.h
     include/lienzo/Lienzo.h
@@ -32,6 +33,7 @@ qt_add_library(lienzo STATIC
     src/CanvasWindow.cpp
     src/Compositor.cpp
     src/Cursor.cpp
+    src/FieldGuide.cpp
     src/LeadPicker.cpp
     src/Lienzo.cpp
     src/Media.cpp

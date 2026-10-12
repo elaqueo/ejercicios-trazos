@@ -8,6 +8,7 @@
 #include "lienzo/Renderer.h"
 #include "lienzo/SampleQueue.h"
 #include "lienzo/SheetImages.h"
+#include "lienzo/FieldGuide.h"
 #include "lienzo/SheetPanel.h"
 #include "lienzo/SheetStack.h"
 #include "lienzo/Simulation.h"
@@ -398,6 +399,25 @@ struct Lienzo::Impl {
                         bgra(ink.red(), ink.green(), ink.blue()));
     }
 
+    // Guía de campo (HU-103): se pinta una vez, del tamaño de la hoja en pantalla.
+    bool fieldGuide = false;
+    void applyGuide()
+    {
+        if (!render)
+            return;
+        if (!fieldGuide) {
+            render->setGuide(0, 0, {}, 0, 0);
+            return;
+        }
+        const QImage guide = paintFieldGuide(mapping.sheetWidth, mapping.sheetHeight,
+                                             mapping.sheetWidth / paper.spec().widthMm, screen->devicePixelRatio());
+        const auto* bits = reinterpret_cast<const uint32_t*>(guide.constBits());
+        const QColor ink = appkit::theme::kMarcaHoja;
+        render->setGuide(guide.width(), guide.height(),
+                         std::vector<uint32_t>(bits, bits + size_t(guide.width()) * size_t(guide.height())),
+                         bgra(ink.red(), ink.green(), ink.blue()), appkit::theme::kGuiaCampoOpacidad);
+    }
+
     // Panel de hojas (HU-114): se vuelve a pintar solo si cambió algo (la imagen la pinta Qt
     // acá; las miniaturas, el render). Lo llaman applyLayers (cada cambio de la pila o flip) y
     // un reloj, para el estado del guardado, el lápiz y el giro.
@@ -756,6 +776,7 @@ struct Lienzo::Impl {
         createSimulation();
         render->setSheetRect(sheetRect());
         markNumber = 0; // la marca va en la esquina de la hoja nueva
+        applyGuide();   // y la guía, del tamaño nuevo
         applyLayers();
         if (!area)
             render->setOverlay(true);
@@ -1656,6 +1677,18 @@ void Lienzo::setSheetPanel(bool visible)
 bool Lienzo::sheetPanel() const
 {
     return d->panelVisible;
+}
+
+void Lienzo::setFieldGuide(bool visible)
+{
+    d->fieldGuide = visible;
+    d->applyGuide();
+    qInfo() << "Guía de campo:" << (visible ? "visible" : "oculta");
+}
+
+bool Lienzo::fieldGuide() const
+{
+    return d->fieldGuide;
 }
 
 void Lienzo::setLightTable(const LightTable& table)

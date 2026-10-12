@@ -1,6 +1,7 @@
 #include <lienzo/LeadController.h>
 #include <lienzo/Compositor.h>
 #include <lienzo/Cursor.h>
+#include <lienzo/FieldGuide.h>
 #include <lienzo/FixedSheet.h>
 #include <lienzo/LeadPicker.h>
 #include <lienzo/LightTable.h>
@@ -1118,6 +1119,27 @@ private slots:
 
     // HU-93: solo keys: las keys más cercanas a cada lado, con los colores de la más cercana a la
     // más lejana; la activa no cuenta aunque sea key; sin keys, nada.
+    // HU-103: la guía de campo: 12 campos de 1 pulgada en 16:9, centrados; las líneas tienen
+    // cobertura y entre ellas no.
+    void guiaDeCampo()
+    {
+        constexpr int w = 1300, h = 800;
+        constexpr double pxPerMm = 4; // el campo 12: 1219,2 × 685,8 px
+        const QRectF twelve = fieldRect(12, w, h, pxPerMm);
+        QCOMPARE(twelve.width(), 12 * 25.4 * pxPerMm);
+        QVERIFY(std::abs(twelve.width() / twelve.height() - 16.0 / 9) < 1e-9);
+        QCOMPARE(twelve.center(), QPointF(w / 2.0, h / 2.0));
+        QCOMPARE(fieldRect(6, w, h, pxPerMm).width(), twelve.width() / 2);
+        const QImage guide = paintFieldGuide(w, h, pxPerMm, 1);
+        QCOMPARE(guide.size(), QSize(w, h));
+        const auto alpha = [&](double x, double y) { return qAlpha(guide.pixel(int(x), int(y))); };
+        QVERIFY(alpha(twelve.left(), h / 2.0 + 40) > 0);  // el borde del campo 12
+        QVERIFY(alpha(w / 2.0, h / 2.0 + 40) > 0);        // la cruz
+        QCOMPARE(alpha(5, 5), 0);                          // afuera
+        const QRectF eleven = fieldRect(11, w, h, pxPerMm);
+        QCOMPARE(alpha((twelve.left() + eleven.left()) / 2, h / 2.0 + 120), 0); // entre dos campos
+    }
+
     // HU-89: la hoja fija no se mueve de la pila; el flip, los extremos, la numeración, la mesa
     // de luz y la tira del panel la saltean.
     void hojaFija()

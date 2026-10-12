@@ -167,6 +167,20 @@ public:
         m_markChanged = true;
     }
 
+    // La guía de la hoja (HU-103, guía de campo): una imagen del tamaño de la hoja (BGRA; se usa
+    // el alfa), multiplicada de `color` con `opacity` bajo el grafito, antes del giro. pixels
+    // vacío: sin guía.
+    void setGuide(int width, int height, std::vector<uint32_t> pixels, uint32_t color, float opacity)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_guideW = width;
+        m_guideH = height;
+        m_guidePixels = std::move(pixels);
+        m_guideColor = color;
+        m_guideOpacity = opacity;
+        m_guideChanged = true;
+    }
+
     // Resumen de la sesión para el log: latencias, adelanto final, vsyncs perdidos.
     std::string summary() const;
 
@@ -203,6 +217,11 @@ private:
     int m_markX = 0, m_markY = 0, m_markSize = 0;
     std::vector<uint32_t> m_markPixels;
     uint32_t m_markColor = 0;
+    bool m_guideChanged = false;
+    int m_guideW = 0, m_guideH = 0;
+    std::vector<uint32_t> m_guidePixels;
+    uint32_t m_guideColor = 0;
+    float m_guideOpacity = 1;
 };
 
 } // namespace lienzo

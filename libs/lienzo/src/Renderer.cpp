@@ -180,6 +180,9 @@ struct Renderer::Impl {
     ComPtr<ID3D11ShaderResourceView> markView;
     int markSize = 0;
     SheetMarkLayer markLayer;
+    ComPtr<ID3D11Texture2D> guide; // HU-103
+    ComPtr<ID3D11ShaderResourceView> guideView;
+    SheetGuideLayer guideLayer;
     ComPtr<ID3D11VertexShader> thumbVs;
     ComPtr<ID3D11PixelShader> thumbPs;
     ComPtr<ID3D11Buffer> thumbConstants;
@@ -746,6 +749,28 @@ void Renderer::run()
                     d.markLayer = {d.markView.Get(), {m_markX, m_markY, m_markX + size, m_markY + size}, m_markColor};
                 }
             }
+            if (m_guideChanged) { // la guía (HU-103), a su textura
+                m_guideChanged = false;
+                d.guide.Reset();
+                d.guideView.Reset();
+                d.guideLayer.view = nullptr;
+                if (m_guideW > 0 && m_guideH > 0 && m_guidePixels.size() == size_t(m_guideW) * size_t(m_guideH)) {
+                    D3D11_TEXTURE2D_DESC td{};
+                    td.Width = UINT(m_guideW);
+                    td.Height = UINT(m_guideH);
+                    td.MipLevels = 1;
+                    td.ArraySize = 1;
+                    td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+                    td.SampleDesc.Count = 1;
+                    td.Usage = D3D11_USAGE_IMMUTABLE;
+                    td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+                    const D3D11_SUBRESOURCE_DATA data{m_guidePixels.data(), UINT(m_guideW) * 4, 0};
+                    if (SUCCEEDED(d.device->CreateTexture2D(&td, &data, &d.guide)))
+                        d.device->CreateShaderResourceView(d.guide.Get(), nullptr, &d.guideView);
+                    d.guideLayer = {d.guideView.Get(), m_guideColor, m_guideOpacity};
+                }
+                m_guidePixels = {};
+            }
             sheetRect = m_sheetRect;
             shown = m_shown;
             untilActive = m_untilActive;
@@ -808,9 +833,10 @@ void Renderer::run()
                     layers.push_back({v, l.color, l.opacity});
             // La marca sola (HU-104), con la vista sin girar, va después sobre su recuadro (drawMark).
             const SheetMarkLayer* mark = d.markLayer.view ? &d.markLayer : nullptr;
-            if (base || !layers.empty() || (mark && !rotation.identity())) {
+            const SheetGuideLayer* guide = d.guideLayer.view ? &d.guideLayer : nullptr; // HU-103
+            if (base || !layers.empty() || guide || (mark && !rotation.identity())) {
                 d.compositor.compose(d.context.Get(), d.display.Get(), d.displayView.Get(), base, sheetRect, layers,
-                                     d.composed.Get(), mark);
+                                     d.composed.Get(), mark, guide);
                 source = d.composed.Get();
                 sourceView = d.composedView.Get();
             }

@@ -206,6 +206,38 @@ private slots:
         QCOMPARE(b[size_t(sheet.top + 7) * W + sheet.left + 16], kPaperColor);
     }
 
+    // HU-103: la guía multiplica la hoja donde tiene cobertura (el papel y el grafito), como una
+    // capa de la mesa de luz; donde no tiene, la hoja queda igual.
+    void guiaDebajo()
+    {
+        std::vector<uint32_t> screen(size_t(W) * H, kPaperColor);
+        screen[size_t(sheet.top + 10) * W + sheet.left + 5] = kGraphiteColor; // grafito sobre la guía
+        std::vector<uint32_t> cover(size_t(SW) * SH, 0x00FFFFFFu);
+        for (int y = 0; y < SH; ++y)
+            for (int x = 0; x < SW / 2; ++x)
+                cover[size_t(y) * SW + x] = 0xFFFFFFFFu; // la mitad izquierda
+        const Texture in = makeTexture(device.Get(), W, H, screen);
+        const Texture guide = makeTexture(device.Get(), SW, SH, cover);
+        const Texture out = makeTexture(device.Get(), W, H, std::vector<uint32_t>(size_t(W) * H), true);
+        const SheetGuideLayer layer{guide.view.Get(), kRed, 0.5f};
+        compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), nullptr, sheet, {}, out.texture.Get(), nullptr,
+                           &layer);
+        const std::vector<uint32_t> got = readBack(device.Get(), context.Get(), out.texture.Get());
+        const auto times = [](uint32_t c, uint32_t tint, float k) {
+            uint32_t r = 0xFF000000u;
+            for (int shift : {0, 8, 16}) {
+                const float a = float((c >> shift) & 0xFF) / 255, t = float((tint >> shift) & 0xFF) / 255;
+                r |= uint32_t(std::lround(a * (1 + (t - 1) * k) * 255)) << shift;
+            }
+            return r;
+        };
+        const auto at = [&](int sx, int sy) { return got[size_t(sheet.top + sy) * W + sheet.left + sx]; };
+        QVERIFY(similar(at(3, 3), times(kPaperColor, kRed, 0.5f)));
+        QVERIFY(similar(at(5, 10), times(kGraphiteColor, kRed, 0.5f)));
+        QVERIFY(similar(at(SW - 3, 3), kPaperColor));
+        QCOMPARE(got[0], kPaperColor); // fuera de la hoja, tal cual
+    }
+
     // Seis hojas de abajo a tamaño real (1734 × 1080) en menos de 8 ms de GPU.
     void seisCapasATamanoReal()
     {

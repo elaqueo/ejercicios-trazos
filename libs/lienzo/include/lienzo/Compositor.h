@@ -29,6 +29,15 @@ struct SheetMarkLayer {
     uint32_t color = 0; // BGRA
 };
 
+// Una guía del tamaño de la hoja (HU-103, guía de campo): su cobertura (el alfa) tiñe la hoja
+// de `color` con `opacity`, multiplicada como una capa de la mesa de luz (queda bajo el
+// grafito). Va antes del giro: gira con la hoja.
+struct SheetGuideLayer {
+    ID3D11ShaderResourceView* view = nullptr;
+    uint32_t color = 0; // BGRA
+    float opacity = 1;
+};
+
 // Arma la mesa de luz en la GPU (HU-83): la hoja que se muestra con las de abajo teñidas.
 // De cada hoja de abajo se toma solo el grafito (cuánto más oscuro que el papel es cada
 // píxel), se pinta de su color y se multiplica, como hojas sobre una mesa de luz; el papel
@@ -47,7 +56,7 @@ public:
     // cliente. out: textura del tamaño del cliente con D3D11_BIND_RENDER_TARGET.
     void compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, ID3D11ShaderResourceView* screenView,
                  ID3D11ShaderResourceView* base, const RECT& sheet, const std::vector<LightTableLayer>& layers,
-                 ID3D11Texture2D* out, const SheetMarkLayer* mark = nullptr);
+                 ID3D11Texture2D* out, const SheetMarkLayer* mark = nullptr, const SheetGuideLayer* guide = nullptr);
 
     // Solo la marca (HU-104), sin girar ni capas: pinta su recuadro en `out` (que ya tiene la
     // imagen de pantalla copiada) leyendo la imagen de pantalla; el resto de out no se toca.

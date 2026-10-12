@@ -136,6 +136,7 @@ if (-not $state.ContainsKey('mesadeanimacion')) { $state['mesadeanimacion'] = @{
 $state['mesadeanimacion']['lightTable'] = $true
 $state['mesadeanimacion']['lightKeysOnly'] = $false # HU-93
 $state['mesadeanimacion']['sheetPanel'] = $true # HU-114: el panel de hojas visible
+$state['mesadeanimacion']['fieldGuide'] = $false # HU-103: la guía de campo oculta
 $state | ConvertTo-Json -Depth 32 | Set-Content $config -Encoding utf8
 # La toma de la prueba (HU-85), en una carpeta temporal: la del usuario no se toca.
 $takeDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-toma-$PID"
@@ -374,6 +375,16 @@ try {
     } else {
         Write-Host "  FALLA hoja fija: $fixedCount fija en toma.json · $fixedLog"
         $failures.Add('Hoja fija')
+    }
+
+    # HU-103: G muestra la guía de campo y la oculta.
+    foreach ($k in 'g', 'g') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    $guide = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Guía de campo:' }) | Select-Object -Last 2) -join ' '
+    if ($guide -match 'Guía de campo: visible.*Guía de campo: oculta') {
+        Write-Host '  ok   G muestra y oculta la guía de campo'
+    } else {
+        Write-Host "  FALLA guía de campo: $guide"
+        $failures.Add('Guía de campo')
     }
 
     # HU-114: Tab oculta el panel de hojas y lo vuelve a mostrar (los flips de arriba ya

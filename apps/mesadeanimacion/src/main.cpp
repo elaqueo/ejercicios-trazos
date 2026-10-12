@@ -107,6 +107,14 @@ int main(int argc, char* argv[])
         config.setValue(QStringLiteral("lightKeysOnly"), keysOnly);
         applyLight();
     });
+    // Guía de campo (HU-103, mesa "Guía de campo"): G la muestra y la oculta; queda guardado.
+    bool guideOn = config.value(QStringLiteral("fieldGuide"), false).toBool();
+    canvas.setFieldGuide(guideOn);
+    canvas.shortcuts().add(QStringLiteral("Guía de campo"), {{'G'}}, [&] {
+        guideOn = !guideOn;
+        config.setValue(QStringLiteral("fieldGuide"), guideOn);
+        canvas.setFieldGuide(guideOn);
+    });
     // Panel de hojas (HU-114): Tab lo muestra y lo oculta; queda guardado.
     bool panelOn = config.value(QStringLiteral("sheetPanel"), true).toBool();
     canvas.setSheetPanel(panelOn);
