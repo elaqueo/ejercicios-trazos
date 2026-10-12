@@ -33,7 +33,7 @@ El nombre es **Ejercicios de animación** (ejecutable `ejerciciosanimacion`), pa
 - Hay deshacer (Z), a diferencia de Ejercicios: en una pila de doce hojas, perder la hoja entera por un trazo errado es castigar de más (decidido con el usuario el 12 de octubre de 2026).
 - El menú (F4) y el modo mixto son los de Ejercicios; el panel (F2) tiene los parámetros de cada ejercicio, y además cuántas hojas.
 
-**Choque de teclas a resolver.** En Ejercicios, → pasa al ejercicio siguiente; en la Mesa, ← → flipean. Acá manda el flip, porque es el corazón de la práctica: "siguiente" tiene que ir a otra tecla (Enter, o el botón del lápiz como hoy en Ejercicios). Queda abierto.
+**Teclas.** En Ejercicios, → pasa al ejercicio siguiente; en la Mesa, ← → flipean. Acá manda el flip, porque es el corazón de la práctica, así que "siguiente" va a **Enter**. El botón del lápiz abre el menú alrededor de la punta, como en la Mesa (decidido con el usuario el 12 de octubre de 2026).
 
 ## Ejercicio 1: trazos de Ejercicios en pila
 
@@ -66,7 +66,8 @@ Todo lo que no se nombra es como en la Mesa (zoom, pan, giro de la vista, F3, F9
 | `L` | Mesa de luz |
 | `G` | Ocultar / mostrar las guías (el ghost) |
 | `R` | Repetir el ejercicio (la misma pila, en blanco) |
-| (a definir) | Ejercicio siguiente (Enter, o el botón del lápiz) |
+| `Enter` | Ejercicio siguiente |
+| Botón del lápiz | Menú alrededor de la punta, como en la Mesa |
 | `F4` / `F2` | Menú de ejercicios / parámetros |
 | `F5`, `1` a `5` | Lápices, como en la Mesa |
 | `Z` / `Ctrl+Y` | Deshacer / rehacer en la hoja |
@@ -74,10 +75,10 @@ Todo lo que no se nombra es como en la Mesa (zoom, pan, giro de la vista, F3, F9
 
 ## Ideas abiertas
 
-- ¿Qué tecla es "siguiente"? ¿Y el botón del lápiz: siguiente, como en Ejercicios, o el menú del lápiz, como en la Mesa?
+- ~~¿Qué tecla es "siguiente"?~~ Enter; el botón del lápiz es el menú, como en la Mesa (12 de octubre de 2026).
 - ~~¿Deshacer sí o no?~~ Sí (12 de octubre de 2026).
 - ~~¿Se guarda lo dibujado?~~ No, como en Ejercicios; a lo sumo F12 para una captura (12 de octubre de 2026).
-- ¿El ghost se puede pedir solo en algunas hojas desde el primer día, o es una variante posterior?
+- ~~¿El ghost solo en algunas hojas desde el primer día?~~ No: es una variante posterior (12 de octubre de 2026).
 - Otros ejercicios de animación, para después: **intercalar** (dos keys dadas como guía y el intermedio a mano, con su chart: mitades, tercios, ease), **arcos y spacing** (una trayectoria con marcas; la pelota en cada posición), **la pelota que rebota** (squash y stretch), **el cilindro que gira**.
 
 ## Qué se reutiliza y qué habría que hacer
