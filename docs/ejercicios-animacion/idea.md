@@ -2,7 +2,7 @@
 
 12 de octubre de 2026 · Daniel
 
-> Documento de idea. No hay requerimientos ni plan: esto es para seguir refinando qué queremos hacer y, sobre todo, qué no.
+> Documento de idea: qué queremos hacer y, sobre todo, qué no. Los requerimientos y el backlog están en [requerimientos.md](requerimientos.md).
 
 ## Qué es
 
