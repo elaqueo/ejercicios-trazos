@@ -1211,8 +1211,14 @@ struct Lienzo::Impl {
             focusCanvas();
             return;
         }
-        shortcutsOverlay->setSheet(QApplication::applicationName(), shortcuts.sheet());
-        showOverlay(shortcutsOverlay.get());
+        // HU-117: entra en la pantalla y va centrada en ella (no la alcanza el lápiz: es para leer).
+        shortcutsOverlay->setSheet(QApplication::applicationName(), shortcuts.sheet(), shell->size());
+        const QPoint center = shell->rect().center();
+        shortcutsOverlay->move(shell->mapToGlobal(center - QPoint(shortcutsOverlay->width() / 2, shortcutsOverlay->height() / 2)));
+        shortcutsOverlay->show();
+        shortcutsOverlay->raise();
+        shortcutsOverlay->activateWindow();
+        shortcutsOverlay->setFocus();
         qInfo() << "Atajos: abiertos";
     }
 
@@ -1570,6 +1576,8 @@ void Lienzo::setPenMenu(std::vector<PenMenuAction> actions)
     for (PenMenuAction& a : actions)
         a.key = d->shortcuts.keyOf(a.shortcut);
     if (!d->penMenu) {
+        d->shortcuts.setGroup(kGroupGestures); // HU-117: en la lista de atajos
+        d->shortcuts.note(QStringLiteral("Botón del lápiz"), QStringLiteral("Menú del lápiz"));
         d->penMenu = std::make_unique<PenMenu>(d->shell);
         Impl* impl = d.get();
         d->penMenu->onPencil = [impl](int index) {
@@ -1595,9 +1603,9 @@ void Lienzo::registerShortcuts()
     appkit::Shortcuts& keys = d->shortcuts;
     Impl* impl = d.get();
     MediaFile& media = d->media;
-    // Grupos de la lista de atajos (Ctrl+, HU-78), en las columnas de la mesa "Atajos"; la
-    // app ubica los suyos (Ejercicios) con setColumns.
-    keys.setColumns({{kGroupLead}, {kGroupSheet, kGroupView}, {kGroupScreen}});
+    // Grupos de la lista de atajos (Ctrl+, HU-78), en el orden de la mesa "Atajos" (HU-117);
+    // la app ordena los suyos con setOrder.
+    keys.setOrder({kGroupLead, kGroupSheet, kGroupView, kGroupGestures, kGroupScreen});
 
     keys.setGroup(kGroupLead);
     const bool calibrable = d->options.fixedGrade < 0; // con un solo grafito (HU-98), nada de esto
@@ -1669,9 +1677,11 @@ void Lienzo::registerShortcuts()
     if (d->options.colorPencils) { // HU-99: 1 el grafito, 2 a 5 los colores
         keys.setGroup(kGroupLead);
         keys.add(pencilShortcutName(-1), {{'1'}, {VK_NUMPAD1}}, [impl] { impl->setColorPencil(-1); });
-        for (int c = 0; c < drymedia::kColorCount; ++c)
+        for (int c = 0; c < drymedia::kColorCount; ++c) {
             keys.add(pencilShortcutName(c), {{UINT('2' + c)}, {UINT(VK_NUMPAD2 + c)}},
                      [impl, c] { impl->setColorPencil(c); });
+            keys.joinWithPrevious(QStringLiteral("Grafito y colores")); // HU-117: una fila (F5 dice cuál es cuál)
+        }
     }
 
     keys.setGroup(kGroupView);
@@ -1706,11 +1716,18 @@ void Lienzo::registerShortcuts()
             impl->applyView();
             qInfo() << "Zoom 100 % (Ctrl+1)";
         });
-        keys.note(QStringLiteral("Rueda, modo 2"), QStringLiteral("Zoom con la rueda de la tableta"));
-        keys.note(QStringLiteral("Espacio+arrastrar"), QStringLiteral("Mover la vista con el lápiz")); // HU-102
     }
-    keys.note(QStringLiteral("Shift+arrastrar"), QStringLiteral("Girar libre con el lápiz")); // HU-79
-    keys.note(QStringLiteral("Rueda"), QStringLiteral("Girar con la rueda de la tableta"));   // HU-74
+    // Los gestos (HU-117: aparte, en chips punteados), en el orden de los modos de la rueda.
+    keys.setGroup(kGroupGestures);
+    keys.note(QStringLiteral("Rueda"), QStringLiteral("Girar la vista")); // HU-74
+    if (d->options.zoom)
+        keys.note(QStringLiteral("Rueda, 2.º modo"), QStringLiteral("Zoom")); // HU-101
+    if (d->options.sheets)
+        keys.note(d->options.zoom ? QStringLiteral("Rueda, 3.er modo") : QStringLiteral("Rueda, 2.º modo"),
+                  QStringLiteral("Pasar hojas")); // HU-95
+    if (d->options.zoom)
+        keys.note(QStringLiteral("Espacio + arrastrar"), QStringLiteral("Mover la vista")); // HU-102
+    keys.note(QStringLiteral("Shift + arrastrar"), QStringLiteral("Girar libre")); // HU-79
 
     keys.setGroup(kGroupScreen);
     keys.add(QStringLiteral("Atajos"), {{VK_OEM_COMMA, true}}, [impl] { impl->toggleShortcuts(); }); // HU-78

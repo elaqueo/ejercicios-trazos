@@ -106,14 +106,15 @@ public:
     Lienzo& operator=(const Lienzo&) = delete;
 
     // Registro único de atajos (HU-14): ya tiene los del lienzo; la app agrega los suyos
-    // antes de start(), que muestra los choques si los hay. Ctrl+, muestra la lista (HU-78),
-    // por grupos: los del lienzo son estos; la app suma los suyos con setGroup y los ubica con
-    // setColumns.
+    // antes de start(), que muestra los choques si los hay. Ctrl+, muestra la lista (HU-78,
+    // HU-117), por grupos: los del lienzo son estos; la app suma los suyos con setGroup y los
+    // ordena con setOrder (la página los reparte sola en columnas).
     appkit::Shortcuts& shortcuts();
     static inline const QString kGroupLead = QStringLiteral("Lápiz");
     static inline const QString kGroupSheet = QStringLiteral("Hoja y papel");
     static inline const QString kGroupView = QStringLiteral("Vista");
     static inline const QString kGroupScreen = QStringLiteral("Pantalla");
+    static inline const QString kGroupGestures = QStringLiteral("Lápiz y tableta"); // HU-117: los gestos, aparte
     // Botón lateral del lápiz (en el hilo de la interfaz).
     void setOnStylusButton(std::function<void()> callback);
     // Menú del botón del lápiz (HU-116, lienzo/PenMenu.h): con él, el botón lateral abre un anillo

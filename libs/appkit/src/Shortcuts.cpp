@@ -65,20 +65,12 @@ QList<ShortcutGroup> Shortcuts::sheet() const
         else
             group.rows.append({{key}, entry.label.isEmpty() ? entry.name : entry.label, false});
     }
-    // Por columna y, dentro de cada una, en el orden pedido; los que no figuran, al final de
-    // la última, como aparecieron (stable_sort conserva el orden).
-    const int last = std::max(0, int(m_columns.size()) - 1);
+    // En el orden pedido; los que no figuran, al final, como aparecieron (stable_sort conserva
+    // el orden).
     QList<std::pair<int, ShortcutGroup>> ranked; // (posición, grupo)
-    for (ShortcutGroup& g : groups) {
-        g.column = last;
-        int position = last * 1000 + 999;
-        for (int column = 0; column < m_columns.size(); ++column)
-            if (const qsizetype i = m_columns[column].indexOf(g.title); i >= 0) {
-                g.column = column;
-                position = column * 1000 + int(i);
-                break;
-            }
-        ranked.append({position, g});
+    for (const ShortcutGroup& g : groups) {
+        const qsizetype i = m_order.indexOf(g.title);
+        ranked.append({i >= 0 ? int(i) : int(m_order.size()), g});
     }
     std::stable_sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
     groups.clear();
@@ -155,7 +147,7 @@ QString Shortcuts::describe(KeyChord chord)
         case VK_OEM_6: key = QStringLiteral("]"); break;
         case VK_OEM_COMMA: key = QStringLiteral(","); break;
         case VK_OEM_PERIOD: key = QStringLiteral("."); break;
-        case VK_OEM_MINUS: key = QStringLiteral("-"); break;
+        case VK_OEM_MINUS: key = QStringLiteral("−"); break;
         case VK_OEM_PLUS: key = QStringLiteral("+"); break; // "=" en el teclado inglés
         case VK_ADD: key = QStringLiteral("Num +"); break;
         case VK_SUBTRACT: key = QStringLiteral("Num −"); break;
@@ -164,6 +156,12 @@ QString Shortcuts::describe(KeyChord chord)
         case VK_HOME: key = QStringLiteral("Inicio"); break; // HU-115
         case VK_END: key = QStringLiteral("Fin"); break;
         case VK_TAB: key = QStringLiteral("Tab"); break; // HU-114
+        case VK_BACK: key = QStringLiteral("Retroceso"); break; // HU-117 (antes salía 0x08)
+        case VK_SPACE: key = QStringLiteral("Espacio"); break;
+        case VK_ESCAPE: key = QStringLiteral("Esc"); break;
+        case VK_RETURN: key = QStringLiteral("Enter"); break;
+        case VK_PRIOR: key = QStringLiteral("RePág"); break;
+        case VK_NEXT: key = QStringLiteral("AvPág"); break;
         default: key = QStringLiteral("0x%1").arg(k, 2, 16, QLatin1Char('0'));
         }
     }

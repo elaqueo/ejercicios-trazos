@@ -7,21 +7,27 @@
 #include <QPainterPath>
 
 #include <algorithm>
+#include <climits>
+#include <vector>
 
 namespace appkit {
 
 namespace {
 
-// Medidas de la mesa "Atajos" del canvas de diseño (px).
-constexpr int kPadding = 32;
-constexpr int kGap = 24;          // entre el título, las columnas y la nota; entre grupos
-constexpr int kColumnGap = 28;
+// Medidas de la mesa "Atajos" del canvas de diseño (px; HU-117).
+constexpr int kPadX = 32, kPadY = 28;
 constexpr int kTitleHeight = 34;
-constexpr int kGroupHeight = 24;  // encabezado de grupo, con su margen
+constexpr int kTitleGap = 22;     // entre el título y la raya
+constexpr int kBodyTop = 18;      // de la raya a los grupos
+constexpr int kColumnGap = 32;
+constexpr int kGroupGap = 22;     // entre grupos de una columna
+constexpr int kGroupHeight = 22;  // encabezado de grupo, con su margen
 constexpr int kRowGap = 4;
-constexpr int kKeysWidth = 112;   // columna de las teclas
-constexpr int kNoteHeight = 34;   // separador y nota al pie
+constexpr int kKeysWidth = 84;    // lugar mínimo de las teclas
+constexpr int kKeysGap = 10;      // de las teclas al nombre
+constexpr int kMargin = 24;       // aire alrededor dentro del lugar que hay
 const QColor kGesto{0xC9, 0xCE, 0xD4};
+const QColor kGestoBorde{0x59, 0x61, 0x6B};
 
 QFont pixelFont(const QFont& base, int px, int weight = QFont::Normal)
 {
@@ -38,17 +44,25 @@ QFont monoFont(const QFont& base, int px)
     return f;
 }
 
-// Un chip de tecla con el texto centrado; devuelve su ancho.
-int drawKey(QPainter& p, int x, int centerY, int height, const QString& text)
+// Un chip con el texto centrado (la fuente ya puesta); devuelve su ancho. Tecla: relleno y
+// borde; gesto (HU-117): solo borde punteado, sin relleno.
+int drawChip(QPainter& p, int x, int centerY, int height, const QString& text, bool gesture)
 {
-    const int w = std::max(height, p.fontMetrics().horizontalAdvance(text) + 14);
+    const int w = std::max(height, p.fontMetrics().horizontalAdvance(text) + (gesture ? 16 : 14));
     const QRect box(x, centerY - height / 2, w, height);
     QPainterPath path;
     path.addRoundedRect(QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5), theme::kRadioTecla, theme::kRadioTecla);
-    p.fillPath(path, theme::kPanelAlto);
-    p.setPen(theme::kBorde);
-    p.drawPath(path);
-    p.setPen(theme::kTexto);
+    if (gesture) {
+        p.setPen(QPen(kGestoBorde, 1, Qt::DashLine));
+        p.setBrush(Qt::NoBrush);
+        p.drawPath(path);
+        p.setPen(kGesto);
+    } else {
+        p.fillPath(path, theme::kPanelAlto);
+        p.setPen(theme::kBorde);
+        p.drawPath(path);
+        p.setPen(theme::kTexto);
+    }
     p.drawText(box, Qt::AlignCenter, text);
     return w;
 }
@@ -59,32 +73,85 @@ ShortcutsOverlay::ShortcutsOverlay(QWidget* owner)
     : QWidget(owner, Qt::Tool | Qt::FramelessWindowHint)
 {
     setFocusPolicy(Qt::StrongFocus);
+    setAttribute(Qt::WA_TranslucentBackground); // esquinas redondeadas (HU-117: se veían puntas)
     QFont f = font();
     f.setFamilies({QString::fromLatin1(theme::kFuente), f.family()});
     setFont(f);
     setSheet({}, {});
 }
 
-int ShortcutsOverlay::groupHeight(const ShortcutGroup& group) const
+QList<QList<int>> ShortcutsOverlay::balance(const QList<int>& heights, int columns, int gap)
 {
-    return kGroupHeight + int(group.rows.size()) * (kRowHeight + kRowGap) - kRowGap;
+    const int n = int(heights.size());
+    columns = std::max(1, columns);
+    // span(i, j): el alto de los grupos [i, j) en una columna.
+    const auto span = [&](int i, int j) {
+        int h = 0;
+        for (int k = i; k < j; ++k)
+            h += heights[k] + (k > i ? gap : 0);
+        return h;
+    };
+    // best[c][i]: el máximo más bajo para los grupos i.. en c columnas; cut[c][i], dónde termina
+    // la primera.
+    std::vector<std::vector<int>> best(size_t(columns) + 1, std::vector<int>(size_t(n) + 1, 0));
+    std::vector<std::vector<int>> cut(size_t(columns) + 1, std::vector<int>(size_t(n) + 1, n));
+    for (int i = 0; i <= n; ++i)
+        best[1][size_t(i)] = span(i, n);
+    for (int c = 2; c <= columns; ++c)
+        for (int i = 0; i <= n; ++i) {
+            best[size_t(c)][size_t(i)] = best[1][size_t(i)];
+            for (int j = i + 1; j < n; ++j) {
+                const int m = std::max(span(i, j), best[size_t(c) - 1][size_t(j)]);
+                if (m < best[size_t(c)][size_t(i)]) {
+                    best[size_t(c)][size_t(i)] = m;
+                    cut[size_t(c)][size_t(i)] = j;
+                }
+            }
+        }
+    QList<QList<int>> result(columns);
+    int from = 0;
+    for (int c = columns; c >= 1 && from < n; --c) {
+        const int to = c == 1 ? n : cut[size_t(c)][size_t(from)];
+        for (int k = from; k < to; ++k)
+            result[columns - c].append(k);
+        from = to;
+    }
+    return result;
 }
 
-void ShortcutsOverlay::setSheet(const QString& app, const QList<ShortcutGroup>& groups)
+int ShortcutsOverlay::groupHeight(const ShortcutGroup& group, int rowHeight) const
+{
+    return kGroupHeight + int(group.rows.size()) * (rowHeight + kRowGap) - kRowGap;
+}
+
+void ShortcutsOverlay::setSheet(const QString& app, const QList<ShortcutGroup>& groups, const QSize& available)
 {
     m_app = app;
     m_groups = groups;
-    m_columns = QList<QList<int>>(kColumns);
-    for (int i = 0; i < m_groups.size(); ++i)
-        m_columns[std::clamp(m_groups[i].column, 0, kColumns - 1)].append(i);
-    int tallest = 0;
-    for (const QList<int>& column : m_columns) {
-        int h = 0;
-        for (int i = 0; i < column.size(); ++i)
-            h += groupHeight(m_groups[column[i]]) + (i > 0 ? kGap : 0);
-        tallest = std::max(tallest, h);
+    m_gestures = std::any_of(groups.begin(), groups.end(), [](const ShortcutGroup& g) {
+        return std::any_of(g.rows.begin(), g.rows.end(), [](const ShortcutRow& r) { return r.gesture; });
+    });
+    const int width = available.isValid() ? std::min(kWidth, available.width() - 2 * kMargin) : kWidth;
+    const int maxHeight = available.isValid() ? available.height() - 2 * kMargin : INT_MAX;
+    // Del alto de la mesa para abajo, el primero que entra (o el mínimo).
+    int height = 0;
+    for (m_rowHeight = kRowHeight; m_rowHeight >= kMinRowHeight; --m_rowHeight) {
+        QList<int> heights;
+        for (const ShortcutGroup& g : m_groups)
+            heights.append(groupHeight(g, m_rowHeight));
+        m_columns = balance(heights, kColumns, kGroupGap);
+        int tallest = 0;
+        for (const QList<int>& column : m_columns) {
+            int h = 0;
+            for (int i = 0; i < column.size(); ++i)
+                h += heights[column[i]] + (i > 0 ? kGroupGap : 0);
+            tallest = std::max(tallest, h);
+        }
+        height = kPadY + kTitleHeight + kTitleGap + 1 + kBodyTop + tallest + kPadY;
+        if (height <= maxHeight || m_rowHeight == kMinRowHeight)
+            break;
     }
-    resize(kWidth, kPadding + kTitleHeight + kGap + tallest + kGap + kNoteHeight + kPadding);
+    resize(width, height);
     update();
 }
 
@@ -98,8 +165,8 @@ void ShortcutsOverlay::paintEvent(QPaintEvent*)
     p.setPen(theme::kBorde);
     p.drawPath(panel);
 
-    // Título, el nombre de la app al lado y, a la derecha, las teclas que cierran.
-    const QRect titleRect(kPadding, kPadding, kWidth - 2 * kPadding, kTitleHeight);
+    // Título y el nombre de la app; a la derecha, la leyenda de los gestos y cómo se cierra.
+    const QRect titleRect(kPadX, kPadY, width() - 2 * kPadX, kTitleHeight);
     const QFont title = pixelFont(font(), 26, QFont::DemiBold);
     p.setFont(title);
     p.setPen(theme::kTexto);
@@ -112,7 +179,9 @@ void ShortcutsOverlay::paintEvent(QPaintEvent*)
 
     const QFont hint = pixelFont(font(), 14);
     const QFont titleMono = monoFont(font(), 13);
+    const QFont gestureFont = pixelFont(font(), 13);
     int x = titleRect.right();
+    const int titleY = titleRect.center().y();
     const auto text = [&](const QString& s) {
         p.setFont(hint);
         const int w = p.fontMetrics().horizontalAdvance(s);
@@ -121,60 +190,61 @@ void ShortcutsOverlay::paintEvent(QPaintEvent*)
         p.drawText(QRect(x, titleRect.top(), w, kTitleHeight), Qt::AlignVCenter, s);
         x -= 8;
     };
-    const auto key = [&](const QString& s) {
-        p.setFont(titleMono);
-        const int w = std::max(28, p.fontMetrics().horizontalAdvance(s) + 16);
+    const auto chip = [&](const QString& s, bool gesture) {
+        p.setFont(gesture ? gestureFont : titleMono);
+        const int h = gesture ? 26 : 28;
+        const int w = std::max(h, p.fontMetrics().horizontalAdvance(s) + 16);
         x -= w;
-        drawKey(p, x, titleRect.center().y(), 28, s);
+        drawChip(p, x, titleY, h, s, gesture);
         x -= 8;
     };
     text(QStringLiteral("cierra"));
-    key(QStringLiteral("Esc"));
+    chip(QStringLiteral("Esc"), false);
     text(QStringLiteral("o"));
-    key(QStringLiteral("Ctrl+,"));
+    chip(QStringLiteral("Ctrl+,"), false);
+    if (m_gestures) {
+        x -= 16;
+        text(QStringLiteral("del lápiz o la tableta"));
+        chip(QStringLiteral("gesto"), true);
+    }
 
-    // Columnas.
-    const int top = kPadding + kTitleHeight + kGap;
-    const int columnWidth = (kWidth - 2 * kPadding - (kColumns - 1) * kColumnGap) / kColumns;
+    // La raya y las columnas.
+    const int line = kPadY + kTitleHeight + kTitleGap;
+    p.setPen(theme::kBorde);
+    p.drawLine(kPadX, line, width() - kPadX, line);
+    const int top = line + 1 + kBodyTop;
+    const int columnWidth = (width() - 2 * kPadX - (kColumns - 1) * kColumnGap) / kColumns;
     QFont group = pixelFont(font(), 12, QFont::DemiBold);
     group.setLetterSpacing(QFont::AbsoluteSpacing, 1.0);
     const QFont name = pixelFont(font(), 14);
     const QFont keyFont = monoFont(font(), 12);
+    const int chipHeight = std::min(26, m_rowHeight - 2);
     for (int c = 0; c < m_columns.size(); ++c) {
-        const int left = kPadding + c * (columnWidth + kColumnGap);
+        const int left = kPadX + c * (columnWidth + kColumnGap);
         int y = top;
         for (int index : m_columns[c]) {
             const ShortcutGroup& g = m_groups[index];
             p.setFont(group);
             p.setPen(theme::kTextoSecundario);
-            p.drawText(QRect(left, y, columnWidth, kGroupHeight - 6), Qt::AlignLeft | Qt::AlignBottom, g.title.toUpper());
+            p.drawText(QRect(left, y, columnWidth, kGroupHeight - 4), Qt::AlignLeft | Qt::AlignBottom, g.title.toUpper());
             y += kGroupHeight;
             for (const ShortcutRow& row : g.rows) {
-                const int center = y + kRowHeight / 2;
-                p.setFont(keyFont);
+                const int center = y + m_rowHeight / 2;
+                p.setFont(row.gesture ? gestureFont : keyFont);
                 int kx = left;
                 for (const QString& k : row.keys)
-                    kx += drawKey(p, kx, center, 26, k) + 4;
-                const int nameX = std::max(left + kKeysWidth, kx + 8);
+                    kx += drawChip(p, kx, center, chipHeight, k, row.gesture) + 4;
+                const int nameX = std::max(left + kKeysWidth, kx - 4 + kKeysGap);
                 p.setFont(name);
-                p.setPen(row.gesture ? kGesto : theme::kTexto);
-                const QRect nameRect(nameX, y, left + columnWidth - nameX, kRowHeight);
+                p.setPen(theme::kTexto);
+                const QRect nameRect(nameX, y, left + columnWidth - nameX, m_rowHeight);
                 p.drawText(nameRect, Qt::AlignVCenter | Qt::AlignLeft,
                            p.fontMetrics().elidedText(row.name, Qt::ElideRight, nameRect.width()));
-                y += kRowHeight + kRowGap;
+                y += m_rowHeight + kRowGap;
             }
-            y += kGap - kRowGap;
+            y += kGroupGap - kRowGap;
         }
     }
-
-    // Nota al pie.
-    const int noteTop = height() - kPadding - kNoteHeight;
-    p.setPen(theme::kBorde);
-    p.drawLine(kPadding, noteTop, kWidth - kPadding, noteTop);
-    p.setFont(pixelFont(font(), 13));
-    p.setPen(theme::kTextoSecundario);
-    p.drawText(QRect(kPadding, noteTop, kWidth - 2 * kPadding, kNoteHeight), Qt::AlignLeft | Qt::AlignBottom,
-               QStringLiteral("Los gestos del lápiz y de la tableta van en gris claro: no son teclas, pero también están."));
 }
 
 void ShortcutsOverlay::closeOverlay()

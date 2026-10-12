@@ -32,7 +32,6 @@ struct ShortcutRow {
 struct ShortcutGroup {
     QString title;
     QList<ShortcutRow> rows;
-    int column = 0; // columna de la lista (setColumns)
 };
 
 // Registro único de atajos (HU-14): el framework y la app declaran acá cada atajo con su
@@ -55,10 +54,9 @@ public:
 
     // Grupo de los atajos que se registren desde ahora.
     void setGroup(const QString& group) { m_group = group; }
-    // Columnas de la lista, de izquierda a derecha, con sus grupos de arriba abajo (como la
-    // mesa "Atajos"). Los grupos que no figuran van al final de la última columna, en orden de
-    // aparición.
-    void setColumns(const QList<QStringList>& columns) { m_columns = columns; }
+    // Orden de los grupos en la lista (HU-117: la página los reparte sola en columnas parejas).
+    // Los que no figuran van al final, en orden de aparición.
+    void setOrder(const QStringList& groups) { m_order = groups; }
     // El último atajo registrado se muestra en la fila del anterior, con este nombre ("[ ]
     // Tamaño de la mina" en vez de "Achicar" y "Agrandar").
     void joinWithPrevious(const QString& label);
@@ -96,7 +94,7 @@ private:
     std::vector<Entry> m_entries;
     QStringList m_conflicts;
     QString m_group;
-    QList<QStringList> m_columns;
+    QStringList m_order;
 };
 
 } // namespace appkit

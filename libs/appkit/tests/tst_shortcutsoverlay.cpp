@@ -25,12 +25,12 @@ class TestShortcutsOverlay : public QObject {
     Q_OBJECT
 
 private slots:
-    // HU-78: la lista sale del registro, por grupo y en las columnas pedidas; los grupos que
-    // no figuran van al final de la última columna.
+    // HU-78: la lista sale del registro, por grupo y en el orden pedido (HU-117); los grupos
+    // que no figuran van al final.
     void listaPorGrupos()
     {
         Shortcuts keys;
-        keys.setColumns({{QStringLiteral("Lápiz")}, {QStringLiteral("Ejercicios"), QStringLiteral("Pantalla")}});
+        keys.setOrder({QStringLiteral("Lápiz"), QStringLiteral("Ejercicios"), QStringLiteral("Pantalla")});
         keys.setGroup(QStringLiteral("Pantalla"));
         keys.add(QStringLiteral("Latencia"), {{VK_F3}}, [] {});
         keys.setGroup(QStringLiteral("Lápiz"));
@@ -46,10 +46,6 @@ private slots:
         QCOMPARE(sheet[1].title, QStringLiteral("Ejercicios"));
         QCOMPARE(sheet[2].title, QStringLiteral("Pantalla"));
         QCOMPARE(sheet[3].title, QStringLiteral("Otro"));
-        QCOMPARE(sheet[0].column, 0);
-        QCOMPARE(sheet[1].column, 1);
-        QCOMPARE(sheet[2].column, 1);
-        QCOMPARE(sheet[3].column, 1);
         QCOMPARE(sheet[0].rows.first().keys, QStringList{QStringLiteral("A")});
         QCOMPARE(sheet[0].rows.first().name, QStringLiteral("Afilar"));
     }
@@ -91,24 +87,46 @@ private slots:
         QCOMPARE(rowCount(keys.sheet()), 1);
     }
 
-    // Las columnas del overlay son las de la lista (como la mesa: Lápiz | Hoja y Vista |
-    // Ejercicios y Pantalla), y el alto alcanza para la más larga.
-    void columnasDeLaMesa()
+    // HU-117: las columnas salen parejas, con los grupos en orden: el corte que deja la columna
+    // más alta lo más baja posible; si sobran columnas, las últimas quedan vacías.
+    void columnasParejas()
+    {
+        using Columns = QList<QList<int>>;
+        QCOMPARE(ShortcutsOverlay::balance({100, 100, 100, 100}, 4, 10), (Columns{{0}, {1}, {2}, {3}}));
+        // 300 sola; después 100 + 100 + 100 (+ 2 huecos) = 320 en una, contra 300 y 210.
+        QCOMPARE(ShortcutsOverlay::balance({300, 100, 100, 100}, 2, 10), (Columns{{0}, {1, 2, 3}}));
+        QCOMPARE(ShortcutsOverlay::balance({50, 50, 50, 50, 200}, 2, 0), (Columns{{0, 1, 2, 3}, {4}}));
+        QCOMPARE(ShortcutsOverlay::balance({80, 60}, 4, 10), (Columns{{0}, {1}, {}, {}}));
+        QCOMPARE(ShortcutsOverlay::balance({}, 3, 10), (Columns{{}, {}, {}}));
+    }
+
+    // HU-117: la página toma las cuatro columnas y entra en el lugar que hay: sin límite, filas de
+    // 30 px; con poco alto, las filas se achican (no menos de 22 px) y el ancho no pasa del lugar.
+    void entraEnLaPantalla()
     {
         Shortcuts keys;
-        keys.setColumns({{QStringLiteral("Lápiz")}, {QStringLiteral("Hoja"), QStringLiteral("Vista")},
-                         {QStringLiteral("Ejercicios"), QStringLiteral("Pantalla")}});
-        keys.setGroup(QStringLiteral("Lápiz"));
-        for (int i = 0; i < 8; ++i)
-            keys.add(QStringLiteral("L%1").arg(i), {{unsigned('A' + i)}}, [] {});
-        for (const char* group : {"Pantalla", "Vista", "Ejercicios", "Hoja"}) {
-            keys.setGroup(QString::fromLatin1(group));
-            keys.add(QString::fromLatin1(group), {{unsigned(VK_F1 + group[0] % 12)}}, [] {});
+        for (int g = 0; g < 8; ++g) {
+            keys.setGroup(QStringLiteral("G%1").arg(g));
+            for (int i = 0; i < 6; ++i)
+                keys.add(QStringLiteral("A%1-%2").arg(g).arg(i), {{unsigned('A' + (g * 6 + i) % 26), g * 6 + i >= 26}}, [] {});
+            keys.note(QStringLiteral("gesto %1").arg(g), QStringLiteral("algo"));
         }
         ShortcutsOverlay overlay(nullptr);
-        overlay.setSheet(QStringLiteral("Ejercicios"), keys.sheet());
-        QCOMPARE(overlay.columns(), (QList<QList<int>>{{0}, {1, 2}, {3, 4}}));
-        QVERIFY(overlay.height() > 24 + 8 * ShortcutsOverlay::kRowHeight);
+        overlay.setSheet(QStringLiteral("App"), keys.sheet());
+        QCOMPARE(overlay.rowHeight(), ShortcutsOverlay::kRowHeight);
+        QCOMPARE(overlay.width(), ShortcutsOverlay::kWidth);
+        QCOMPARE(overlay.columns().size(), ShortcutsOverlay::kColumns);
+        for (const QList<int>& column : overlay.columns())
+            QCOMPARE(column.size(), 2);
+        const int tall = overlay.height();
+
+        overlay.setSheet(QStringLiteral("App"), keys.sheet(), QSize(1280, tall)); // un poco menos de alto
+        QVERIFY(overlay.rowHeight() < ShortcutsOverlay::kRowHeight);
+        QVERIFY(overlay.height() <= tall - 48);
+        QCOMPARE(overlay.width(), 1280 - 48);
+
+        overlay.setSheet(QStringLiteral("App"), keys.sheet(), QSize(1280, 300)); // no alcanza: el mínimo
+        QCOMPARE(overlay.rowHeight(), ShortcutsOverlay::kMinRowHeight);
     }
 
     // Esc y Ctrl+, cierran (y avisan); otra tecla no.

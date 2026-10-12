@@ -68,6 +68,8 @@ private slots:
         QCOMPARE(Shortcuts::describe({VK_RIGHT}), QStringLiteral("→"));
         QCOMPARE(Shortcuts::describe({VK_HOME}), QStringLiteral("Inicio")); // HU-115
         QCOMPARE(Shortcuts::describe({VK_END}), QStringLiteral("Fin"));
+        QCOMPARE(Shortcuts::describe({VK_BACK}), QStringLiteral("Retroceso")); // HU-117 (antes 0x08)
+        QCOMPARE(Shortcuts::describe({VK_SPACE}), QStringLiteral("Espacio"));
     }
 
     // El menú del lápiz (HU-116) corre los atajos por su nombre y muestra su tecla.

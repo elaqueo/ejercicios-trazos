@@ -235,6 +235,12 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. Las marcas se numeran y se guardan en `toma.json`.
     3. *Hecho (12 oct 2026): M en el cursor, Ctrl+M borra la más cercana. Con el lápiz en la franja: un toque fuera de las marcas pone una; a menos de 8 px de una, la agarra y la mueve (la franja atiende al lápiz: no dibuja). Además, a pedido del usuario, el mouse arrastra el cursor (si sonaba, sigue desde ahí al soltar). Turquesas, numeradas por tiempo; en toma.json en segundos. Al cambiar de audio, las marcas se borran.*
 
+117. **HU-117 · Rediseño de la página de atajos** (Should · 2 pts). Como usuario de cualquiera de las tres apps, quiero que la página de atajos (Ctrl+,) entre entera en la pantalla y esté ordenada en grupos chicos y parejos, para encontrar una tecla de un vistazo (pedido del usuario del 12 de octubre de 2026; la página es de appkit, común a las tres apps).
+    1. Entra siempre en la pantalla, con el título y cómo cerrarla a la vista: más ancha (4 columnas) y, si no alcanza, filas más bajas.
+    2. Grupos más chicos repartidos solos en las columnas para que queden parejas. En Mesa: Lápiz, Hoja y papel, Vista, Pila de hojas, Mesa de luz y guías, Audio, Toma y Pantalla, y los gestos aparte en "Lápiz y tableta".
+    3. Nombres de teclas legibles (Retroceso en vez de 0x08, "Rueda, 2.º modo"); la tecla y su descripción más juntas, sin textos cortados.
+    4. *Hecho (12 oct 2026): mesa "Atajos" del canvas, con selector de las tres apps. Los lápices 1 a 5 van en una fila ("Grafito y colores"; F5 dice cuál es cuál). Los gestos tienen chip de borde punteado, y la leyenda va en el título en lugar de la nota al pie. Se suman los gestos que faltaban: el botón del lápiz (menú) y el tercer modo de la rueda (pasar hojas) en Mesa, y el lápiz en la franja de audio. Verificado con capturas de las tres apps en 2560 × 1080.*
+
 ### E8 · Exportación
 
 109. **HU-109 · Secuencia PNG** (Should · 3 pts). Como animador, quiero exportar la toma como PNG numerados, para llevar el rough a otra app o armar un pencil test afuera.

@@ -192,11 +192,11 @@ int main(int argc, char* argv[])
         qInfo() << "Panel: cerrado";
         canvas.focusCanvas();
     };
-    // En la lista de atajos (Ctrl+, HU-78), los de Ejercicios arriba de Pantalla, en la
-    // tercera columna (mesa "Atajos").
+    // En la lista de atajos (Ctrl+, HU-78 y HU-117), los de Ejercicios antes de Pantalla
+    // (mesa "Atajos").
     using lienzo::Lienzo;
-    canvas.shortcuts().setColumns({{Lienzo::kGroupLead}, {Lienzo::kGroupSheet, Lienzo::kGroupView},
-                                   {kGroupExercises, Lienzo::kGroupScreen}});
+    canvas.shortcuts().setOrder({Lienzo::kGroupLead, Lienzo::kGroupSheet, Lienzo::kGroupView, Lienzo::kGroupGestures,
+                                 kGroupExercises, Lienzo::kGroupScreen});
     canvas.shortcuts().setGroup(kGroupExercises);
     canvas.shortcuts().add(QStringLiteral("Ejercicio siguiente"), {{VK_RIGHT}}, [&session] { session.next(); });
     // Las acciones quedan en el log: las verifica la prueba de la app real (scripts/smoke.ps1, HU-71).

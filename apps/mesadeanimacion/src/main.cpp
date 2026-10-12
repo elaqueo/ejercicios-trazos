@@ -67,16 +67,22 @@ int main(int argc, char* argv[])
 
     // Hojas (HU-87). Se ve cuál es la activa en F3; las acciones quedan en el log (las verifica
     // la prueba de la app real, scripts/smoke.ps1).
+    // Grupos de la lista de atajos (Ctrl+, HU-117, mesa "Atajos"): chicos, para que la página
+    // los reparta parejos.
     using lienzo::Lienzo;
-    const QString groupSheets = QStringLiteral("Hojas");
-    canvas.shortcuts().setColumns({{Lienzo::kGroupLead}, {Lienzo::kGroupSheet, Lienzo::kGroupView},
-                                   {groupSheets, Lienzo::kGroupScreen}});
+    const QString groupSheets = QStringLiteral("Pila de hojas");
+    const QString groupLight = QStringLiteral("Mesa de luz y guías");
+    const QString groupAudio = QStringLiteral("Audio");
+    const QString groupTake = QStringLiteral("Toma");
+    canvas.shortcuts().setOrder({Lienzo::kGroupLead, Lienzo::kGroupSheet, Lienzo::kGroupView, Lienzo::kGroupGestures,
+                                 groupSheets, groupLight, groupAudio, groupTake, Lienzo::kGroupScreen});
     canvas.shortcuts().setGroup(groupSheets);
     // Flip (HU-90): mantener la flecha recorre la pila; al soltarla, la hoja que se ve queda activa.
     canvas.shortcuts().add(QStringLiteral("Hoja anterior"), {{VK_LEFT}}, [&canvas] { canvas.flip(-1); });
     canvas.shortcuts().add(QStringLiteral("Hoja siguiente"), {{VK_RIGHT}}, [&canvas] { canvas.flip(1); });
     canvas.shortcuts().joinWithPrevious(QStringLiteral("Flip"));
 
+    canvas.shortcuts().setGroup(groupLight);
     // Mesa de luz (HU-91): 2 hojas hacia atrás en rojo y 1 hacia adelante en verde, la más
     // lejana más tenue (tokens de la mesa "Mesa de luz"). L la prende y apaga; queda guardada.
     namespace theme = appkit::theme;
@@ -101,7 +107,7 @@ int main(int argc, char* argv[])
         applyLight();
     });
     // Solo keys (HU-93): las keys más cercanas en lugar de las vecinas; apagada, la prende así.
-    canvas.shortcuts().add(QStringLiteral("Mesa de luz: solo keys"), {{'L', true}}, [&] {
+    canvas.shortcuts().add(QStringLiteral("Solo keys"), {{'L', true}}, [&] {
         keysOnly = lightOn ? !keysOnly : true;
         lightOn = true;
         config.setValue(QStringLiteral("lightTable"), lightOn);
@@ -125,6 +131,7 @@ int main(int argc, char* argv[])
         config.setValue(QStringLiteral("timingChart"), chartOn);
         canvas.setTimingChart(chartOn);
     });
+    canvas.shortcuts().setGroup(groupAudio);
     // Audio de referencia (HU-106, mesa "Audio"): A elige el archivo; W muestra y oculta la
     // franja con la onda (queda guardado).
     bool stripOn = config.value(QStringLiteral("audioStrip"), true).toBool();
@@ -144,16 +151,18 @@ int main(int argc, char* argv[])
         }
     });
     // Play y pausa (HU-107): P alterna; Retroceso vuelve al principio. Espacio no: es el pan.
-    canvas.shortcuts().add(QStringLiteral("Play o pausa del audio"), {{'P'}}, [&canvas] { canvas.togglePlay(); });
-    canvas.shortcuts().add(QStringLiteral("Audio al principio"), {{VK_BACK}}, [&canvas] { canvas.rewindAudio(); });
+    canvas.shortcuts().add(QStringLiteral("Play o pausa"), {{'P'}}, [&canvas] { canvas.togglePlay(); });
+    canvas.shortcuts().add(QStringLiteral("Al principio"), {{VK_BACK}}, [&canvas] { canvas.rewindAudio(); });
     // Marcas (HU-108): M en el cursor; Ctrl+M borra la más cercana.
-    canvas.shortcuts().add(QStringLiteral("Marca en el audio"), {{'M'}}, [&canvas] { canvas.markAudio(); });
+    canvas.shortcuts().add(QStringLiteral("Marca en el cursor"), {{'M'}}, [&canvas] { canvas.markAudio(); });
     canvas.shortcuts().add(QStringLiteral("Borrar la marca más cercana"), {{'M', true}}, [&canvas] { canvas.removeAudioMark(); });
     canvas.shortcuts().add(QStringLiteral("Franja de audio"), {{'W'}}, [&] {
         stripOn = !stripOn;
         config.setValue(QStringLiteral("audioStrip"), stripOn);
         canvas.setAudioStrip(stripOn);
     });
+    canvas.shortcuts().note(QStringLiteral("Lápiz en la franja"), QStringLiteral("Poner y mover marcas")); // HU-108
+    canvas.shortcuts().setGroup(groupTake);
     // Panel de hojas (HU-114): Tab lo muestra y lo oculta; queda guardado.
     bool panelOn = config.value(QStringLiteral("sheetPanel"), true).toBool();
     canvas.setSheetPanel(panelOn);
@@ -166,6 +175,7 @@ int main(int argc, char* argv[])
     const auto logSheet = [&canvas](const char* what) {
         qInfo().noquote() << QStringLiteral("Hojas: %1 · %2").arg(QString::fromUtf8(what), canvas.activeSheetLabel());
     };
+    canvas.shortcuts().setGroup(groupSheets);
     canvas.shortcuts().add(QStringLiteral("Hoja nueva después"), {{VK_INSERT}}, [&] {
         canvas.insertSheet();
         logSheet("insertada");
@@ -198,7 +208,9 @@ int main(int argc, char* argv[])
     canvas.shortcuts().add(QStringLiteral("Última hoja"), {{VK_END}}, [&] { jumpTo(true); });
     canvas.shortcuts().joinWithPrevious(QStringLiteral("Primera o última hoja"));
     // Exportar (HU-109): la toma como PNG numerados en <toma>/export (el panel muestra el avance).
+    canvas.shortcuts().setGroup(groupTake);
     canvas.shortcuts().add(QStringLiteral("Exportar PNG"), {{'E', true}}, [&canvas] { canvas.exportTake(); });
+    canvas.shortcuts().setGroup(groupSheets);
     // Pila en círculo (HU-94): para flipear un ciclo y probar el empalme.
     canvas.shortcuts().add(QStringLiteral("Pila en círculo"), {{'O'}}, [&canvas] { canvas.toggleCircle(); });
     // Hoja fija (HU-89, mesa "Hoja fija"): el layout debajo de todas, fuera del flip.
