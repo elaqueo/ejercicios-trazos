@@ -38,6 +38,13 @@ struct SheetGuideLayer {
     float opacity = 1;
 };
 
+// La guía de una hoja (HU-119, Ejercicios de animación): una imagen en color, premultiplicada,
+// del tamaño de la hoja. Se pone sobre el papel como la guía de los ejercicios (paperWithGuide,
+// Tone.h) y el grafito queda encima. Va antes del giro: gira con la hoja.
+struct SheetPictureLayer {
+    ID3D11ShaderResourceView* view = nullptr;
+};
+
 // El rectángulo de la carta de timing (HU-105): el contorno de `rect` (píxeles desde la esquina
 // de la hoja), de `line` px, multiplicado de `color` con `opacity` bajo el grafito, como la
 // guía. Sin textura: lo calcula el shader. Va antes del giro.
@@ -67,7 +74,7 @@ public:
     void compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, ID3D11ShaderResourceView* screenView,
                  ID3D11ShaderResourceView* base, const RECT& sheet, const std::vector<LightTableLayer>& layers,
                  ID3D11Texture2D* out, const SheetMarkLayer* mark = nullptr, const SheetGuideLayer* guide = nullptr,
-                 const SheetChartLayer* chart = nullptr);
+                 const SheetChartLayer* chart = nullptr, const SheetPictureLayer* picture = nullptr);
 
     // Solo la marca (HU-104), sin girar ni capas: pinta su recuadro en `out` (que ya tiene la
     // imagen de pantalla copiada) leyendo la imagen de pantalla; el resto de out no se toca.

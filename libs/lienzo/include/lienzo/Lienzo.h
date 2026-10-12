@@ -253,6 +253,16 @@ public:
     // su esquina). Van bajo el grafito. Un QPicture vacío las saca.
     void setGuides(const QPicture& guides);
 
+    // Guía por hoja (HU-119, Ejercicios de animación): cada hoja de la pila con la suya, en
+    // coordenadas de la hoja como setGuides. Sigue a su hoja (va por id: si la hoja se mueve, se
+    // va con ella), se ve al flipear y no en la mesa de luz. No queda en la hoja: va en el render,
+    // como la guía de campo, así que ocultarlas (G) no repinta nada. Un QPicture vacío la saca.
+    // --guias-de-prueba pone una distinta en cada hoja (para medir el flip con guías).
+    void setSheetGuide(int index, const QPicture& guide);
+    void clearSheetGuides();
+    void setSheetGuidesVisible(bool visible);
+    bool sheetGuidesVisible() const;
+
     // Arranca los hilos (y --grabar / --bench). stop() los detiene y escribe en el log el
     // resumen de latencia y tiempos.
     void start();

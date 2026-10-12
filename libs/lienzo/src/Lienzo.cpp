@@ -41,6 +41,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
+#include <QHash>
 #include <QImage>
 #include <QKeyEvent>
 #include <QLabel>
@@ -374,6 +375,8 @@ struct Lienzo::Impl {
         }
         applyMark();
         applyChart();
+        if (testGuides)
+            addTestGuides();
         render->setLayers(shown, std::move(below), untilActive);
         refreshSheetPanel();
     }
@@ -660,6 +663,64 @@ struct Lienzo::Impl {
         stripShown = std::move(info);
         stripRect = rect;
         stripSent = true;
+    }
+
+    // Guía por hoja (HU-119): por id de hoja; se pinta del tamaño de la hoja en pantalla y se
+    // sube una vez (al calibrar, de nuevo).
+    QHash<uint64_t, QPicture> sheetGuides;
+    bool sheetGuidesVisible = true;
+    bool testGuides = false; // --guias-de-prueba
+    void sendSheetGuide(uint64_t id, const QPicture& guide)
+    {
+        if (!render)
+            return;
+        if (guide.isNull()) {
+            render->setSheetGuide(id, 0, 0, {});
+            return;
+        }
+        QImage painted(mapping.sheetWidth, mapping.sheetHeight, QImage::Format_ARGB32_Premultiplied);
+        painted.fill(Qt::transparent);
+        QPainter painter(&painted);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.drawPicture(0, 0, guide);
+        painter.end();
+        const auto* bits = reinterpret_cast<const uint32_t*>(painted.constBits());
+        render->setSheetGuide(id, painted.width(), painted.height(),
+                              std::vector<uint32_t>(bits, bits + size_t(painted.width()) * size_t(painted.height())));
+    }
+    void applySheetGuides()
+    {
+        if (!render)
+            return;
+        render->clearSheetGuides();
+        for (auto it = sheetGuides.cbegin(); it != sheetGuides.cend(); ++it)
+            sendSheetGuide(it.key(), it.value());
+    }
+    // --guias-de-prueba: a cada hoja que no tiene, una guía con su número y una caja girada.
+    void addTestGuides()
+    {
+        for (size_t i = 0; i < order.ids.size(); ++i) {
+            const uint64_t id = order.ids[i];
+            if (sheetGuides.contains(id))
+                continue;
+            QPicture guide;
+            QPainter painter(&guide);
+            const double w = mapping.sheetWidth, h = mapping.sheetHeight;
+            painter.setPen(QPen(appkit::theme::kGuiaSuave, 2));
+            painter.drawLine(QPointF(0, h * 0.6), QPointF(w, h * 0.6));
+            painter.setPen(QPen(appkit::theme::kGuia, 3));
+            painter.translate(w / 2, h / 2);
+            painter.rotate(15.0 * double(i));
+            painter.drawRect(QRectF(-h * 0.2, -h * 0.15, h * 0.4, h * 0.3));
+            painter.resetTransform();
+            QFont font = painter.font();
+            font.setPixelSize(int(h / 8));
+            painter.setFont(font);
+            painter.drawText(QRectF(0, 0, w * 0.2, h * 0.2), Qt::AlignCenter, QString::number(i + 1));
+            painter.end();
+            sheetGuides.insert(id, guide);
+            sendSheetGuide(id, guide);
+        }
     }
 
     // Guía de campo (HU-103): se pinta una vez, del tamaño de la hoja en pantalla.
@@ -1086,6 +1147,7 @@ struct Lienzo::Impl {
         render->setSheetRect(sheetRect());
         markNumber = 0; // la marca va en la esquina de la hoja nueva
         applyGuide();   // y la guía, del tamaño nuevo
+        applySheetGuides(); // HU-119: las de las hojas también
         refreshStrip(true);
         applyLayers();
         if (!area)
@@ -1766,6 +1828,12 @@ void Lienzo::start()
     }
     d->sim->start();
     d->render->start();
+    // --guias-de-prueba (HU-119): una guía distinta en cada hoja, para medir el flip con guías.
+    if (args.contains(QStringLiteral("--guias-de-prueba")) && d->options.sheets) {
+        d->testGuides = true;
+        d->applyLayers();
+        qInfo() << "Guías de prueba en las" << sheetCount() << "hojas";
+    }
     // --bench [undo] [costado]: trazos sintéticos durante 30 s, para medir sin la tableta.
     if (args.contains(QStringLiteral("--bench"))) {
         const bool withUndo = args.contains(QStringLiteral("undo")) && d->options.undo;
@@ -2014,6 +2082,39 @@ void Lienzo::setGuides(const QPicture& guides)
 {
     d->guides = guides;
     d->sim->setGuides(d->guideLayer());
+}
+
+void Lienzo::setSheetGuide(int index, const QPicture& guide)
+{
+    const SheetOrder& order = d->syncOrder();
+    if (!order.valid(index))
+        return;
+    const uint64_t id = order.ids[size_t(index)];
+    if (guide.isNull())
+        d->sheetGuides.remove(id);
+    else
+        d->sheetGuides.insert(id, guide);
+    d->sendSheetGuide(id, guide);
+}
+
+void Lienzo::clearSheetGuides()
+{
+    d->sheetGuides.clear();
+    if (d->render)
+        d->render->clearSheetGuides();
+}
+
+void Lienzo::setSheetGuidesVisible(bool visible)
+{
+    d->sheetGuidesVisible = visible;
+    if (d->render)
+        d->render->setSheetGuidesVisible(visible);
+    qInfo() << "Guías de las hojas:" << (visible ? "visibles" : "ocultas");
+}
+
+bool Lienzo::sheetGuidesVisible() const
+{
+    return d->sheetGuidesVisible;
 }
 
 void Lienzo::showOverlay(QWidget* overlay)

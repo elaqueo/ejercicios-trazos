@@ -527,5 +527,55 @@ finally {
     if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
     Remove-Item $takeDir -Recurse -Force -ErrorAction SilentlyContinue
 }
+# HU-119: el flip con una guía en cada hoja sigue en RNF-01 (12 hojas, --guias-de-prueba).
+$backup = if (Test-Path $config) { [IO.File]::ReadAllBytes($config) } else { $null }
+$state = if ($backup) { Get-Content $config -Raw | ConvertFrom-Json -AsHashtable } else { @{} }
+if (-not $state.ContainsKey('mesadeanimacion')) { $state['mesadeanimacion'] = @{} }
+$state['mesadeanimacion']['lightTable'] = $true
+$state['mesadeanimacion']['lightKeysOnly'] = $false
+$state['mesadeanimacion']['fieldGuide'] = $false
+$state | ConvertTo-Json -Depth 32 | Set-Content $config -Encoding utf8
+$takeDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-guias-$PID"
+Remove-Item $takeDir -Recurse -Force -ErrorAction SilentlyContinue
+$app = $null
+try {
+    $app = Start-Process $mesa -ArgumentList '--toma', "`"$takeDir`"", '--guias-de-prueba' -PassThru
+    Start-Sleep 4
+    $ws = New-Object -ComObject WScript.Shell
+    $null = $ws.AppActivate($app.Id)
+    Start-Sleep 1
+    foreach ($n in 1..11) { $ws.SendKeys('{INSERT}'); Start-Sleep -Milliseconds 300 }
+    Start-Sleep -Milliseconds 500
+    $start = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Guías de prueba en las' }).Count
+    $before = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Flip: hoja' }).Count
+    foreach ($n in 1..2) {
+        foreach ($k in (@('{LEFT}') * 11 + @('{RIGHT}') * 11)) { $ws.SendKeys($k); Start-Sleep -Milliseconds 150 }
+    }
+    Start-Sleep -Milliseconds 400
+    $flips = @(Get-Content $mesaLog -Encoding utf8 | ForEach-Object {
+        if ($_ -match 'Flip presentado en ([\d.]+) ms') { [double]$Matches[1] } })
+    $shown = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Flip: hoja' }).Count - $before
+    $sheets = @(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'hoja \d+ de 12' }).Count
+    $slow = @($flips | Where-Object { $_ -ge 18 })
+    $max = ($flips | Measure-Object -Maximum).Maximum
+    $lights = @(Get-Content $mesaLog -Encoding utf8 | ForEach-Object {
+        if ($_ -match 'Mesa de luz presentada en ([\d.]+) ms') { [double]$Matches[1] } })
+    $late = @($lights | Where-Object { $_ -ge 50 })
+    $lmax = ($lights | Measure-Object -Maximum).Maximum
+    if ($start -eq 1 -and $sheets -gt 0 -and $shown -eq 44 -and $flips.Count -ge 40 -and $slow.Count -eq 0 -and $late.Count -eq 0) {
+        Write-Host "  ok   con guía en las 12 hojas: 44 flips, el más lento en $max ms; la mesa de luz en $lmax ms"
+    } else {
+        Write-Host "  FALLA flip con guías: arranque $start, $shown pedidos, $($flips.Count) presentados, $($slow.Count) de 18 ms o más (máx. $max ms), mesa de luz máx. $lmax ms"
+        $failures.Add('Flip con guías')
+    }
+}
+finally {
+    if ($app -and -not $app.HasExited) {
+        $null = $app.CloseMainWindow()
+        if (-not $app.WaitForExit(15000)) { $app.Kill() }
+    }
+    if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
+    Remove-Item $takeDir -Recurse -Force -ErrorAction SilentlyContinue
+}
 if ($failures.Count) { Write-Host "$($failures.Count) falla(s)"; exit 1 }
 Write-Host 'Prueba de la app real: todo bien'

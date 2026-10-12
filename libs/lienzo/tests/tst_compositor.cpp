@@ -238,6 +238,62 @@ private slots:
         QCOMPARE(got[0], kPaperColor); // fuera de la hoja, tal cual
     }
 
+    // HU-119: la guía de la hoja, en color y premultiplicada, queda sobre el papel igual que la
+    // de los ejercicios (paperWithGuide) y bajo el grafito; con la guía de campo, las dos.
+    void guiaDeLaHoja()
+    {
+        std::vector<uint32_t> screen(size_t(W) * H, kPaperColor);
+        screen[size_t(sheet.top + 10) * W + sheet.left + 5] = kGraphiteColor; // grafito sobre la guía
+        // Azul de guía (0x25, 0x63, 0xEB) al 60 %, premultiplicado, en la mitad izquierda.
+        const uint32_t blue = (153u << 24) | (uint32_t(0x25 * 153 / 255) << 16) | (uint32_t(0x63 * 153 / 255) << 8) |
+                              uint32_t(0xEB * 153 / 255);
+        std::vector<uint32_t> pixels(size_t(SW) * SH, 0);
+        for (int y = 0; y < SH; ++y)
+            for (int x = 0; x < SW / 2; ++x)
+                pixels[size_t(y) * SW + x] = blue;
+        const Texture in = makeTexture(device.Get(), W, H, screen);
+        const Texture guide = makeTexture(device.Get(), SW, SH, pixels);
+        const Texture out = makeTexture(device.Get(), W, H, std::vector<uint32_t>(size_t(W) * H), true);
+        const SheetPictureLayer layer{guide.view.Get()};
+        compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), nullptr, sheet, {}, out.texture.Get(), nullptr,
+                           nullptr, nullptr, &layer);
+        std::vector<uint32_t> got = readBack(device.Get(), context.Get(), out.texture.Get());
+        const auto at = [&](int sx, int sy) { return got[size_t(sheet.top + sy) * W + sheet.left + sx]; };
+        const uint32_t onPaper = paperWithGuide(blue);
+        const auto under = [&](uint32_t c) { // c multiplicado por lo que la guía le hace al papel
+            uint32_t r = 0xFF000000u;
+            for (int shift : {0, 8, 16})
+                r |= uint32_t(std::lround(double((c >> shift) & 0xFF) * double((onPaper >> shift) & 0xFF) /
+                                          double((kPaperColor >> shift) & 0xFF)))
+                     << shift;
+            return r;
+        };
+        QVERIFY(similar(at(3, 3), onPaper));
+        QVERIFY(similar(at(5, 10), under(kGraphiteColor)));
+        QVERIFY(similar(at(SW - 3, 3), kPaperColor));
+        QCOMPARE(got[0], kPaperColor);
+
+        // Con la guía de campo encima, los dos factores se multiplican.
+        const std::vector<uint32_t> cover(size_t(SW) * SH, 0xFFFFFFFFu);
+        const Texture field = makeTexture(device.Get(), SW, SH, cover);
+        const SheetGuideLayer fieldLayer{field.view.Get(), kRed, 0.5f};
+        compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), nullptr, sheet, {}, out.texture.Get(), nullptr,
+                           &fieldLayer, nullptr, &layer);
+        got = readBack(device.Get(), context.Get(), out.texture.Get());
+        uint32_t both = 0xFF000000u;
+        for (int shift : {0, 8, 16}) {
+            const double t = double((kRed >> shift) & 0xFF) / 255;
+            both |= uint32_t(std::lround(double((onPaper >> shift) & 0xFF) * (1 + (t - 1) * 0.5))) << shift;
+        }
+        QVERIFY(similar(at(3, 3), both, 2));
+        uint32_t fieldOnly = 0xFF000000u; // sin guía de la hoja: solo la de campo
+        for (int shift : {0, 8, 16}) {
+            const double t = double((kRed >> shift) & 0xFF) / 255;
+            fieldOnly |= uint32_t(std::lround(double((kPaperColor >> shift) & 0xFF) * (1 + (t - 1) * 0.5))) << shift;
+        }
+        QVERIFY(similar(at(SW - 3, 3), fieldOnly));
+    }
+
     // HU-105: la carta de timing tiñe solo el contorno de su rectángulo (de `line` px hacia
     // adentro); adentro y afuera la hoja queda igual.
     void cartaDeTiming()
@@ -302,23 +358,41 @@ private slots:
         qd.Query = D3D11_QUERY_TIMESTAMP;
         device->CreateQuery(&qd, &t0);
         device->CreateQuery(&qd, &t1);
-        double best = 1e9;
-        for (int run = 0; run < 10; ++run) {
-            context->Begin(disjoint.Get());
-            context->End(t0.Get());
-            compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), nullptr, big, layers, out.texture.Get());
-            context->End(t1.Get());
-            context->End(disjoint.Get());
-            D3D11_QUERY_DATA_TIMESTAMP_DISJOINT dj{};
-            while (context->GetData(disjoint.Get(), &dj, sizeof(dj), 0) == S_FALSE) {
+        const auto gpuMs = [&](const auto& compose) { // el mejor de 10, en ms de GPU
+            double best = 1e9;
+            for (int run = 0; run < 10; ++run) {
+                context->Begin(disjoint.Get());
+                context->End(t0.Get());
+                compose();
+                context->End(t1.Get());
+                context->End(disjoint.Get());
+                D3D11_QUERY_DATA_TIMESTAMP_DISJOINT dj{};
+                while (context->GetData(disjoint.Get(), &dj, sizeof(dj), 0) == S_FALSE) {
+                }
+                UINT64 a = 0, b = 0;
+                context->GetData(t0.Get(), &a, sizeof(a), 0);
+                context->GetData(t1.Get(), &b, sizeof(b), 0);
+                if (!dj.Disjoint)
+                    best = std::min(best, double(b - a) * 1000.0 / double(dj.Frequency));
             }
-            UINT64 a = 0, b = 0;
-            context->GetData(t0.Get(), &a, sizeof(a), 0);
-            context->GetData(t1.Get(), &b, sizeof(b), 0);
-            if (!dj.Disjoint)
-                best = std::min(best, double(b - a) * 1000.0 / double(dj.Frequency));
-        }
+            return best;
+        };
+        const double best = gpuMs([&] {
+            compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), nullptr, big, layers, out.texture.Get());
+        });
         qInfo() << "mesa de luz, 6 hojas a 1734 × 1080:" << best << "ms de GPU";
+        // El flip (HU-90): otra hoja en lugar de la activa, sin y con su guía (HU-119).
+        const SheetPictureLayer picture{sheets[1].view.Get()};
+        const double flip = gpuMs([&] {
+            compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), sheets[0].view.Get(), big, {},
+                               out.texture.Get());
+        });
+        const double flipGuide = gpuMs([&] {
+            compositor.compose(context.Get(), in.texture.Get(), in.view.Get(), sheets[0].view.Get(), big, {},
+                               out.texture.Get(), nullptr, nullptr, nullptr, &picture);
+        });
+        qInfo() << "flip:" << flip << "ms de GPU; con la guía de la hoja:" << flipGuide << "ms";
+        QVERIFY(flipGuide < 2);
         QVERIFY(best < 8);
     }
 

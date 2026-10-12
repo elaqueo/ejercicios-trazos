@@ -1337,6 +1337,24 @@ private slots:
         QCOMPARE(s.pick(2, true), SheetSource::Image);
     }
 
+    // HU-119: la guía que va es la de la hoja que se ve; nunca la de otra.
+    void guiaDeLaHojaQueSeVe()
+    {
+        SheetSource s;
+        s.latched(1, true, true); // la 1, a medio subir
+        QCOMPARE(s.guideSheet(0, false), uint64_t(0)); // sin hoja pedida: ninguna
+        QCOMPARE(s.guideSheet(1, false), uint64_t(1)); // la 1 pedida, a medio subir: la suya
+        s.latched(1, true, false);
+        QCOMPARE(s.guideSheet(0, false), uint64_t(1)); // la activa, entera
+        QCOMPARE(s.guideSheet(2, true), uint64_t(2));  // flip a la 2: la de la 2
+        QCOMPARE(s.guideSheet(3, false), uint64_t(3)); // la 3 en blanco: la de la 3
+        s.latched(2, true, true); // se soltó en la 2, a medio subir
+        QCOMPARE(s.guideSheet(0, false), uint64_t(0)); // ni la de la 1 ni la de la 2 a medias
+        QCOMPARE(s.guideSheet(2, true), uint64_t(2));  // desde su textura
+        s.latched(2, true, false);
+        QCOMPARE(s.guideSheet(0, false), uint64_t(2));
+    }
+
     // HU-82: la simulación atiende la pila en su hilo y el trazo cae en la hoja activa.
     void simulacionAtiendeLaPila()
     {

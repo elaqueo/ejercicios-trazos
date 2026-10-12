@@ -27,7 +27,7 @@ cbuffer LightTable : register(b0)
     uint count;
     uint hasMark;
     uint hasGuide;
-    uint pad;
+    uint hasPicture;
     float4 markRect;  // la marca (HU-104) en uv de la hoja: x0, y0, x1, y1
     float4 markColor; // rgb
     float4 guideColor; // la guía (HU-103): rgb; a: opacidad
@@ -39,6 +39,7 @@ Texture2D shown : register(t0);
 Texture2D below[6] : register(t1);
 Texture2D mark : register(t7);
 Texture2D guide : register(t8);
+Texture2D picture : register(t9);
 SamplerState pointClamp : register(s0);
 struct V { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 V vs(uint id : SV_VertexID)
@@ -63,6 +64,10 @@ float4 ps(V v) : SV_Target
     }
     if (hasGuide != 0)
         factor *= lerp(float3(1, 1, 1), guideColor.rgb, guide.Sample(pointClamp, v.uv).a * guideColor.a);
+    if (hasPicture != 0) { // la guía de la hoja (HU-119): sobre el papel, como paperWithGuide
+        float4 g = picture.Sample(pointClamp, v.uv);
+        factor *= (g.rgb + paper.rgb * (1 - g.a)) / max(paper.rgb, 1.0 / 255);
+    }
     if (chartColor.a > 0) { // el contorno: dentro del rectángulo y a menos de `line` de un borde
         float2 p = v.uv * sheetSize.xy;
         float2 near = min(p - chartRect.xy, chartRect.zw - p);
@@ -105,7 +110,7 @@ struct Constants {
     uint32_t count;
     uint32_t hasMark;
     uint32_t hasGuide;
-    uint32_t pad;
+    uint32_t hasPicture;
     float markRect[4];
     float markColor[4];
     float guideColor[4];
@@ -158,7 +163,7 @@ bool Compositor::init(ID3D11Device* device)
 void Compositor::compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, ID3D11ShaderResourceView* screenView,
                          ID3D11ShaderResourceView* base, const RECT& sheet, const std::vector<LightTableLayer>& layers,
                          ID3D11Texture2D* out, const SheetMarkLayer* mark, const SheetGuideLayer* guide,
-                         const SheetChartLayer* chart)
+                         const SheetChartLayer* chart, const SheetPictureLayer* picture)
 {
     D3D11_TEXTURE2D_DESC desc;
     out->GetDesc(&desc);
@@ -181,7 +186,7 @@ void Compositor::compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, 
     }
     rgb(m_paperColor, c.paper);
     rgb(kGraphiteColor, c.graphite);
-    ID3D11ShaderResourceView* views[3 + kMaxLayers] = {base ? base : screenView};
+    ID3D11ShaderResourceView* views[4 + kMaxLayers] = {base ? base : screenView};
     int count = 0;
     for (const LightTableLayer& layer : layers) {
         if (count == kMaxLayers || !layer.sheet)
@@ -208,6 +213,10 @@ void Compositor::compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, 
         c.guideColor[3] = std::clamp(guide->opacity, 0.0f, 1.0f);
         views[2 + kMaxLayers] = guide->view;
     }
+    if (picture && picture->view) { // HU-119
+        c.hasPicture = 1;
+        views[3 + kMaxLayers] = picture->view;
+    }
     if (chart && chart->rect.right > chart->rect.left && chart->rect.bottom > chart->rect.top) { // HU-105
         c.chartRect[0] = float(chart->rect.left);
         c.chartRect[1] = float(chart->rect.top);
@@ -233,11 +242,11 @@ void Compositor::compose(ID3D11DeviceContext* context, ID3D11Texture2D* screen, 
     context->VSSetConstantBuffers(0, 1, m_constants.GetAddressOf());
     context->PSSetShader(m_ps.Get(), nullptr, 0);
     context->PSSetConstantBuffers(0, 1, m_constants.GetAddressOf());
-    context->PSSetShaderResources(0, 3 + kMaxLayers, views);
+    context->PSSetShaderResources(0, 4 + kMaxLayers, views);
     context->PSSetSamplers(0, 1, m_sampler.GetAddressOf());
     context->Draw(4, 0);
-    ID3D11ShaderResourceView* none[3 + kMaxLayers] = {};
-    context->PSSetShaderResources(0, 3 + kMaxLayers, none);
+    ID3D11ShaderResourceView* none[4 + kMaxLayers] = {};
+    context->PSSetShaderResources(0, 4 + kMaxLayers, none);
     context->OMSetRenderTargets(0, nullptr, nullptr);
 }
 

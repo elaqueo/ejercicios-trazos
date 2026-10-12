@@ -163,3 +163,14 @@ Angosto (240 px a escala 1), a la derecha de la pantalla, con la toma y si está
   - Después solo copia la miniatura. Una hoja que nunca estuvo activa se ve en papel liso.
 - **Costo:** nada en el hilo de la simulación. En el render, copiar unas regiones chicas por frame. Los benchmarks no cambian.
 
+
+## La guía por hoja (HU-119, Ejercicios de animación)
+
+Cada hoja de la pila puede tener su propia guía (el ghost de un ejercicio), que se ve solo en ella. La usa Ejercicios de animación; la Mesa no.
+
+- **`Lienzo::setSheetGuide(index, QPicture)`:** la guarda por el id de la hoja (si la hoja se mueve, la guía va con ella), la pinta con Qt en una imagen del tamaño de la hoja en pantalla y la manda al render. `clearSheetGuides` las saca todas; `setSheetGuidesVisible` (G) las oculta sin repintar nada. Al calibrar se vuelven a pintar, como la guía de campo.
+- **`Renderer`:** una textura por hoja, que se sube una vez; al flipear no se sube nada. En cada frame elige la de la hoja que de verdad se ve (`SheetSource::guideSheet`): la del flip, la de la imagen ya subida entera, o ninguna mientras la imagen está a medio subir (nunca la de otra hoja).
+- **Composición:** una capa propia (`SheetPictureLayer`), en color, porque las guías de los ejercicios tienen varios colores (la de campo usa uno solo). Se pone sobre el papel con la misma cuenta que la guía de Ejercicios (`paperWithGuide`) y se multiplica bajo el grafito. Convive con la guía de campo. La mesa de luz usa las texturas de las hojas, que no tienen la guía: no muestra las de las vecinas.
+- **`setGuides` no cambia:** la guía única de Ejercicios de trazos y Cartuchera sigue en la imagen de pantalla.
+- **Costo:** en la GPU, nada medible (el flip, 0,39 ms con guía y sin ella, `tst_compositor`). Con guía se compone en cada frame, como con la guía de campo o la mesa de luz.
+- **RNF-01 con 12 hojas con guía:** `--guias-de-prueba` pone una guía distinta en cada hoja y el smoke mide 44 flips. Midiendo surgió que algunos flips (con guía o sin ella) pasaban de 18 ms cuando el frame del flip coincidía con la subida de la hoja que se acababa de dejar (una hoja entera, unos 1,3 ms). Ahora esa subida espera al frame siguiente, salvo que la hoja a mostrar sea esa. Quedó en 17,9 ms de máximo, con guías y sin ellas.

@@ -56,6 +56,14 @@ public:
             return Texture;
         return shown == m_image ? Image : Blank; // a medio subir es mejor que en blanco
     }
+    // La hoja cuya guía va en este frame (HU-119): la que se ve. Con la imagen a medio subir y
+    // sin otra hoja pedida, ninguna (0): mejor sin guía un momento que con la de otra hoja.
+    uint64_t guideSheet(uint64_t shown, bool hasTexture) const
+    {
+        if (pick(shown, hasTexture) != Image)
+            return shown;
+        return shown && shown == m_image ? shown : m_uploaded;
+    }
 
 private:
     uint64_t m_uploaded = 0, m_image = 0;
@@ -199,6 +207,28 @@ public:
         m_guideChanged = true;
     }
 
+    // Guía por hoja (HU-119, Ejercicios de animación): una imagen en color, premultiplicada, del
+    // tamaño de la hoja, para la hoja `sheet` (por id: sigue a la hoja si se mueve); pixels
+    // vacío la saca. Se sube una vez y queda en la GPU: al flipear no se sube nada. Se ve en la
+    // hoja que se muestra, sobre el papel y bajo el grafito; la mesa de luz no la muestra.
+    void setSheetGuide(uint64_t sheet, int width, int height, std::vector<uint32_t> pixels)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_sheetGuideUploads.push_back({sheet, width, height, std::move(pixels)});
+    }
+    void clearSheetGuides()
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_sheetGuideUploads.clear();
+        m_sheetGuidesCleared = true;
+    }
+    // Ocultarlas (G) no sube ni repinta nada.
+    void setSheetGuidesVisible(bool visible)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_sheetGuidesVisible = visible;
+    }
+
     // La carta de timing (HU-105): el contorno de `rect` (px desde la esquina de la hoja) en la
     // hoja que se muestra, si `visible`. Llamarla junto con setLayers (cambia con el flip).
     void setChart(bool visible, RECT rect, float line, uint32_t color, float opacity)
@@ -255,6 +285,14 @@ private:
     float m_chartLine = 1;
     uint32_t m_chartColor = 0;
     float m_chartOpacity = 1;
+    struct SheetGuideUpload {
+        uint64_t sheet = 0;
+        int width = 0, height = 0;
+        std::vector<uint32_t> pixels;
+    };
+    std::vector<SheetGuideUpload> m_sheetGuideUploads; // HU-119
+    bool m_sheetGuidesCleared = false;
+    bool m_sheetGuidesVisible = true;
     bool m_guideChanged = false;
     int m_guideW = 0, m_guideH = 0;
     std::vector<uint32_t> m_guidePixels;

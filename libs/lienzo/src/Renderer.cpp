@@ -170,6 +170,7 @@ struct Renderer::Impl {
     ComPtr<ID3D11Texture2D> composed;
     ComPtr<ID3D11ShaderResourceView> composedView;
     std::unordered_map<uint64_t, SheetTexture> sheets;
+    std::vector<RetiredSheet> deferredRetired; // las que salieron durante un flip (HU-119)
     SheetTexture blank; // una hoja que nunca estuvo activa: papel liso
     // Panel de hojas (HU-114).
     ComPtr<ID3D11Texture2D> panel;
@@ -185,6 +186,7 @@ struct Renderer::Impl {
     ComPtr<ID3D11Texture2D> guide; // HU-103
     ComPtr<ID3D11ShaderResourceView> guideView;
     SheetGuideLayer guideLayer;
+    std::unordered_map<uint64_t, SheetTexture> sheetGuides; // HU-119: la guía de cada hoja, por id
     ComPtr<ID3D11VertexShader> thumbVs;
     ComPtr<ID3D11PixelShader> thumbPs;
     ComPtr<ID3D11Buffer> thumbConstants;
@@ -703,8 +705,35 @@ void Renderer::run()
         bool panelVisible;
         int panelX, panelY;
         std::vector<PanelThumb> panelThumbs;
+        bool sheetGuidesVisible;
         {
             std::lock_guard layersLock(m_layersMutex);
+            if (m_sheetGuidesCleared) { // HU-119
+                m_sheetGuidesCleared = false;
+                d.sheetGuides.clear();
+            }
+            for (SheetGuideUpload& u : m_sheetGuideUploads) {
+                d.sheetGuides.erase(u.sheet);
+                if (u.width <= 0 || u.height <= 0 || u.pixels.size() != size_t(u.width) * size_t(u.height))
+                    continue; // vacía: sin guía
+                D3D11_TEXTURE2D_DESC td{};
+                td.Width = UINT(u.width);
+                td.Height = UINT(u.height);
+                td.MipLevels = 1;
+                td.ArraySize = 1;
+                td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+                td.SampleDesc.Count = 1;
+                td.Usage = D3D11_USAGE_IMMUTABLE;
+                td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+                const D3D11_SUBRESOURCE_DATA data{u.pixels.data(), UINT(u.width) * 4, 0};
+                SheetTexture& t = d.sheetGuides[u.sheet];
+                if (SUCCEEDED(d.device->CreateTexture2D(&td, &data, &t.texture)))
+                    d.device->CreateShaderResourceView(t.texture.Get(), nullptr, &t.view);
+                t.width = u.width;
+                t.height = u.height;
+            }
+            m_sheetGuideUploads.clear();
+            sheetGuidesVisible = m_sheetGuidesVisible;
             panelVisible = m_panelVisible;
             panelX = m_panelX;
             panelY = m_panelY;
@@ -813,10 +842,23 @@ void Renderer::run()
             for (const uint64_t id : m_dropped) {
                 d.sheets.erase(id);
                 d.thumbs.erase(id);
+                std::erase_if(d.deferredRetired, [id](const RetiredSheet& r) { return r.sheet == id; });
             }
             m_dropped.clear();
         }
+        // Subir una hoja entera cuesta más de 1 ms: en el frame de un flip (HU-90, RNF-01) las que
+        // salieron esperan al siguiente, salvo la que se va a mostrar (medido en HU-119: era lo
+        // que pasaba algunos flips de 18 ms).
+        if (!flipQpc && !d.deferredRetired.empty()) {
+            retired.insert(retired.begin(), std::make_move_iterator(d.deferredRetired.begin()),
+                           std::make_move_iterator(d.deferredRetired.end()));
+            d.deferredRetired.clear();
+        }
         for (RetiredSheet& r : retired) {
+            if (flipQpc && r.sheet != shown) {
+                d.deferredRetired.push_back(std::move(r));
+                continue;
+            }
             d.uploadSheet(d.sheets[r.sheet], r.width, r.height, r.pixels.data());
             if (const auto t = d.thumbs.find(r.sheet); t != d.thumbs.end())
                 t->second.valid = false; // la miniatura sale de la textura nueva (HU-114)
@@ -853,6 +895,13 @@ void Renderer::run()
         if (d.compositorReady && sheetW > 0 && sheetH > 0) {
             ID3D11ShaderResourceView* texture = shown ? d.sheetView(shown, sheetW, sheetH) : nullptr;
             ID3D11ShaderResourceView* base = nullptr;
+            // La guía de la hoja que se ve (HU-119), si es de este tamaño (al calibrar llega otra).
+            SheetPictureLayer picture;
+            if (sheetGuidesVisible && !d.sheetGuides.empty()) {
+                const auto g = d.sheetGuides.find(d.sheetSource.guideSheet(shown, texture != nullptr));
+                if (g != d.sheetGuides.end() && g->second.width == sheetW && g->second.height == sheetH)
+                    picture.view = g->second.view.Get();
+            }
             switch (d.sheetSource.pick(shown, texture != nullptr)) {
             case SheetSource::Image: break;
             case SheetSource::Texture: base = texture; break;
@@ -867,9 +916,10 @@ void Renderer::run()
             const SheetGuideLayer* guide = d.guideLayer.view ? &d.guideLayer : nullptr; // HU-103
             const SheetChartLayer* chartLayer = chartVisible ? &chart : nullptr;    // HU-105
             // La carta sola (HU-105), como la marca: sin girar, solo su recuadro (drawChart).
-            if (base || !layers.empty() || guide || ((chartLayer || mark) && !rotation.identity())) {
+            const SheetPictureLayer* pictureLayer = picture.view ? &picture : nullptr;
+            if (base || !layers.empty() || guide || pictureLayer || ((chartLayer || mark) && !rotation.identity())) {
                 d.compositor.compose(d.context.Get(), d.display.Get(), d.displayView.Get(), base, sheetRect, layers,
-                                     d.composed.Get(), mark, guide, chartLayer);
+                                     d.composed.Get(), mark, guide, chartLayer, pictureLayer);
                 source = d.composed.Get();
                 sourceView = d.composedView.Get();
             }
