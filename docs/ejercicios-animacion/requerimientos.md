@@ -104,6 +104,7 @@ Las variantes y ejercicios nuevos que salieron de la idea. Se estiman y se refin
 1. **Fase 1 — MVP: practicar en pila** (HU-118 a HU-124; 27 pts)
     1. Ejercicios en una biblioteca, guía por hoja, la app, la sesión de pila, los trazos de Ejercicios en pila, el prisma que gira, instalador.
     2. Salida: un prisma girando 12 hojas de a 15°, dibujado sobre su ghost y flipeado.
+    3. *Cerrada (12 oct 2026) y entregada en la v1.5.0.*
 2. **Fase 2 — Más ejercicios** (HU-125 a HU-130; 25 pts)
     1. Variantes del ghost e intercalar, arcos, pelota y formas que giran, según lo que pida el uso.
 
