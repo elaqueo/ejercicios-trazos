@@ -4,7 +4,7 @@
 
 Backlog de la app definida en [idea.md](idea.md): la cuarta app de la suite, Ejercicios de trazos sobre la pila de hojas de Mesa de animación. Mismo enfoque ágil que [requerimientos-backlog.md](../requerimientos-backlog.md) (roles, sprints, MoSCoW, puntos Fibonacci, Definition of Ready y Done) y mismo molde que los [requerimientos de Mesa de animación](../mesa-de-animacion/requerimientos.md). La numeración sigue la de la suite: HU-118 en adelante.
 
-> **Estado (12 de octubre de 2026):** plan escrito; falta cargar las historias como issues (para que la issue #N siga siendo la HU-N) y en el tablero, con el milestone de su fase.
+> **Estado (12 de octubre de 2026):** todas las historias están en los [issues](https://github.com/elaqueo/ejercicios-trazos/issues?q=label%3A%22E12+%C2%B7+Ejercicios+de+animaci%C3%B3n%22) (#118 a #130, la issue #N es la HU-N) y el [tablero](https://github.com/users/elaqueo/projects/3), con el milestone de su fase. El estado vivo está ahí; este documento es el plan.
 
 ## Visión y MVP
 
