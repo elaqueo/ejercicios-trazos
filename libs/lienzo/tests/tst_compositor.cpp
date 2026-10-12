@@ -1,6 +1,7 @@
 #include <lienzo/Compositor.h>
 #include <lienzo/Tone.h>
 
+#include <QElapsedTimer>
 #include <QTest>
 
 #include <algorithm>
@@ -394,6 +395,31 @@ private slots:
         qInfo() << "flip:" << flip << "ms de GPU; con la guía de la hoja:" << flipGuide << "ms";
         QVERIFY(flipGuide < 2);
         QVERIFY(best < 8);
+    }
+
+    // La hoja en blanco del flip a una hoja sin textura: del color del papel, y armarla no
+    // le cuesta a la CPU lo que costaba llenarla y subirla (7–8 ms a pantalla completa: el
+    // primer flip de una pila nueva perdía un vsync).
+    void hojaEnBlanco()
+    {
+        constexpr int bw = 1734, bh = 1080;
+        const uint32_t paper = bgra(0xF2, 0xEC, 0xDD);
+        double best = 1e9;
+        ComPtr<ID3D11Texture2D> texture;
+        ComPtr<ID3D11ShaderResourceView> view;
+        for (int run = 0; run < 5; ++run) {
+            texture.Reset();
+            view.Reset();
+            QElapsedTimer time;
+            time.start();
+            QVERIFY(makeBlankSheet(device.Get(), context.Get(), bw, bh, paper, texture, view));
+            best = std::min(best, double(time.nsecsElapsed()) / 1e6);
+        }
+        QVERIFY(view);
+        const std::vector<uint32_t> pixels = readBack(device.Get(), context.Get(), texture.Get());
+        QVERIFY(std::all_of(pixels.begin(), pixels.end(), [&](uint32_t p) { return p == paper; }));
+        qInfo() << "hoja en blanco a 1734 × 1080:" << best << "ms de CPU";
+        QVERIFY(best < 2);
     }
 
 };

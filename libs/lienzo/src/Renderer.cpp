@@ -475,11 +475,16 @@ struct Renderer::Impl {
     }
 
     uint32_t paperColor = kPaperColor;
+    // Se arma en el primer flip a una hoja sin textura (la de una pila nueva): con un clear de
+    // la GPU (makeBlankSheet), porque llenarla en la CPU y subirla perdía ese vsync.
     ID3D11ShaderResourceView* blankView(int w, int h)
     {
         if (!blank.texture || blank.width != w || blank.height != h) {
-            const std::vector<uint32_t> paper(size_t(w) * size_t(h), paperColor);
-            uploadSheet(blank, w, h, paper.data());
+            blank = {};
+            if (makeBlankSheet(device.Get(), context.Get(), w, h, paperColor, blank.texture, blank.view)) {
+                blank.width = w;
+                blank.height = h;
+            }
         }
         return blank.view.Get();
     }

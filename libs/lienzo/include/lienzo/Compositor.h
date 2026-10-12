@@ -104,4 +104,11 @@ private:
     uint32_t m_paperColor = kPaperColor;
 };
 
+// La hoja en blanco (el flip a una hoja sin textura, HU-90): una textura de w × h del color
+// `color` (BGRA), pintada en la GPU con un clear. Llenarla en la CPU y subirla costaba 7–8 ms
+// a pantalla completa y caía en el frame del primer flip de una pila nueva: perdía un vsync.
+bool makeBlankSheet(ID3D11Device* device, ID3D11DeviceContext* context, int w, int h, uint32_t color,
+                    Microsoft::WRL::ComPtr<ID3D11Texture2D>& texture,
+                    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& view);
+
 } // namespace lienzo

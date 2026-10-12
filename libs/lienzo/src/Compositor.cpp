@@ -363,4 +363,32 @@ uint32_t Compositor::reference(uint32_t shown, const uint32_t* below, const Ligh
     return 0xFF000000u | (byte(color[0] * factor[0]) << 16) | (byte(color[1] * factor[1]) << 8) | byte(color[2] * factor[2]);
 }
 
+bool makeBlankSheet(ID3D11Device* device, ID3D11DeviceContext* context, int w, int h, uint32_t color,
+                    ComPtr<ID3D11Texture2D>& texture, ComPtr<ID3D11ShaderResourceView>& view)
+{
+    texture.Reset();
+    view.Reset();
+    D3D11_TEXTURE2D_DESC td{};
+    td.Width = UINT(w);
+    td.Height = UINT(h);
+    td.MipLevels = 1;
+    td.ArraySize = 1;
+    td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    td.SampleDesc.Count = 1;
+    td.Usage = D3D11_USAGE_DEFAULT;
+    td.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    ComPtr<ID3D11RenderTargetView> target;
+    if (FAILED(device->CreateTexture2D(&td, nullptr, &texture)) ||
+        FAILED(device->CreateRenderTargetView(texture.Get(), nullptr, &target)) ||
+        FAILED(device->CreateShaderResourceView(texture.Get(), nullptr, &view))) {
+        texture.Reset();
+        view.Reset();
+        return false;
+    }
+    const float rgba[4] = {float((color >> 16) & 0xFF) / 255.0f, float((color >> 8) & 0xFF) / 255.0f,
+                           float(color & 0xFF) / 255.0f, float((color >> 24) & 0xFF) / 255.0f};
+    context->ClearRenderTargetView(target.Get(), rgba);
+    return true;
+}
+
 } // namespace lienzo
