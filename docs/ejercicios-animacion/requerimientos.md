@@ -93,6 +93,8 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 Las variantes y ejercicios nuevos que salieron de la idea. Se estiman y se refinan cuando la Fase 1 esté en uso.
 
 125. **HU-125 · Ghost solo en algunas hojas** (Could · 3 pts). Como practicante, quiero el ghost solo en la primera, la del medio y la última hoja (como keys), para dibujar las intermedias sin guía.
+    1. Parámetro "Ghost solo en las keys" (F2) en todos los ejercicios de pila, apagado por defecto: la guía va en la hoja 1, la del medio (con 12 hojas, la 7) y la última, que quedan marcadas como keys (la marca de la Mesa, HU-104); las demás, en blanco.
+    2. En ese modo G muestra el ghost de todas las hojas, para comparar lo dibujado de memoria, y otra G vuelve a solo las keys. R y Enter, como siempre.
 126. **HU-126 · Ghost que se apaga** (Could · 2 pts). Como practicante, quiero que el ghost de cada hoja se vea unos segundos y desaparezca, como en Ghosting, para dibujar de memoria.
 127. **HU-127 · Intercalar entre dos keys** (Could · 5 pts). Como practicante, quiero dos keys dadas como guía y un chart de spacing (mitades, tercios, ease), para dibujar los intermedios a mano.
 128. **HU-128 · Arcos y spacing** (Could · 5 pts). Como practicante, quiero una trayectoria en arco con marcas de spacing, para dibujar el objeto en cada posición, hoja por hoja.

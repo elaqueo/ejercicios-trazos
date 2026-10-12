@@ -179,6 +179,10 @@ public:
     // sin deshacer, sin roles, hoja fija ni guías por hoja. Con la simulación detenida, como
     // abrir una toma; queda en el log cuánto tardó (RNF-04). Sin toma: no guarda nada.
     void resetSheets(int count);
+    // HU-125: esas hojas (índices de la pila) pasan a ser keys; las demás, sin rol. Sin deshacer.
+    void setKeySheets(const QList<int>& indices);
+    // El rol de la hoja `index` de la pila.
+    SheetRole sheetRole(int index) const;
 
     // Mesa de luz (HU-91): las hojas que se ven debajo de la activa, contadas desde ella (ver
     // LightTable.h); se recalcula sola cada vez que cambia la pila. Vacía = apagada. Cada hoja

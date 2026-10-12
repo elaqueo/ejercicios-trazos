@@ -2415,6 +2415,27 @@ void Lienzo::resetSheets(int count)
     qInfo().noquote() << QStringLiteral("Pila armada: %1 hojas en %2 ms").arg(sheetCount()).arg(time.ms(), 0, 'f', 0);
 }
 
+void Lienzo::setKeySheets(const QList<int>& indices)
+{
+    const SheetOrder& order = d->syncOrder();
+    d->roles = {};
+    QStringList numbers;
+    for (const int i : indices)
+        if (order.valid(i)) {
+            d->roles[order.ids[size_t(i)]] = SheetRole::Key;
+            numbers.append(QString::number(i + 1));
+        }
+    d->sim->setRoles(d->roles);
+    d->applyLayers();
+    qInfo().noquote() << QStringLiteral("Keys: %1").arg(numbers.join(QStringLiteral(", ")));
+}
+
+SheetRole Lienzo::sheetRole(int index) const
+{
+    const SheetOrder& order = d->syncOrder();
+    return order.valid(index) ? roleOf(d->roles, order.ids[size_t(index)]) : SheetRole::None;
+}
+
 bool Lienzo::jumpToEdge(bool last)
 {
     const SheetOrder& order = d->syncOrder();

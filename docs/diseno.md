@@ -129,6 +129,6 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | --- | --- |
 | Enter | Ejercicio siguiente: otra semilla, la pila en blanco con su guía en cada hoja (→ es flip) (HU-121) |
 | R | Repetir: la misma pila en blanco, con las mismas guías (HU-121) |
-| G | Mostrar u ocultar las guías de todas las hojas, para comparar (HU-121) |
+| G | Mostrar u ocultar las guías de todas las hojas, para comparar (HU-121). Con el ghost solo en las keys (F2), muestra el de todas las hojas y otra G vuelve a solo las keys (HU-125) |
 | F4 | Menú de ejercicios: el prisma, el cilindro, el cono y la cabeza que giran (Volumen), los trazos en pila (Líneas, Curvas, Elipses, Perspectiva) y el modo mixto (HU-121, HU-122, HU-123, HU-130, HU-131) |
-| F2 | Panel: los parámetros del ejercicio (las hojas, entre ellos) y qué ejercicios entran en el modo mixto (HU-121) |
+| F2 | Panel: los parámetros del ejercicio (las hojas y el ghost solo en las keys, entre ellos) y qué ejercicios entran en el modo mixto (HU-121, HU-125) |

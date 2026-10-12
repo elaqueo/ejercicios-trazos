@@ -21,6 +21,15 @@ constexpr int kMaxSheets = 24;
 appkit::Param sheetsParam(int defaultSheets);
 // Las hojas que piden estos parámetros, recortadas al rango.
 int sheetCount(const QVariantMap& params);
+// Ghost solo en las keys (HU-125): la guía va solo en la primera hoja, la del medio y la última;
+// las intermedias se dibujan de memoria. Lo tienen los ejercicios de pila de la app; apagado por
+// defecto.
+inline const QString kKeysParam = QStringLiteral("soloKeys");
+appkit::Param keysParam();
+bool keysOnly(const QVariantMap& params);
+// Las keys de una pila de `count` hojas: la primera, la del medio (count / 2, desde 0) y la
+// última, sin repetir.
+QList<int> keySheets(int count);
 
 class StackExercise {
 public:

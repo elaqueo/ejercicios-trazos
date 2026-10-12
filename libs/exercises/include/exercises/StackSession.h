@@ -23,6 +23,8 @@ public:
     virtual double pixelsPerMm() const { return 96.0 / 25.4; }
     virtual void setSheetGuide(int index, const QPicture& guide) = 0;
     virtual void setGuidesVisible(bool visible) = 0;
+    // HU-125: marca esas hojas como keys (la pila nueva llega sin roles).
+    virtual void setKeySheets(const QList<int>& indices) { Q_UNUSED(indices); }
 };
 
 // Ciclo de ejercicios de pila (HU-121): cada ejercicio arma su pila con su guía en cada hoja.
@@ -56,9 +58,13 @@ public:
     // Las guías del ejercicio actual otra vez, para la hoja de ahora (al calibrar con F9), sin
     // tocar lo dibujado. La pila ya tiene que estar armada.
     void regenerate();
-    // G: oculta y muestra las guías de todas las hojas.
+    // G: oculta y muestra las guías de todas las hojas. Con el ghost solo en las keys (HU-125),
+    // en cambio, muestra las de todas las hojas para comparar, y otra vez solo las de las keys.
     void toggleGuides();
     bool guidesVisible() const { return m_guidesVisible; }
+    // HU-125: el ejercicio actual tiene el ghost solo en las keys, y si G muestra las de todas.
+    bool keysOnly() const;
+    bool allGuidesShown() const { return m_allShown; }
 
     // Cambió el ejercicio (el panel muestra sus parámetros).
     std::function<void()> onExerciseChanged;
@@ -74,7 +80,10 @@ private:
     QList<const StackExercise*> m_pool;
     QStringList m_recent; // ids de los últimos dos ejercicios, del más viejo al más nuevo
     bool m_guidesVisible = true;
+    bool m_allShown = false;
     void build();
+    // Pone en cada hoja su guía, o ninguna si es intermedia y solo van las de las keys.
+    void applyGuides();
 };
 
 } // namespace ejercicios

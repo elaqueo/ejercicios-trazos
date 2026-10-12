@@ -92,7 +92,8 @@ public:
     static constexpr int kRandomAxis = 3;
 
 protected:
-    // Hojas, eje (con su valor por defecto), paso, perspectiva, aristas ocultas y tamaño.
+    // Hojas, ghost solo en las keys, eje (con su valor por defecto), paso, perspectiva, aristas
+    // ocultas y tamaño.
     static QList<appkit::Param> turnParams(int defaultAxis, const QString& hiddenLabel);
 };
 

@@ -28,8 +28,10 @@ public:
     QSize sheetSize() const override { return {800, 450}; }
     void setSheetGuide(int index, const QPicture& guide) override { guides[index] = guide; }
     void setGuidesVisible(bool v) override { visible = v; }
+    void setKeySheets(const QList<int>& indices) override { keys = indices; }
 
     int sheets = 0;
+    QList<int> keys;
     int resets = 0;
     QList<QPicture> guides;
     bool visible = false;
@@ -41,7 +43,7 @@ public:
     QString id() const override { return QStringLiteral("cambia"); }
     QString title() const override { return QStringLiteral("Cambia"); }
     QString group() const override { return QStringLiteral("Prueba"); }
-    QList<appkit::Param> params() const override { return {sheetsParam(4)}; }
+    QList<appkit::Param> params() const override { return {sheetsParam(4), keysParam()}; }
     StackGenerated generate(const QVariantMap& params, quint32 seed, const SafeZone& zone) const override
     {
         StackGenerated out;
@@ -177,6 +179,58 @@ private slots:
         QCOMPARE(session.exercise(), &cambia);
         QCOMPARE(findExercise(all, QStringLiteral("cambia")), &cambia);
         QCOMPARE(exerciseMenu(all).size(), 3); // el modo mixto y dos grupos
+    }
+
+    // HU-125: con el ghost solo en las keys, la guía va en la primera hoja, la del medio y la
+    // última (marcadas como keys); G muestra las de todas para comparar y otra G vuelve; R repite
+    // igual. Apagado, como siempre.
+    void ghostSoloEnLasKeys()
+    {
+        QCOMPARE(keySheets(12), (QList<int>{0, 6, 11}));
+        QCOMPARE(keySheets(13), (QList<int>{0, 6, 12}));
+        QCOMPARE(keySheets(2), (QList<int>{0, 1}));
+        FakeStack canvas;
+        const Cambia cambia;
+        StackSession session(&canvas, &cambia);
+        session.setParams({{kSheetsParam, 12}, {kKeysParam, true}});
+        session.next();
+        QVERIFY(session.keysOnly());
+        QCOMPARE(canvas.keys, (QList<int>{0, 6, 11}));
+        const auto withGuide = [&canvas] {
+            QList<int> out;
+            for (int i = 0; i < canvas.guides.size(); ++i)
+                if (!bytes(canvas.guides[i]).isEmpty())
+                    out.append(i);
+            return out;
+        };
+        QCOMPARE(withGuide(), (QList<int>{0, 6, 11}));
+        const QByteArray middle = bytes(canvas.guides[6]);
+        session.toggleGuides();
+        QVERIFY(session.allGuidesShown());
+        QVERIFY(canvas.visible);
+        QCOMPARE(withGuide().size(), 12);
+        QCOMPARE(bytes(canvas.guides[6]), middle);
+        QCOMPARE(canvas.resets, 1); // sin armar otra pila
+        session.toggleGuides();
+        QCOMPARE(withGuide(), (QList<int>{0, 6, 11}));
+        session.toggleGuides();
+        session.repeat(); // R: otra vez solo las keys, con las mismas guías
+        QVERIFY(!session.allGuidesShown());
+        QCOMPARE(withGuide(), (QList<int>{0, 6, 11}));
+        QCOMPARE(bytes(canvas.guides[6]), middle);
+
+        session.setParams({{kSheetsParam, 12}, {kKeysParam, false}});
+        canvas.keys.clear();
+        session.next();
+        QVERIFY(!session.keysOnly());
+        QVERIFY(canvas.keys.isEmpty());
+        QCOMPARE(withGuide().size(), 12);
+        session.toggleGuides();
+        QVERIFY(!canvas.visible);
+        // Todos los ejercicios de pila de la app lo tienen, apagado.
+        const StrokeStacks strokes;
+        for (const StackExercise* exercise : strokes.exercises())
+            QCOMPARE(exercise->defaults().value(kKeysParam), QVariant(false));
     }
 
     // HU-122: los trazos de Ejercicios en pila son los de líneas, curvas, elipses y perspectiva

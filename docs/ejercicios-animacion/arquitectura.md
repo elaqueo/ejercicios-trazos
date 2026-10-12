@@ -34,6 +34,7 @@ Es la de Ejercicios llevada a la pila. Habla con el lienzo por una interfaz chic
 - **Enter (`next`):** otra semilla (en modo mixto, otro ejercicio de los habilitados) y arma la pila.
 - **R (`repeat`):** la misma semilla y los mismos parámetros, con la pila en blanco.
 - **G (`toggleGuides`):** oculta y muestra las guías de todas las hojas, sin armar otra pila.
+- **Ghost solo en las keys** (HU-125, parámetro común `soloKeys`): la sesión genera todas las guías, como siempre, pero pone solo las de las keys (`keySheets`: la primera, `n / 2` y la última). Las marca como keys con `setKeySheets`, que en el lienzo pone el rol Key, con la marca y el panel de la Mesa. En ese modo, G pone las guías de todas las hojas (para comparar) y otra G vuelve a las de las keys, en vez de ocultarlas.
 - **Armar la pila:** `resetSheets(hojas)` y después `generate` con la zona de la hoja entera. Cada guía va a su hoja con `setSheetGuide`.
 - **Los parámetros** rigen desde el ejercicio siguiente, como en Ejercicios, y quedan en config: el ejercicio, los parámetros de cada uno, el modo mixto y los ejercicios que entran en él.
 
@@ -111,7 +112,7 @@ Cada forma solo sabe sus medidas, qué se ve y qué se dibuja.
 
 ## Pruebas
 
-- **`tst_stack_session`:** Enter, R, G, los parámetros, el modo mixto y los trazos en pila, con un lienzo de mentira.
+- **`tst_stack_session`:** Enter, R, G, los parámetros, el modo mixto, los trazos en pila y el ghost solo en las keys (qué hojas, G, R y las marcas), con un lienzo de mentira.
 - **`tst_prisma`:**
   - la proyección a 0° de lejos y a 90° sobre cada eje (igual al prisma con dos medidas cambiadas);
   - que la perspectiva agranda lo de adelante;

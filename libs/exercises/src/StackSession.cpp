@@ -100,14 +100,33 @@ void StackSession::regenerate()
     SafeZone zone = SafeZone::withRandomOrientation(area, m_seed);
     zone.pixelsPerMm = m_canvas->pixelsPerMm();
     m_current = m_exercise->generate(m_currentParams, m_seed, zone);
-    for (int i = 0; i < m_current.sheets.size(); ++i)
-        m_canvas->setSheetGuide(i, m_current.sheets[i].guides);
+    m_allShown = false;
+    applyGuides();
+    if (keysOnly())
+        m_canvas->setKeySheets(keySheets(int(m_current.sheets.size())));
     m_guidesVisible = true;
     m_canvas->setGuidesVisible(true);
 }
 
+bool StackSession::keysOnly() const
+{
+    return ejercicios::keysOnly(m_currentParams);
+}
+
+void StackSession::applyGuides()
+{
+    const QList<int> keys = keysOnly() && !m_allShown ? keySheets(int(m_current.sheets.size())) : QList<int>();
+    for (int i = 0; i < m_current.sheets.size(); ++i)
+        m_canvas->setSheetGuide(i, keys.isEmpty() || keys.contains(i) ? m_current.sheets[i].guides : QPicture());
+}
+
 void StackSession::toggleGuides()
 {
+    if (keysOnly()) {
+        m_allShown = !m_allShown;
+        applyGuides();
+        return;
+    }
     m_guidesVisible = !m_guidesVisible;
     m_canvas->setGuidesVisible(m_guidesVisible);
 }

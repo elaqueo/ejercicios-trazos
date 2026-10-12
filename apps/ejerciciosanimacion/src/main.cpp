@@ -5,7 +5,7 @@
 // HU-121: la sesión de pila (libs/exercises/StackSession): cada ejercicio arma su pila con su
 // guía en cada hoja; Enter, R, G, F4 y F2, y lo elegido queda en config.
 // HU-123: el prisma que gira, primero en el menú (grupo "Volumen"). HU-130: el cilindro, a su lado.
-// HU-131: el cono y la cabeza.
+// HU-131: el cono y la cabeza. HU-125: el ghost solo en las keys (F2), y G compara con todas.
 
 #include <appkit/Config.h>
 #include <appkit/Log.h>
@@ -48,6 +48,7 @@ public:
     double pixelsPerMm() const override { return m_canvas.mapping().pixelsPerCellX * drymedia::kCellsPerMm; }
     void setSheetGuide(int index, const QPicture& guide) override { m_canvas.setSheetGuide(index, guide); }
     void setGuidesVisible(bool visible) override { m_canvas.setSheetGuidesVisible(visible); }
+    void setKeySheets(const QList<int>& indices) override { m_canvas.setKeySheets(indices); }
 
 private:
     lienzo::Lienzo& m_canvas;
@@ -217,7 +218,11 @@ int main(int argc, char* argv[])
         timed([&] { session.repeat(); });
         qInfo() << "Repetir:" << session.exercise()->id();
     });
-    canvas.shortcuts().add(QStringLiteral("Mostrar u ocultar las guías"), {{'G'}}, [&session] { session.toggleGuides(); });
+    canvas.shortcuts().add(QStringLiteral("Mostrar u ocultar las guías"), {{'G'}}, [&session] {
+        session.toggleGuides();
+        if (session.keysOnly()) // HU-125: G compara con el ghost de todas las hojas
+            qInfo() << "Ghost:" << (session.allGuidesShown() ? "todas las hojas" : "solo las keys");
+    });
     menu.onPick = [&](const QString& id) {
         qInfo() << "Menú:" << id;
         if (id == ejercicios::kMixedModeId) {

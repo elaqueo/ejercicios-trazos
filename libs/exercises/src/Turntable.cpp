@@ -164,6 +164,7 @@ QList<appkit::Param> TurningExercise::turnParams(int defaultAxis, const QString&
     using Type = appkit::Param::Type;
     return {
         sheetsParam(12), // media vuelta a 15°
+        keysParam(),
         {.key = kAxis, .label = QStringLiteral("Eje (0 vertical · 1 horizontal · 2 profundidad · 3 al azar)"),
          .type = Type::Integer, .minimum = 0, .maximum = kRandomAxis, .step = 1, .defaultValue = defaultAxis},
         {.key = kStep, .label = QStringLiteral("Paso de giro"), .type = Type::Integer, .minimum = 5, .maximum = 45,
