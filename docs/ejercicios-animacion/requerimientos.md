@@ -4,7 +4,7 @@
 
 Backlog de la app definida en [idea.md](idea.md): la cuarta app de la suite, Ejercicios de trazos sobre la pila de hojas de Mesa de animación. Mismo enfoque ágil que [requerimientos-backlog.md](../requerimientos-backlog.md) (roles, sprints, MoSCoW, puntos Fibonacci, Definition of Ready y Done) y mismo molde que los [requerimientos de Mesa de animación](../mesa-de-animacion/requerimientos.md). La numeración sigue la de la suite: HU-118 en adelante.
 
-> **Estado (12 de octubre de 2026):** todas las historias están en los [issues](https://github.com/elaqueo/ejercicios-trazos/issues?q=label%3A%22E12+%C2%B7+Ejercicios+de+animaci%C3%B3n%22) (#118 a #130, la issue #N es la HU-N) y el [tablero](https://github.com/users/elaqueo/projects/3), con el milestone de su fase. El estado vivo está ahí; este documento es el plan.
+> **Estado (12 de octubre de 2026):** todas las historias están en los [issues](https://github.com/elaqueo/ejercicios-trazos/issues?q=label%3A%22E12+%C2%B7+Ejercicios+de+animaci%C3%B3n%22) (#118 a #131, la issue #N es la HU-N) y el [tablero](https://github.com/users/elaqueo/projects/3), con el milestone de su fase. El estado vivo está ahí; este documento es el plan.
 
 ## Visión y MVP
 
@@ -35,7 +35,7 @@ Cuatro épicas, 7 historias en el MVP y 6 para después.
 | --- | --- | --- | --- | --- |
 | E1 | Plataforma | Ejercicios en una biblioteca, guía por hoja en el lienzo, la app | HU-118 a HU-120 | 1 |
 | E2 | Sesión de pila | Armar la pila del ejercicio, repetir, siguiente, menú y parámetros | HU-121 | 1 |
-| E3 | Ejercicios | Trazos de Ejercicios en pila, prisma que gira, variantes y ejercicios nuevos | HU-122, HU-123, HU-125 a HU-130 | 1–2 |
+| E3 | Ejercicios | Trazos de Ejercicios en pila, prisma que gira, variantes y ejercicios nuevos | HU-122, HU-123, HU-125 a HU-131 | 1–2 |
 | E4 | Entrega | Instalador, docs, prueba de la app real | HU-124 | 1 |
 
 ## Historias
@@ -97,7 +97,13 @@ Las variantes y ejercicios nuevos que salieron de la idea. Se estiman y se refin
 127. **HU-127 · Intercalar entre dos keys** (Could · 5 pts). Como practicante, quiero dos keys dadas como guía y un chart de spacing (mitades, tercios, ease), para dibujar los intermedios a mano.
 128. **HU-128 · Arcos y spacing** (Could · 5 pts). Como practicante, quiero una trayectoria en arco con marcas de spacing, para dibujar el objeto en cada posición, hoja por hoja.
 129. **HU-129 · La pelota que rebota** (Could · 5 pts). Como practicante, quiero la consigna de la pelota que rebota (posiciones, squash y stretch), para el ejercicio clásico de animación.
-130. **HU-130 · Otras formas que giran** (Could · 5 pts). Como practicante, quiero un cilindro, un cono y una cabeza simplificada que giran como el prisma, para practicar volúmenes curvos. Primero el cilindro (pedido del 12 oct 2026).
+130. **HU-130 · Cilindro que gira** (Could · 5 pts). Como practicante, quiero un cilindro que gira hoja por hoja con su ghost, como el prisma, para practicar volúmenes curvos (pedido del 12 oct 2026).
+    1. Un cilindro de radio y largo al azar (por semilla, de 1:3 a 3:1) gira sobre un eje, un paso por hoja, con el ghost del prisma (gris tinta, ocultas punteadas, el ángulo en la esquina).
+    2. Una costura (una generatriz y una marca en la tapa) deja ver el giro, aun sobre su propio eje; un parámetro la saca. Por defecto gira sobre el eje horizontal (da vueltas de punta).
+    3. La silueta son las dos generatrices de canto a la cámara; las tapas se proyectan exactas (muestreadas) y lo que tapan el costado o la tapa de frente va punteado.
+    4. La cámara, la perspectiva y el estilo del ghost son los del prisma, en común; el prisma no cambia.
+    5. Diseño primero en el canvas (mesa "Cilindro que gira"). Pruebas: la elipse de la tapa, la silueta tangente a las tapas, lo oculto, un paso por hoja, la semilla y que entre en la hoja.
+131. **HU-131 · Cono y cabeza que giran** (Could · 5 pts). Como practicante, quiero un cono y una cabeza simplificada que giran como el prisma y el cilindro, para practicar más volúmenes curvos (salió de dividir la HU-130).
 
 ## Plan por fases
 
@@ -105,7 +111,7 @@ Las variantes y ejercicios nuevos que salieron de la idea. Se estiman y se refin
     1. Ejercicios en una biblioteca, guía por hoja, la app, la sesión de pila, los trazos de Ejercicios en pila, el prisma que gira, instalador.
     2. Salida: un prisma girando 12 hojas de a 15°, dibujado sobre su ghost y flipeado.
     3. *Cerrada (12 oct 2026) y entregada en la v1.5.0.*
-2. **Fase 2 — Más ejercicios** (HU-125 a HU-130; 25 pts)
+2. **Fase 2 — Más ejercicios** (HU-125 a HU-131; 30 pts)
     1. Variantes del ghost e intercalar, arcos, pelota y formas que giran, según lo que pida el uso.
 
 Las fases son milestones propios de la app ("Ejercicios de animación · Fase N"). El orden dentro de la Fase 1 es el numérico: primero la plataforma (HU-118 a HU-120), después la sesión y los ejercicios.

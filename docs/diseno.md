@@ -58,6 +58,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Panel de hojas (Tab) | Como la mesa "Panel de hojas": angosto (240 px) a la derecha, con la toma y si está guardada, el número grande en ámbar y el total, las miniaturas de la activa (marco ámbar) y de 3 antes y 3 después, el lápiz, la mesa de luz y el giro | HU-114 |
 | Íconos | Como la mesa "Íconos": fondo gris oscuro redondeado; Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; Mesa de animación, tres hojas apiladas con la pelota en grafito y, debajo, la del dibujo anterior en naranja, como la mesa de luz; Ejercicios de animación, las mismas hojas con el ghost del prisma en gris tinta y el grafito encima, siguiendo las aristas de adelante; el instalador, la hoja y el lápiz juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70, HU-110, HU-124 |
 | Prisma que gira (Ejercicios de animación) | Como la mesa "Prisma que gira": el ghost del prisma de cada hoja en wireframe, gris tinta #6B7178 al 50 % (`kGhostOpacidad`; el azul se confunde con el lápiz azul), aristas ocultas punteadas y más finas (un parámetro las saca), el ángulo de la hoja chico abajo a la derecha en el gris del número. Va en el render, bajo el grafito, como una guía por hoja | HU-123 |
+| Cilindro que gira (Ejercicios de animación) | Como la mesa "Cilindro que gira": el ghost del prisma (gris tinta al 50 %, lo oculto punteado, el ángulo abajo a la derecha); las tapas en elipses exactas, la silueta de canto y una costura (una generatriz y una marca en la tapa) que deja ver el giro; por defecto, sobre el eje horizontal | HU-130 |
 | Panel de hojas (Ejercicios de animación) | Como la variante de la mesa "Panel de hojas": en vez de la toma, "EJERCICIO" y el título del ejercicio, con "modo mixto" a la derecha si está prendido; sin estado de guardado (la pila no se guarda) | HU-120, HU-121 |
 
 ## Teclas (v1.5.0)
@@ -128,5 +129,5 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Enter | Ejercicio siguiente: otra semilla, la pila en blanco con su guía en cada hoja (→ es flip) (HU-121) |
 | R | Repetir: la misma pila en blanco, con las mismas guías (HU-121) |
 | G | Mostrar u ocultar las guías de todas las hojas, para comparar (HU-121) |
-| F4 | Menú de ejercicios: el prisma que gira (Volumen), los trazos en pila (Líneas, Curvas, Elipses, Perspectiva) y el modo mixto (HU-121, HU-122, HU-123) |
+| F4 | Menú de ejercicios: el prisma y el cilindro que giran (Volumen), los trazos en pila (Líneas, Curvas, Elipses, Perspectiva) y el modo mixto (HU-121, HU-122, HU-123, HU-130) |
 | F2 | Panel: los parámetros del ejercicio (las hojas, entre ellos) y qué ejercicios entran en el modo mixto (HU-121) |

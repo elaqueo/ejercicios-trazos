@@ -3,6 +3,7 @@
 # F4. Los usan Ejercicios de trazos y Ejercicios de animación.
 qt_add_library(exercises STATIC
     include/exercises/Cajas.h
+    include/exercises/CilindroQueGira.h
     include/exercises/CajasRotadas.h
     include/exercises/Concentricas.h
     include/exercises/Curva.h
@@ -26,8 +27,10 @@ qt_add_library(exercises STATIC
     include/exercises/StackExercise.h
     include/exercises/StackSession.h
     include/exercises/StrokeStacks.h
+    include/exercises/Turntable.h
     include/exercises/WritingCurve.h
     src/Cajas.cpp
+    src/CilindroQueGira.cpp
     src/CajasRotadas.cpp
     src/Concentricas.cpp
     src/Curva.cpp
@@ -50,6 +53,7 @@ qt_add_library(exercises STATIC
     src/StackExercise.cpp
     src/StackSession.cpp
     src/StrokeStacks.cpp
+    src/Turntable.cpp
     src/WritingCurve.cpp
 )
 target_include_directories(exercises PUBLIC include)

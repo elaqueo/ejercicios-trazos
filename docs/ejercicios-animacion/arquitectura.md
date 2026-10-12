@@ -14,7 +14,7 @@ Ejercicios de animación corre sobre el lienzo de `libs/lienzo` con la pila de h
 
 ```text
 apps/ejerciciosanimacion   main.cpp: Lienzo + StackSession + menú F4 + panel F2 + config
-libs/exercises             StackExercise, SameOnEverySheet, StrokeStacks, PrismaQueGira, StackSession
+libs/exercises             StackExercise, SameOnEverySheet, StrokeStacks, Turntable, PrismaQueGira, CilindroQueGira, StackSession
 libs/lienzo                resetSheets, setSheetGuide, setSheetGuidesVisible, setPanelHeading
 libs/appkit                Param y ParamForm, MenuOverlay, SidePanel, Config, Shortcuts, Theme
 ```
@@ -25,7 +25,7 @@ Es como `Exercise`, pero `generate(params, seed, zone)` devuelve una guía y una
 
 - **`SameOnEverySheet`** (HU-122): lleva un ejercicio de Ejercicios a la pila con la misma guía en todas las hojas. Conserva su id, su título, su grupo y sus parámetros, más las hojas.
 - **`StrokeStacks`** (HU-122): los 11 trazos de Ejercicios que tienen sentido en pila (líneas, curvas, elipses y perspectiva; escritura, ghosting y presión no), con 6 hojas por defecto.
-- **`PrismaQueGira`** (HU-123): el ejercicio propio de la app, más abajo.
+- **`PrismaQueGira`** (HU-123) y **`CilindroQueGira`** (HU-130): las formas que giran, propias de la app, más abajo.
 
 ### La sesión de pila (`StackSession`, HU-121)
 
@@ -40,6 +40,18 @@ Es la de Ejercicios llevada a la pila. Habla con el lienzo por una interfaz chic
 ### En el lienzo
 
 La guía por hoja (`setSheetGuide`, textura por id en el render, capa `SheetPictureLayer`) y la pila nueva (`resetSheets` y `Simulation::stackReplaced`, sin crear otra simulación) están en la [arquitectura de la Mesa](../mesa-de-animacion/arquitectura.md#la-guía-por-hoja-hu-119-ejercicios-de-animación), porque viven en `libs/lienzo`. El panel de hojas dice "EJERCICIO" y el título en vez de la toma (`setPanelHeading`, HU-120 y HU-121).
+
+## Lo común de las formas que giran (`Turntable`, HU-130)
+
+El prisma y el cilindro comparten la cámara, los parámetros y el ghost (`libs/exercises/Turntable`):
+
+- **`giro::place` y `giro::project`:** el giro sobre el eje, la inclinación de la cámara y la perspectiva.
+- **`giro::facesCamera`:** si una superficie mira a la cámara.
+- **`giro::frame`:** el ojo y la escala según la perspectiva y el tamaño, con el ajuste a la hoja.
+- **`giro::Ghost`:** pinta los trazos visibles llenos y los ocultos punteados, pone el ángulo y guarda la geometría ideal.
+- **`TurningExercise`:** el grupo "Volumen", las claves y los parámetros comunes.
+
+Cada forma solo sabe sus medidas, qué se ve y qué se dibuja.
 
 ## El prisma que gira (HU-123)
 
@@ -61,6 +73,16 @@ La guía por hoja (`setSheetGuide`, textura por id en el render, capa `SheetPict
   - aristas ocultas al 40 %, más finas y punteadas;
   - el ángulo de la hoja abajo a la derecha, en IBM Plex Mono, porque arriba a la derecha va el número de la hoja.
 
+## El cilindro que gira (HU-130)
+
+`libs/exercises/CilindroQueGira`. Como el prisma, pero un cilindro de radio y largo al azar.
+
+- **Lo que sale de la semilla (`cilindro::draw`):** el largo sobre el diámetro, entre 1:3 y 3:1 (parejo en escala logarítmica), dentro de una esfera de radio 1; el eje, si es al azar, y el giro de la primera hoja.
+- **El eje por defecto es el horizontal:** el cilindro da vueltas de punta y las tapas cambian de elipse. Sobre el vertical gira sobre sí mismo, y solo se mueve la costura.
+- **Las tapas:** dos círculos de 96 tramos, proyectados uno por uno, así la perspectiva queda exacta. Un tramo se ve si lo ve su tapa o el costado en ese punto.
+- **La silueta:** las dos generatrices de canto a la cámara. La condición es n(t)·(ojo − p) = 0, y como n(t)·p = r en todo el largo, queda A cos t + B sin t = r, que tiene solución exacta. Si se lo ve justo de punta, no hay silueta.
+- **La costura:** la generatriz que a 0° mira a la cámara, más una marca de ahí hacia el centro de la tapa de arriba. Sin ella, el giro sobre su propio eje no se ve. Un parámetro la saca.
+
 ## Rendimiento
 
 | Requisito | Medido |
@@ -78,10 +100,18 @@ La guía por hoja (`setSheetGuide`, textura por id en el render, capa `SheetPict
   - que cada hoja suma un paso;
   - que la misma semilla da el mismo prisma;
   - que todo queda dentro de la hoja.
+- **`tst_cilindro`:**
+  - la tapa de lejos es una elipse de proporción sen 22°;
+  - la silueta deja todo el cilindro de un lado, y de punta no hay;
+  - lo oculto es la parte de atrás de la tapa de abajo, con el límite exacto;
+  - sobre su propio eje solo se mueve la costura;
+  - cada hoja suma un paso;
+  - la semilla;
+  - que entra en la hoja.
 - **`tst_lienzo`:** la guía de la hoja que se ve (`guiaDeLaHojaQueSeVe`), la pila nueva (`pilaNueva`) y el panel sin toma (`panelSinToma`).
 - **Prueba de la app real** (`scripts/smoke.ps1`): arranca en el prisma con 12 hojas y verifica:
   - Ctrl+, abre los atajos;
   - Enter, R y G arman la pila en menos de 300 ms;
   - el flip respeta RNF-01 y L prende y apaga la mesa de luz;
-  - F4 elige otro ejercicio y arma su pila;
+  - F4 elige otro ejercicio (hoy, el cilindro) y arma su pila;
   - Ctrl+Q la cierra.

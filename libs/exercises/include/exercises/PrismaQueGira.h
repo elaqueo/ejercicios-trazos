@@ -1,6 +1,6 @@
 #pragma once
 
-#include "exercises/StackExercise.h"
+#include "exercises/Turntable.h"
 
 #include <QPointF>
 
@@ -9,17 +9,13 @@
 // Prisma que gira (HU-123, Ejercicios de animación): un prisma de largo, ancho y alto al azar
 // gira sobre uno de sus ejes, un paso por hoja; en cada hoja va su wireframe con el giro de esa
 // hoja, tenue (el ghost), para dibujar encima y ver al flipear si el volumen se mantiene.
-// Diseño en la mesa "Prisma que gira" del canvas: ghost en gris tinta al 50 % (el azul se
-// confunde con el lápiz azul), aristas ocultas punteadas y más finas, el ángulo abajo a la
-// derecha en el gris del número de la hoja.
+// Diseño en la mesa "Prisma que gira" del canvas; la cámara y el ghost, en Turntable.h.
 namespace ejercicios {
 
 namespace prisma {
 
-enum class Axis { Vertical, Horizontal, Depth };
-
-// La cámara mira un poco desde arriba, para que se vea la tapa.
-constexpr double kElevationDeg = 22;
+using Axis = giro::Axis;
+constexpr double kElevationDeg = giro::kElevationDeg;
 
 // Un prisma centrado en el origen, en mm: x a lo ancho, y hacia arriba, z hacia la cámara.
 struct Box {
@@ -56,18 +52,12 @@ Draw draw(quint32 seed, int axisParam);
 
 } // namespace prisma
 
-class PrismaQueGira : public StackExercise {
+class PrismaQueGira : public TurningExercise {
 public:
     QString id() const override;
     QString title() const override;
-    QString group() const override;
     QList<appkit::Param> params() const override;
     StackGenerated generate(const QVariantMap& params, quint32 seed, const SafeZone& zone) const override;
-
-    // Claves de los parámetros (además de kSheetsParam).
-    static const QString kAxis, kStep, kPerspective, kHidden, kSize;
-    // El valor de kAxis que sortea el eje.
-    static constexpr int kRandomAxis = 3;
 };
 
 } // namespace ejercicios

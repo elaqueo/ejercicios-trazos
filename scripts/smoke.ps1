@@ -650,13 +650,13 @@ try {
     }
 
     # HU-124: F4 abre el menú y elegir otro ejercicio (el de abajo del prisma en la grilla) arma su
-    # pila (6 hojas por defecto).
+    # pila (6 hojas por defecto los trazos, 12 las formas que giran).
     foreach ($k in '{F4}', '{DOWN}', '{ENTER}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 600 }
     $l = @(Get-Content $animLog -Encoding utf8)
     $picked = @($l | ForEach-Object { if ($_ -match 'Menú: "([^"]+)"') { $Matches[1] } })
     $last = $l | Where-Object { $_ -match 'Pila armada: (\d+) hojas' } | Select-Object -Last 1
-    if ($picked.Count -eq 1 -and $picked[0] -ne 'prismaQueGira' -and $last -match 'Pila armada: 6 hojas') {
-        Write-Host "  ok   F4 elige otro ejercicio ($($picked[0])) y arma su pila de 6 hojas"
+    if ($picked.Count -eq 1 -and $picked[0] -ne 'prismaQueGira' -and $last -match 'Pila armada: (6|12) hojas') {
+        Write-Host "  ok   F4 elige otro ejercicio ($($picked[0])) y arma su pila de $($Matches[1]) hojas"
     } else {
         Write-Host "  FALLA F4 en Ejercicios de animación: elegido $($picked -join ',') · $last"
         $failures.Add('Menú de Ejercicios de animación')
