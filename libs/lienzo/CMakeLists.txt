@@ -7,6 +7,7 @@ qt_add_library(lienzo STATIC
     include/lienzo/Compositor.h
     include/lienzo/Cursor.h
     include/lienzo/DisplayImage.h
+    include/lienzo/Export.h
     include/lienzo/LeadController.h
     include/lienzo/LeadPicker.h
     include/lienzo/AudioStrip.h
@@ -35,6 +36,7 @@ qt_add_library(lienzo STATIC
     src/CanvasWindow.cpp
     src/Compositor.cpp
     src/Cursor.cpp
+    src/Export.cpp
     src/FieldGuide.cpp
     src/LeadPicker.cpp
     src/Lienzo.cpp

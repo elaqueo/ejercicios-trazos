@@ -197,6 +197,8 @@ int main(int argc, char* argv[])
     canvas.shortcuts().add(QStringLiteral("Primera hoja"), {{VK_HOME}}, [&] { jumpTo(false); });
     canvas.shortcuts().add(QStringLiteral("Última hoja"), {{VK_END}}, [&] { jumpTo(true); });
     canvas.shortcuts().joinWithPrevious(QStringLiteral("Primera o última hoja"));
+    // Exportar (HU-109): la toma como PNG numerados en <toma>/export (el panel muestra el avance).
+    canvas.shortcuts().add(QStringLiteral("Exportar PNG"), {{'E', true}}, [&canvas] { canvas.exportTake(); });
     // Pila en círculo (HU-94): para flipear un ciclo y probar el empalme.
     canvas.shortcuts().add(QStringLiteral("Pila en círculo"), {{'O'}}, [&canvas] { canvas.toggleCircle(); });
     // Hoja fija (HU-89, mesa "Hoja fija"): el layout debajo de todas, fuera del flip.

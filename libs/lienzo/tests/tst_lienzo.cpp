@@ -9,6 +9,7 @@
 #include <lienzo/Media.h>
 #include <lienzo/Renderer.h>
 #include <lienzo/DisplayImage.h>
+#include <lienzo/Export.h>
 #include <lienzo/SampleQueue.h>
 #include <appkit/Theme.h>
 #include <lienzo/SheetImages.h>
@@ -1807,6 +1808,72 @@ private slots:
     // HU-86: con una espera larga no se guarda mientras se dibuja; al detener la simulación
     // (cerrar la app) se guarda lo pendiente. Dos copias de una hoja que no llegó a escribirse:
     // queda la última.
+    // HU-109: la exportación escribe las hojas del flip numeradas (un píxel por celda, el
+    // papel y el trazo, a 300 dpi), la fija aparte y toma.json con número y rol; borra lo de una
+    // exportación anterior (una hoja de más) y copia el audio con sus marcas.
+    void exportaSecuenciaPng()
+    {
+        const drymedia::PaperSpec spec{.seed = 3, .widthMm = 20, .heightMm = 10, .dpi = 300};
+        drymedia::Paper paper(spec);
+        const std::vector<uint8_t> blank = paper.serializeTiles();
+        for (int y = 0; y < 8; ++y) // un cuadrado de grafito arriba a la izquierda
+            for (int x = 0; x < 8; ++x)
+                paper.depositTile(0, 0)[y * drymedia::kTileSize + x] = 65535;
+        const std::vector<uint8_t> drawn = paper.serializeTiles();
+
+        QTemporaryDir temp;
+        const QString dir = QDir(temp.path()).filePath(QStringLiteral("export"));
+        QDir().mkpath(dir);
+        QFile old(QDir(dir).filePath(QStringLiteral("0009.png"))); // de una exportación anterior
+        QVERIFY(old.open(QIODevice::WriteOnly));
+        old.close();
+        QFile audio(QDir(temp.path()).filePath(QStringLiteral("audio.wav")));
+        QVERIFY(audio.open(QIODevice::WriteOnly));
+        audio.write("RIFF");
+        audio.close();
+
+        const uint32_t color = bgra(250, 248, 242);
+        ExportJob job{.dir = dir, .paper = spec, .paperColor = color,
+                      .sheets = {{drawn, 1, SheetRole::Key}, {blank, 0, SheetRole::None}, {blank, 2, SheetRole::Breakdown}},
+                      .audio = audio.fileName(), .marks = {0.5, 1.25}};
+        std::vector<int> steps;
+        const ExportResult result = exportTake(job, [&](int done, int total) {
+            QCOMPARE(total, 3);
+            steps.push_back(done);
+        });
+        QVERIFY2(result.ok, qPrintable(result.error));
+        QCOMPARE(result.sheets, 2);
+        QCOMPARE(steps, (std::vector<int>{1, 2, 3}));
+        QStringList files = QDir(dir).entryList(QDir::Files);
+        files.sort();
+        QCOMPARE(files, (QStringList{QStringLiteral("0001.png"), QStringLiteral("0002.png"), QStringLiteral("audio.wav"),
+                                     QStringLiteral("fija.png"), QStringLiteral("toma.json")}));
+
+        const QImage first(QDir(dir).filePath(QStringLiteral("0001.png")));
+        QCOMPARE(first.size(), QSize(paper.width(), paper.height()));
+        QCOMPARE(first.dotsPerMeterX(), int(std::lround(300 / 0.0254)));
+        QVERIFY(qGray(first.pixel(2, 2)) < 128);                                  // el grafito
+        QCOMPARE(first.pixel(paper.width() - 1, paper.height() - 1) | 0xFF000000u, color); // el papel
+        const QImage second(QDir(dir).filePath(QStringLiteral("0002.png")));
+        QCOMPARE(second.pixel(2, 2) | 0xFF000000u, color);
+
+        QFile index(QDir(dir).filePath(QStringLiteral("toma.json")));
+        QVERIFY(index.open(QIODevice::ReadOnly));
+        const QJsonObject root = QJsonDocument::fromJson(index.readAll()).object();
+        QCOMPARE(root[QStringLiteral("dpi")].toInt(), 300);
+        QCOMPARE(root[QStringLiteral("ancho")].toInt(), paper.width());
+        QCOMPARE(root[QStringLiteral("fija")].toString(), QStringLiteral("fija.png"));
+        const QJsonArray sheets = root[QStringLiteral("hojas")].toArray();
+        QCOMPARE(sheets.size(), 2);
+        QCOMPARE(sheets[0].toObject()[QStringLiteral("archivo")].toString(), QStringLiteral("0001.png"));
+        QCOMPARE(sheets[0].toObject()[QStringLiteral("rol")].toString(), QStringLiteral("key"));
+        QCOMPARE(sheets[1].toObject()[QStringLiteral("numero")].toInt(), 2);
+        QCOMPARE(sheets[1].toObject()[QStringLiteral("rol")].toString(), QStringLiteral("breakdown"));
+        const QJsonObject audioJson = root[QStringLiteral("audio")].toObject();
+        QCOMPARE(audioJson[QStringLiteral("archivo")].toString(), QStringLiteral("audio.wav"));
+        QCOMPARE(audioJson[QStringLiteral("marcas")].toArray().size(), 2);
+    }
+
     void guardadoAlDetenerse()
     {
         const drymedia::PaperSpec spec{.seed = 6, .widthMm = 60, .heightMm = 40};

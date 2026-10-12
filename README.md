@@ -55,7 +55,7 @@ pwsh scripts/build.ps1 -Preset release
 
 El comando configura, compila y corre las pruebas. Los ejecutables quedan en `build/<preset>/` (`ejercicios.exe`, `cartuchera.exe`, `mesadeanimacion.exe`), con Qt desplegado al lado. Después de cambiar los presets, `-Fresh` reconfigura desde cero.
 
-Las apps abren a pantalla completa en el monitor guardado (F10 pasa al siguiente y lo recuerda; Alt+F4 sale). Las teclas están en el registro único de atajos de cada app (`lienzo/Lienzo.h` y el `main.cpp` de cada una).
+Las apps abren a pantalla completa en el monitor guardado (F10 pasa al siguiente y lo recuerda; Ctrl+Q o Alt+F4 salen). Las teclas están en el registro único de atajos de cada app (`lienzo/Lienzo.h` y el `main.cpp` de cada una).
 
 **Área útil:** F9 la calibra tocando con el lápiz la esquina superior izquierda y la inferior derecha de la superficie activa de la tableta. La hoja se ubica dentro de ese rectángulo, a escala de la tableta. Se guarda por monitor.
 
@@ -76,7 +76,7 @@ pwsh scripts/build.ps1                  # también corre las pruebas
 ctest --preset debug                    # solo las pruebas (con MSVC cargado)
 ```
 
-**Prueba de la app real** (`pwsh scripts/smoke.ps1`): abre Ejercicios y Mesa de animación en Release y las maneja con el teclado como lo haría el usuario, verificando en su log lo que pasó. En Ejercicios: →, R, G, menú F4 con el modo mixto, F2. En Mesa de animación, sobre una toma temporal: Insert, flip, mesa de luz, ↑ ↓, Inicio y Fin, Tab, el menú del botón del lápiz (con un lápiz simulado, `scripts/pen.ps1`), K (rol de la hoja), F y Ctrl+F (hoja fija), G (guía de campo), C (carta de timing), O (pila en círculo), W (franja de audio), P (play sin audio), M y Ctrl+M (marcas sin audio), Ctrl+L (mesa de luz solo con keys), el zoom (+ −, Ctrl+1, Ctrl+0), el pan (Espacio + arrastrar con el lápiz simulado), el guardado automático (la cierra a la fuerza y la vuelve a abrir) y cuánto tarda en cerrar. Encuentra lo que los tests de lógica no ven, como teclas, foco o la navegación de un menú. Toma la pantalla menos de un minuto y deja `config.json` como estaba.
+**Prueba de la app real** (`pwsh scripts/smoke.ps1`): abre Ejercicios y Mesa de animación en Release y las maneja con el teclado como lo haría el usuario, verificando en su log lo que pasó. En Ejercicios: →, R, G, menú F4 con el modo mixto, F2. En Mesa de animación, sobre una toma temporal: Insert, flip, mesa de luz, ↑ ↓, Inicio y Fin, Tab, el menú del botón del lápiz (con un lápiz simulado, `scripts/pen.ps1`), K (rol de la hoja), F y Ctrl+F (hoja fija), G (guía de campo), C (carta de timing), O (pila en círculo), W (franja de audio), P (play sin audio), M y Ctrl+M (marcas sin audio), Ctrl+E (exportar PNG), Ctrl+L (mesa de luz solo con keys), el zoom (+ −, Ctrl+1, Ctrl+0), el pan (Espacio + arrastrar con el lápiz simulado), el guardado automático (la cierra a la fuerza y la vuelve a abrir) y cuánto tarda en cerrar con Ctrl+Q. Encuentra lo que los tests de lógica no ven, como teclas, foco o la navegación de un menú. Toma la pantalla menos de un minuto y deja `config.json` como estaba.
 
 ## Licencia
 

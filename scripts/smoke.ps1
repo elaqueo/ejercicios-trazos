@@ -455,6 +455,23 @@ try {
         $failures.Add('Panel de hojas')
     }
 
+    # HU-109: Ctrl+E exporta la toma a <toma>/export: un PNG por hoja del flip y toma.json.
+    Ctrl 0x45
+    $exported = ''
+    foreach ($i in 1..40) {
+        $exported = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Exportar: (\d+ hojas en|no se pudo)' }) | Select-Object -Last 1) -join ' '
+        if ($exported) { break }
+        Start-Sleep -Milliseconds 500
+    }
+    $pngs = @(Get-ChildItem (Join-Path $takeDir 'export') -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^\d{4}\.png$' }).Count
+    if ($exported -match 'Exportar: (\d+) hojas en' -and [int]$Matches[1] -eq $pngs -and $pngs -ge 1 -and
+        (Test-Path (Join-Path $takeDir 'export\toma.json'))) {
+        Write-Host "  ok   Ctrl+E exporta $pngs PNG y toma.json"
+    } else {
+        Write-Host "  FALLA exportar: $exported · $pngs PNG"
+        $failures.Add('Exportar')
+    }
+
     # HU-85 y HU-86: la toma (toma.json y una hoja por archivo) se guarda sola, sin cerrar: las 3
     # hojas ya están en disco, e Insert agrega el archivo de la nueva enseguida. Con la app
     # matada (sin cerrar), al volver a abrir está la misma pila, con la misma hoja activa, sin
@@ -480,15 +497,22 @@ try {
     }
 
     # HU-86: cerrar espera solo lo pendiente (menos de 2 s, RNF) y la toma vuelve a abrir igual.
-    $null = $app.CloseMainWindow()
-    if (-not $app.WaitForExit(15000)) { $app.Kill() }
+    # Se cierra con Ctrl+Q (pedido del usuario con HU-109).
+    $null = $ws.AppActivate($app.Id); Start-Sleep -Milliseconds 500
+    Ctrl 0x51
+    if (-not $app.WaitForExit(15000)) {
+        Write-Host '  FALLA Ctrl+Q no cerró la app'
+        $failures.Add('Ctrl+Q')
+        $null = $app.CloseMainWindow()
+        if (-not $app.WaitForExit(15000)) { $app.Kill() }
+    }
     $closed = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Toma: guardada al cerrar en' }) -join ' ')
     $closeMs = if ($closed -match 'en (\d+) ms') { [int]$Matches[1] } else { -1 }
     $app = Start-Process $mesa -ArgumentList '--toma', "`"$takeDir`"" -PassThru
     Start-Sleep 5
     $opened = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Toma abierta de' }) -join ' ')
     if ($closeMs -ge 0 -and $closeMs -lt 2000 -and $opened.Contains($expected)) {
-        Write-Host "  ok   al cerrar espera $closeMs ms y la toma abre igual"
+        Write-Host "  ok   Ctrl+Q cierra: espera $closeMs ms y la toma abre igual"
     } else {
         Write-Host "  FALLA cierre: $closed · $opened"
         $failures.Add('Cierre')

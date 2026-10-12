@@ -139,6 +139,15 @@ En Mesa de animación (medio recortado) cada tile lleva el depósito y, si se us
 - **Una toma que no se puede abrir** (otro papel, de una versión más nueva, `toma.json` dañado) no se pisa: se usa la primera de al lado (`<carpeta>-2`, `-3`...) que abre, o una nueva (`takeFolder`). Se avisa en el log y en F3, y esa queda como la última toma en config.json, así el arranque siguiente la abre sin avisar.
 - **Errores al escribir:** van al log y a F3 ("Toma: no se pudo guardar").
 
+## La exportación (HU-109)
+
+Ctrl+E escribe la toma como secuencia PNG en `<toma>/export` (`lienzo/Export.h`):
+
+- **Las hojas:** las del flip como `0001.png`, `0002.png`... (el número de la app, sin contar la fija) y la fija aparte, `fija.png`. Un píxel por celda (300 dpi, con los dpi en el PNG), el grafito y los colores sobre el color del papel; sin tinte, guías, carta ni marcas, que van en el render.
+- **`toma.json` al lado:** `formato`, `version` (1), `dpi`, `ancho` y `alto` en píxeles, `hojas` (`archivo`, `numero`, `rol`: `key`, `breakdown` o vacío), `fija` (si hay) y `audio` (`archivo`, copiado al lado, y `marcas` en segundos).
+- **Una exportación nueva** borra antes los PNG y el `toma.json` de la carpeta (una hoja borrada no queda); no toca otros archivos.
+- **Hilos:** `Lienzo::exportTake` detiene la simulación un momento para copiar el depósito de cada hoja (`SheetStack::serialize`) y la vuelve a arrancar; un hilo propio, con su propio papel, deserializa cada hoja, la dibuja con `renderTone` (repartido en los núcleos) y comprime hasta 3 PNG a la vez. El avance llega al hilo de la interfaz por `relay` y el panel lo muestra en lugar del estado del guardado ("exportando 3/12", después "exportado" 4 s). Cerrar la app corta la exportación entre hojas.
+
 ## El panel de hojas (HU-114)
 
 Angosto (240 px a escala 1), a la derecha de la pantalla, con la toma y si está guardada, la hoja activa y el total, las miniaturas de la activa y de 3 antes y 3 después, el lápiz, la mesa de luz y el giro de la vista. Tab lo muestra y lo oculta (`sheetPanel` en config.json). Diseño: mesa "Panel de hojas" del canvas.

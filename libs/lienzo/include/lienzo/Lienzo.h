@@ -94,7 +94,7 @@ struct LienzoOptions {
 // - = techo) o de la goma con el lápiz dado vuelta ([ ] diámetro, , . fuerza) · Ctrl+S
 // guarda en medios.json · F9 calibra el área útil · F10 pasa al monitor siguiente (guarda la
 // elección y reinicia la app ahí: el lienzo nativo no cambia de tamaño en caliente) · F12
-// guarda la imagen de pantalla · Ctrl+, la lista de atajos (HU-78). Opciones de línea de comandos:
+// guarda la imagen de pantalla · Ctrl+, la lista de atajos (HU-78) · Ctrl+Q (o Alt+F4) sale. Opciones de línea de comandos:
 // --grabar (muestras crudas en CSV) y --bench [undo] [costado] (30 s de trazos sintéticos).
 class Lienzo {
 public:
@@ -229,6 +229,12 @@ public:
     // se usa la de al lado (<carpeta>-2, -3...) que abra, o una nueva (ver takeFolder en
     // lienzo/Take.h). Devuelve la carpeta que usa. Llamar antes de start().
     QString useTake(const QString& dir);
+    // Exportar (HU-109, lienzo/Export.h): la toma como PNG numerados en <toma>/export, a 300 dpi,
+    // con toma.json (roles) y el audio al lado. Copia las hojas (un momento, con la simulación
+    // detenida) y las dibuja y comprime en un hilo aparte; el panel muestra el avance y el log
+    // el resultado. false si no hay toma o ya está exportando.
+    bool exportTake();
+    bool exporting() const;
     // Panel de hojas (HU-114, lienzo/SheetPanel.h): angosto, a la derecha de la pantalla, con
     // la toma, la hoja activa y sus vecinas en miniatura, el lápiz, la mesa de luz y el giro.
     // Solo con la pila de hojas (options.sheets); la app elige la tecla y lo guarda.

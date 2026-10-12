@@ -82,7 +82,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | `[ ]` · `, .` · `- =` | Tamaño · blandura (fuerza en la goma) · techo, de la herramienta activa | Igual |
 | Ctrl+S · Ctrl+N | Guardar el lápiz · hoja nueva | Igual |
 | F3 · F9 · F10 · F12 | Latencia · calibrar el área útil · monitor siguiente · captura | Igual |
-| Alt+F4 | Salir | Salir |
+| Ctrl+Q / Alt+F4 | Salir (Ctrl+Q, pedido del usuario con HU-109) | Salir |
 
 **Mesa de animación:** las teclas del lienzo, como Cartuchera, salvo A (afilar) y E (punta seca), que no están en el medio recortado (HU-112), Ctrl+[ ] (el papel de animación no tiene textura visual, HU-97), las de calibración ([ ] , . - =) y Ctrl+S (un solo grafito, la HB, HU-98), y 4 / 6 / 5 (los números eligen el lápiz, HU-99; la vista gira con la rueda y con Shift + arrastrar); el costado (I) arranca apagado, más las de las hojas (HU-87) y el flip (HU-90). Las de las hojas se deshacen con Z.
 
@@ -101,6 +101,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | A | Elegir el audio de referencia (WAV o MP3): se copia a la toma (HU-106) |
 | P / Retroceso | Play o pausa del audio / volver al principio (HU-107) |
 | M / Ctrl+M | Marca en el audio, en el cursor / borrar la más cercana; en la franja, el lápiz pone y mueve marcas y el mouse arrastra el cursor (HU-108) |
+| Ctrl+E | Exportar la toma como PNG numerados en `<toma>/export`, a 300 dpi, con `toma.json` (número y rol) y el audio; la fija va aparte (`fija.png`). El panel muestra "exportando 3/12" y después "exportado" (HU-109) |
 | W | Mostrar u ocultar la franja de audio, con la onda y el cursor (HU-106) |
 | O | Pila en círculo: después de la última hoja viene la primera (flip, mesa de luz, panel); se guarda en la toma (HU-94) |
 | C | Mostrar u ocultar la carta de timing: rectángulo tenue de 35 × 22,5 mm arriba a la izquierda de las keys, para dibujar el chart a mano (HU-105) |

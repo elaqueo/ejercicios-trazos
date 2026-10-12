@@ -37,6 +37,10 @@ std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int aroun
 struct PanelInfo {
     QString take;       // el nombre de la toma (vacío: sin toma)
     bool saved = true;  // todo lo cambiado está escrito
+    // HU-109: en lugar del estado del guardado, "exportando 3/12" o, al terminar, "exportado"
+    // (vacío: el del guardado); exportBusy pone el punto en acento.
+    QString exportState;
+    bool exportBusy = false;
     int number = 1;     // la hoja del centro, desde 1; 0: la hoja fija (HU-89), "F"
     SheetRole role = SheetRole::None;
     int total = 1;

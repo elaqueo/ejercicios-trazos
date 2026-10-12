@@ -240,6 +240,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 109. **HU-109 · Secuencia PNG** (Should · 3 pts). Como animador, quiero exportar la toma como PNG numerados, para llevar el rough a otra app o armar un pencil test afuera.
     1. Un atajo exporta todas las hojas (en orden, sin la fija salvo que se pida) a `<toma>/export/NNNN.png`, a la resolución de la hoja, con los colores y sin el tinte ni las guías.
     2. Las hojas con rol llevan el rol en `toma.json` exportado al lado, para la app de pencil test futura.
+    3. *Hecho (12 oct 2026): Ctrl+E. A la resolución de la simulación (300 dpi, un píxel por celda; los PNG llevan los dpi), no a la de pantalla. La fija va siempre aparte, como `fija.png`, fuera de la numeración. Antes de escribir se borran los PNG de la exportación anterior; el audio se copia al lado con sus marcas en `toma.json`. Las hojas se copian con la simulación detenida (unos ms) y se dibujan y comprimen en un hilo aparte: unos 0,3 s por hoja, sin frenar el dibujo; el panel muestra el avance en lugar de "guardado" (mesa "Panel de hojas"). Además, a pedido del usuario, Ctrl+Q sale (en las tres apps).*
 
 ### E9 · Entrega
 

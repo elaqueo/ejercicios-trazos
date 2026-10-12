@@ -4,6 +4,7 @@
 #include "lienzo/Bench.h"
 #include "lienzo/CanvasWindow.h"
 #include "lienzo/DisplayImage.h"
+#include "lienzo/Export.h"
 #include "lienzo/LeadPicker.h"
 #include "lienzo/Media.h"
 #include "lienzo/Renderer.h"
@@ -680,6 +681,31 @@ struct Lienzo::Impl {
                          bgra(ink.red(), ink.green(), ink.blue()), appkit::theme::kGuiaCampoOpacidad);
     }
 
+    // Exportar (HU-109, lienzo/Export.h): la copia del depósito de las hojas se toma con la
+    // simulación detenida; dibujar y comprimir los PNG va en un hilo aparte. El panel dice
+    // cuántas van y, al terminar, "exportado" unos segundos (exportNote).
+    std::thread exporter;
+    std::atomic<bool> exportCancel{false};
+    int exportDone = -1, exportTotal = 0; // -1: no está exportando
+    QString exportNote;
+    QTimer exportNoteTimer;
+    void exportFinished(const ExportResult& result, double ms, const QString& dir)
+    {
+        exportDone = -1;
+        if (result.ok) {
+            qInfo().noquote() << QStringLiteral("Exportar: %1 hojas en %2, en %3 s")
+                                     .arg(result.sheets)
+                                     .arg(QDir::toNativeSeparators(dir))
+                                     .arg(ms / 1000, 0, 'f', 1);
+            exportNote = QStringLiteral("exportado");
+        } else {
+            qWarning().noquote() << QStringLiteral("Exportar: no se pudo: %1").arg(result.error);
+            exportNote = QStringLiteral("no se exportó");
+        }
+        exportNoteTimer.start();
+        refreshSheetPanel();
+    }
+
     // Panel de hojas (HU-114): se vuelve a pintar solo si cambió algo (la imagen la pinta Qt
     // acá; las miniaturas, el render). Lo llaman applyLayers (cada cambio de la pila o flip) y
     // un reloj, para el estado del guardado, el lápiz y el giro.
@@ -705,6 +731,13 @@ struct Lienzo::Impl {
         PanelInfo info;
         info.take = saver ? QFileInfo(saver->dir()).fileName() : QString();
         info.saved = !saver || (!saver->pending() && sim->unsavedSheets() == 0);
+        if (exportDone >= 0) { // HU-109
+            info.exportState = QStringLiteral("exportando %1/%2").arg(exportDone).arg(exportTotal);
+            info.exportBusy = true;
+        } else if (!exportNote.isEmpty()) {
+            info.exportState = exportNote;
+            info.exportBusy = exportNote != QStringLiteral("exportado");
+        }
         info.number = lienzo::sheetNumber(order, fixedSheet, shown);
         info.role = roleOf(roles, order.ids[size_t(shown)]);
         info.total = flipCount(order, fixedSheet);
@@ -1381,6 +1414,12 @@ Lienzo::Lienzo(Shell& shell, QScreen* screen, appkit::Config& config, LienzoOpti
     if (d->options.sheets) { // panel de hojas (HU-114): el guardado, el lápiz y el giro cambian solos
         d->playTimer.setInterval(33); // HU-107: el cursor del audio, a 30 cuadros por segundo
         QObject::connect(&d->playTimer, &QTimer::timeout, [impl = d.get()] { impl->audioTick(); });
+        d->exportNoteTimer.setSingleShot(true); // HU-109: "exportado", unos segundos
+        d->exportNoteTimer.setInterval(4000);
+        QObject::connect(&d->exportNoteTimer, &QTimer::timeout, [impl = d.get()] {
+            impl->exportNote.clear();
+            impl->refreshSheetPanel();
+        });
         d->panelTimer.setInterval(200);
         QObject::connect(&d->panelTimer, &QTimer::timeout, [impl = d.get()] { impl->refreshSheetPanel(); });
         d->panelTimer.start();
@@ -1497,6 +1536,9 @@ Lienzo::~Lienzo()
     d->stopAudio();
     if (d->audioLoader.joinable()) // antes que relay, al que avisa
         d->audioLoader.join();
+    d->exportCancel = true; // HU-109: corta entre hojas
+    if (d->exporter.joinable())
+        d->exporter.join();
 }
 
 appkit::Shortcuts& Lienzo::shortcuts()
@@ -1676,7 +1718,8 @@ void Lienzo::registerShortcuts()
     keys.add(QStringLiteral("Calibrar el área útil"), {{VK_F9}}, [impl] { impl->startCalibration(); }); // HU-66
     keys.add(QStringLiteral("Monitor siguiente"), {{VK_F10}}, [impl] { impl->nextScreen(); });          // HU-66
     keys.add(QStringLiteral("Imagen de pantalla"), {{VK_F12}}, [impl] { impl->saveScreenImage(); });    // diagnóstico
-    keys.note(QStringLiteral("Alt+F4"), QStringLiteral("Salir"));
+    keys.add(QStringLiteral("Salir"), {{'Q', true}}, [] { QApplication::quit(); }); // también Alt+F4
+
 }
 
 void Lienzo::clear()
@@ -1754,6 +1797,71 @@ void Lienzo::stop()
     qInfo().noquote() << QString::fromStdString(
         t.renderLockBusy.describe("render con la imagen ocupada (1 = no la tomó)", "frames"));
     qInfo().noquote() << QString::fromStdString(t.renderUploadPixels.describe("render píxeles subidos", "px"));
+}
+
+bool Lienzo::exportTake()
+{
+    if (!d->saver) {
+        qInfo() << "Exportar: no hay toma";
+        return false;
+    }
+    if (d->exportDone >= 0) {
+        qInfo() << "Exportar: ya se está exportando";
+        return false;
+    }
+    if (d->exporter.joinable())
+        d->exporter.join(); // la anterior ya terminó (avisó)
+    ExportJob job;
+    job.dir = QDir(d->saver->dir()).filePath(QString::fromLatin1(kExportFolder));
+    job.paper = d->paper.spec();
+    job.paperColor = d->options.paperColor;
+    if (!d->audioFile.isEmpty()) {
+        job.audio = QDir(d->saver->dir()).filePath(d->audioFile);
+        job.marks = d->audioMarks;
+    }
+    // La copia del depósito de cada hoja, con el papel quieto (como al guardar).
+    const bool wasRunning = d->running;
+    if (wasRunning)
+        d->sim->stop();
+    const Stopwatch time;
+    const SheetOrder& order = d->sheets.order();
+    for (int i = 0; i < order.count; ++i)
+        job.sheets.push_back({d->sheets.serialize(d->paper, i), lienzo::sheetNumber(order, d->fixedSheet, i),
+                              roleOf(d->roles, order.ids[size_t(i)])});
+    const double copyMs = time.ms();
+    if (wasRunning)
+        d->sim->start();
+    qInfo().noquote() << QStringLiteral("Exportar: %1 hojas copiadas en %2 ms").arg(job.sheets.size()).arg(copyMs, 0, 'f', 0);
+    d->exportDone = 0;
+    d->exportTotal = int(job.sheets.size());
+    d->exportNote.clear();
+    d->exportCancel = false;
+    d->refreshSheetPanel();
+    d->exporter = std::thread([impl = d.get(), job = std::move(job)] {
+        const Stopwatch time;
+        const ExportResult result = lienzo::exportTake(
+            job,
+            [impl](int done, int) {
+                QMetaObject::invokeMethod(
+                    &impl->relay,
+                    [impl, done] {
+                        if (impl->exportDone >= 0)
+                            impl->exportDone = done;
+                        impl->refreshSheetPanel();
+                    },
+                    Qt::QueuedConnection);
+            },
+            &impl->exportCancel);
+        const double ms = time.ms();
+        QMetaObject::invokeMethod(
+            &impl->relay, [impl, result, ms, dir = job.dir] { impl->exportFinished(result, ms, dir); }, Qt::QueuedConnection);
+    });
+    return true;
+}
+
+bool Lienzo::exporting() const
+{
+    return d->exportDone >= 0;
 }
 
 bool Lienzo::saveTake(const QString& dir)
