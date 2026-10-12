@@ -18,12 +18,19 @@ inline int fixedIndex(const SheetOrder& order, uint64_t fixed)
 }
 
 // La posición a un paso (step = ±1) de `from` salteando la fija, o -1 si no hay (un extremo).
-inline int flipStep(const SheetOrder& order, uint64_t fixed, int from, int step)
+// circle (HU-94, pila en círculo): después de la última viene la primera, y al revés; -1 solo
+// si no hay otra hoja que flipee.
+inline int flipStep(const SheetOrder& order, uint64_t fixed, int from, int step, bool circle = false)
 {
-    int i = from + step;
-    if (i == fixedIndex(order, fixed))
+    const int skip = fixedIndex(order, fixed);
+    const auto next = [&](int i) {
         i += step;
-    return order.valid(i) ? i : -1;
+        return circle && order.count > 0 ? (i % order.count + order.count) % order.count : i;
+    };
+    int i = next(from);
+    if (i == skip)
+        i = next(i);
+    return order.valid(i) && i != from ? i : -1;
 }
 
 // La primera o la última hoja del flip, o -1 si la única es la fija.

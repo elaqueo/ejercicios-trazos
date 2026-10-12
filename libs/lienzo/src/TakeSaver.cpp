@@ -83,7 +83,7 @@ void TakeSaver::run()
             const TakeIndex index = std::move(*m_index);
             m_index.reset();
             lock.unlock();
-            error = writeTakeIndex(m_dir, m_paper, index.ids, index.active, {index.degrees, index.zoom, index.panX, index.panY, index.roles, index.fixed});
+            error = writeTakeIndex(m_dir, m_paper, index.ids, index.active, {index.degrees, index.zoom, index.panX, index.panY, index.roles, index.fixed, index.circle});
             what = QStringLiteral("toma.json");
             lock.lock();
             ++m_stats.indexes;

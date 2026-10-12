@@ -46,6 +46,7 @@ toma-1/
         { "id": 4, "archivo": "hoja-4.hoja", "rol": "", "fija": true }
     ],
     "activa": 0,
+    "circulo": false,
     "vista": { "giro": 0, "zoom": 1, "pan": [0, 0] },
     "audio": { "archivo": "", "marcas": [] }
 }
@@ -61,6 +62,7 @@ toma-1/
   - Zoom (HU-101): la vista es una transformación completa, `pantalla = c + pan + escala · R · (imagen − c)` (lienzo/ViewRotation.h). La simulación lleva cada muestra a la hoja con la inversa (el trazo cae bajo la punta) y el render agranda la imagen de pantalla en la GPU, con filtro bilineal; al alejar promedia los texeles que cubre cada píxel, así una línea fina se aclara en vez de desaparecer. No se redibuja el papel a la resolución del zoom: más allá de 100 % la línea se ve suave (opción A, elegida por el usuario; volver a dibujar desde las celdas queda como historia aparte si hace falta). Benchmark igual con zoom (11,0 ms de mediana a 207 %).
   - La marca de la esquina (el número y el rol de la hoja que se ve) no es grafito: la pinta Qt en una textura chica (lienzo/SheetRole.h) y el render la tiñe de gris tinta encima de la hoja. Con la vista sin girar y sin mesa de luz ni flip se pinta solo su recuadro sobre la copia de siempre (`Compositor::drawMark`); si no, va dentro de la composición, antes del giro, y gira con la hoja. Benchmark igual que Cartuchera (11,3 a 11,6 ms de mediana; la composición entera en cada frame costaba 0,5 ms).
 - **`activa`:** la posición de la hoja activa en `hojas`.
+- **`circulo`:** la pila en círculo (HU-94); las tomas de antes abren sin círculo.
 - **`papel`:** tiene que ser igual al del papel de la app. Una toma de otro papel no se abre.
 - **`audio`:** queda vacío hasta HU-106 a HU-108.
 - **Versiones:** una `version` mayor que la que conoce la app no se abre.

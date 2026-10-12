@@ -168,6 +168,10 @@ public:
     int sheetNumber() const;
     int flipSheetCount() const;
     QString activeSheetLabel() const;
+    // Pila en círculo (HU-94): después de la última viene la primera, en el flip, la mesa de luz
+    // y la tira del panel (O). Se guarda en toma.json.
+    void toggleCircle();
+    bool circle() const;
     // HU-115: activa la primera o la última hoja del flip; false si ya lo era.
     bool jumpToEdge(bool last);
 

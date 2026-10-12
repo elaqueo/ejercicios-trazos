@@ -210,6 +210,16 @@ public:
         wake();
     }
 
+    // La pila en círculo (HU-94), para toma.json.
+    void setCircle(bool circle)
+    {
+        {
+            std::lock_guard lock(m_rotationMutex);
+            m_circle = circle;
+        }
+        wake();
+    }
+
     // Capa de guías (HU-64): BGRA premultiplicado del tamaño de la imagen, o vacía para
     // sacarla. Se puede llamar en cualquier momento: el hilo de simulación la toma y repinta
     // todo una vez.
@@ -284,6 +294,7 @@ private:
     ViewRotation m_rotation;
     SheetRoles m_roles; // con m_rotationMutex
     uint64_t m_fixedSheet = 0; // HU-89, con m_rotationMutex
+    bool m_circle = false;     // HU-94, ídem
     std::atomic<uint64_t> m_lead;
     std::atomic<uint64_t> m_eraser;
     std::atomic<bool> m_erasing{false};

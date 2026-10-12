@@ -1187,6 +1187,45 @@ private slots:
         QCOMPARE(strip[6].id, uint64_t(0));
     }
 
+    // HU-94: con el círculo, el flip, la mesa de luz y la tira del panel dan la vuelta, sin
+    // repetir hojas y salteando la fija.
+    void pilaEnCirculo()
+    {
+        SheetOrder o;
+        for (int i = 1; i < 4; ++i)
+            o.add(i); // ids 1 a 4
+        QCOMPARE(flipStep(o, 0, 3, 1), -1);
+        QCOMPARE(flipStep(o, 0, 3, 1, true), 0);
+        QCOMPARE(flipStep(o, 0, 0, -1, true), 3);
+        QCOMPARE(flipStep(o, 1, 3, 1, true), 1); // la fija es la primera: se saltea
+        SheetOrder one;
+        QCOMPARE(flipStep(one, 0, 0, 1, true), -1); // una sola hoja: no hay otra
+
+        const auto ids = [](const std::vector<SheetLayer>& layers) {
+            std::vector<uint64_t> out;
+            for (const SheetLayer& l : layers)
+                out.push_back(l.sheet);
+            return out;
+        };
+        const LightTable table{{{0xA1, 0.6f}, {0xA2, 0.3f}}, {{0xB1, 0.6f}}};
+        o.activate(0); // la primera: atrás vienen la 4 y la 3
+        QCOMPARE(ids(lightTableLayers(o, table, {}, 0, true)), (std::vector<uint64_t>{3, 4, 2}));
+        QCOMPARE(ids(lightTableLayers(o, table, {}, 0, false)), (std::vector<uint64_t>{2}));
+        SheetOrder two;
+        two.add(1); // 2 hojas: atrás la otra; adelante no se repite
+        QCOMPARE(ids(lightTableLayers(two, table, {}, 0, true)), (std::vector<uint64_t>{2}));
+
+        o.activate(3); // la última
+        const std::vector<PanelSlot> strip = panelSlots(o, 3, 3, {}, 0, true);
+        QCOMPARE(strip[3].id, uint64_t(4));
+        QCOMPARE(strip[4].id, uint64_t(1)); // después de la última, la primera
+        QCOMPARE(strip[4].number, 1);
+        QCOMPARE(strip[2].id, uint64_t(3));
+        QCOMPARE(strip[1].id, uint64_t(2));
+        QCOMPARE(strip[5].id, uint64_t(0)); // la 2 ya está atrás: no se repite
+        QCOMPARE(strip[0].id, uint64_t(0));
+    }
+
     void mesaDeLuzSoloKeys()
     {
         SheetOrder order;
@@ -1335,7 +1374,8 @@ private slots:
         QTemporaryDir dir;
         const TakeView roles{.degrees = 45.0, .zoom = 2.0, .panX = 0.1, .panY = -0.25, // HU-101, HU-102
                              .roles = {{ids[0], SheetRole::Key}, {ids[2], SheetRole::Breakdown}}, // HU-104
-                             .fixed = ids[2]}; // HU-89
+                             .fixed = ids[2], // HU-89
+                             .circle = true}; // HU-94
         const TakeResult saved = saveTake(dir.path(), paper, stack, roles,
                                           [&](uint64_t id) { return id == ids[0] ? image : PackedImage{}; });
         QVERIFY2(saved.ok, qPrintable(saved.error));
@@ -1368,6 +1408,7 @@ private slots:
         QCOMPARE(view.degrees, 45.0);
         QVERIFY(view.roles == roles.roles);
         QCOMPARE(view.fixed, ids[2]);
+        QVERIFY(view.circle);
         QCOMPARE(view.zoom, 2.0);
         QCOMPARE(view.panX, 0.1);
         QCOMPARE(view.panY, -0.25);

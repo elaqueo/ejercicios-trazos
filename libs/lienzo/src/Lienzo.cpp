@@ -297,6 +297,7 @@ struct Lienzo::Impl {
         sim->setGuides(guideLayer());
         sim->setRoles(roles);
         sim->setFixedSheet(fixedSheet);
+        sim->setCircle(circle);
         sim->setRotation(rotation());
         if (render)
             render->setRotation(rotation());
@@ -353,7 +354,7 @@ struct Lienzo::Impl {
                 below.push_back({order.ids[size_t(back)], fixedColor, appkit::theme::kHojaFijaOpacidad});
         } else {
             if (!flipping()) // mientras se flipea, la mesa de luz no se ve (HU-90)
-                below = lightTableLayers(order, lightTable, roles, fixedSheet);
+                below = lightTableLayers(order, lightTable, roles, fixedSheet, circle);
             if (fixed >= 0) // HU-89: la fija, debajo de todas, siempre
                 below.insert(below.begin(), {fixedSheet, fixedColor, appkit::theme::kHojaFijaOpacidad});
         }
@@ -466,7 +467,8 @@ struct Lienzo::Impl {
         info.number = lienzo::sheetNumber(order, fixedSheet, shown);
         info.role = roleOf(roles, order.ids[size_t(shown)]);
         info.total = flipCount(order, fixedSheet);
-        info.strip = panelSlots(order, center, 3, roles, fixedSheet);
+        info.strip = panelSlots(order, center, 3, roles, fixedSheet, circle);
+        info.circle = circle;
         if (showingFixed())
             for (PanelSlot& s : info.strip)
                 s.center = false;
@@ -533,7 +535,7 @@ struct Lienzo::Impl {
         }
         if (pressedKey && std::find(flipKeys.begin(), flipKeys.end(), pressedKey) == flipKeys.end())
             flipKeys.push_back(pressedKey);
-        const int next = fromFixed ? shownSheet : flipStep(o, fixedSheet, shownSheet, step); // -1: en el extremo se queda
+        const int next = fromFixed ? shownSheet : flipStep(o, fixedSheet, shownSheet, step, circle); // -1: en el extremo se queda
         const bool moved = next >= 0 && (fromFixed || next != shownSheet);
         if (moved) {
             shownSheet = next;
@@ -589,6 +591,7 @@ struct Lienzo::Impl {
     // Hoja fija (HU-89, lienzo/FixedSheet.h): por id, como los roles. fixedReturn: la hoja de
     // la que se vino a dibujar en ella (Ctrl+F), a la que se vuelve.
     uint64_t fixedSheet = 0, fixedReturn = 0;
+    bool circle = false; // HU-94: pila en círculo (se guarda en la toma)
     bool showingFixed() const { return !flipping() && order.valid(order.active) && fixedIndex(order, fixedSheet) == order.active; }
     int fixedReturnIndex() const
     {
@@ -691,7 +694,7 @@ struct Lienzo::Impl {
     {
         return {viewDegrees, viewScale, mapping.sheetWidth ? viewPanX / mapping.sheetWidth : 0,
                 mapping.sheetHeight ? viewPanY / mapping.sheetHeight : 0, roles,
-                fixedIndex(order, fixedSheet) >= 0 ? fixedSheet : 0};
+                fixedIndex(order, fixedSheet) >= 0 ? fixedSheet : 0, circle};
     }
     int ringMode = -1; // el último modo de la rueda que se vio (HU-101: se anota al cambiar)
 
@@ -1572,6 +1575,7 @@ bool Lienzo::openTake(const QString& dir)
     d->roles = view.roles;
     d->fixedSheet = view.fixed; // HU-89
     d->fixedReturn = 0;
+    d->circle = view.circle; // HU-94
     d->createSimulation(); // con la pila nueva (y la vista); pinta la activa
     d->applyLayers();
     if (wasRunning)
@@ -1728,7 +1732,7 @@ void Lienzo::setLightTable(const LightTable& table)
     d->lightTable = table;
     d->applyLayers();
     const SheetOrder& order = d->syncOrder();
-    if (table.keysOnly && !table.before.empty() && lightTableLayers(order, table, d->roles).empty())
+    if (table.keysOnly && !table.before.empty() && lightTableLayers(order, table, d->roles, d->fixedSheet, d->circle).empty())
         qInfo().noquote() << QStringLiteral("Mesa de luz: no hay keys alrededor de la hoja %1").arg(order.active + 1);
 }
 
@@ -1797,6 +1801,19 @@ bool Lienzo::jumpToEdge(bool last)
         return false;
     activateSheet(target);
     return true;
+}
+
+void Lienzo::toggleCircle()
+{
+    d->circle = !d->circle;
+    d->sim->setCircle(d->circle);
+    d->applyLayers();
+    qInfo() << "Pila en círculo:" << (d->circle ? "sí" : "no");
+}
+
+bool Lienzo::circle() const
+{
+    return d->circle;
 }
 
 bool Lienzo::hasFixedSheet() const

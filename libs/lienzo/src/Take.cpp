@@ -183,6 +183,7 @@ QString writeTakeIndex(const QString& dir, const drymedia::Paper& paper, const s
         {QStringLiteral("papel"), paperJson(paper)},
         {QStringLiteral("hojas"), list},
         {QStringLiteral("activa"), active},
+        {QStringLiteral("circulo"), view.circle}, // HU-94
         {QStringLiteral("vista"), QJsonObject{{QStringLiteral("giro"), view.degrees},
                                               {QStringLiteral("zoom"), view.zoom},
                                               {QStringLiteral("pan"), QJsonArray{view.panX, view.panY}}}},
@@ -271,6 +272,7 @@ TakeResult openTake(const QString& dir, drymedia::Paper& paper, SheetStack& shee
     std::set<uint64_t> seen;
     view.roles.clear();
     view.fixed = 0;
+    view.circle = root.value(QStringLiteral("circulo")).toBool(); // HU-94: las de antes, sin círculo
     for (const QJsonValue v : root.value(QStringLiteral("hojas")).toArray()) {
         const QJsonObject o = v.toObject();
         const qint64 id = o.value(QStringLiteral("id")).toInteger();

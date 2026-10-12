@@ -378,6 +378,19 @@ try {
         $failures.Add('Hoja fija')
     }
 
+    # HU-94: con la activa en la 1 de 3, O prende el círculo y ← va a la última; → vuelve a la
+    # primera y O lo apaga.
+    $ws.SendKeys('o'); Start-Sleep -Milliseconds 400
+    foreach ($k in '{LEFT}', '{RIGHT}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
+    $ws.SendKeys('o'); Start-Sleep -Milliseconds 400
+    $circle = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Pila en círculo|Flip: activa' }) | Select-Object -Last 4) -join ' '
+    if ($circle -match 'círculo: sí.*activa la hoja 3 de 3.*activa la hoja 1 de 3.*círculo: no') {
+        Write-Host '  ok   O pone la pila en círculo: ← desde la primera va a la última y → vuelve'
+    } else {
+        Write-Host "  FALLA pila en círculo: $circle"
+        $failures.Add('Pila en círculo')
+    }
+
     # HU-103: G muestra la guía de campo y la oculta.
     foreach ($k in 'g', 'g') { $ws.SendKeys($k); Start-Sleep -Milliseconds 500 }
     $guide = (@(Get-Content $mesaLog -Encoding utf8 | Where-Object { $_ -match 'Guía de campo:' }) | Select-Object -Last 2) -join ' '

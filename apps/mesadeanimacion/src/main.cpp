@@ -167,6 +167,8 @@ int main(int argc, char* argv[])
     canvas.shortcuts().add(QStringLiteral("Primera hoja"), {{VK_HOME}}, [&] { jumpTo(false); });
     canvas.shortcuts().add(QStringLiteral("Última hoja"), {{VK_END}}, [&] { jumpTo(true); });
     canvas.shortcuts().joinWithPrevious(QStringLiteral("Primera o última hoja"));
+    // Pila en círculo (HU-94): para flipear un ciclo y probar el empalme.
+    canvas.shortcuts().add(QStringLiteral("Pila en círculo"), {{'O'}}, [&canvas] { canvas.toggleCircle(); });
     // Hoja fija (HU-89, mesa "Hoja fija"): el layout debajo de todas, fuera del flip.
     canvas.shortcuts().add(QStringLiteral("Hoja fija"), {{'F'}}, [&canvas] { canvas.toggleFixedSheet(); });
     canvas.shortcuts().add(QStringLiteral("Dibujar en la hoja fija"), {{'F', true}}, [&canvas] { canvas.toggleDrawOnFixed(); });

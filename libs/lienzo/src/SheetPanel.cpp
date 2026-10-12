@@ -17,7 +17,7 @@ namespace {
 constexpr int kWidth = 240, kMargin = 16, kPad = 16, kGap = 16;
 constexpr int kHeader = 44;  // "TOMA" y el nombre
 constexpr int kNumber = 55;  // el número grande, con su raya abajo
-constexpr int kInfo = 125;   // lápiz, mesa de luz, hoja fija, vista, con su raya arriba
+constexpr int kInfo = 155;   // lápiz, mesa de luz, hoja fija, círculo, vista, con su raya arriba
 constexpr int kFooter = 28;  // la tecla
 constexpr int kRowGap = 6;   // entre miniaturas
 constexpr int kRowMax = 84, kRowMin = 40;
@@ -42,7 +42,7 @@ QFont font(bool mono, double px, int weight = QFont::Normal)
 } // namespace
 
 std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int around, const SheetRoles& roles,
-                                  uint64_t fixed)
+                                  uint64_t fixed, bool circle)
 {
     // Las posiciones del flip (sin la fija) y dónde cae el centro entre ellas.
     const int skip = fixedIndex(order, fixed);
@@ -55,17 +55,26 @@ std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int aroun
             c = int(positions.size());
         positions.push_back(i);
     }
-    std::vector<PanelSlot> strip;
-    for (int k = c - around; k <= c + around; ++k) {
-        PanelSlot s;
-        if (c >= 0 && k >= 0 && k < int(positions.size())) {
-            s.id = order.ids[size_t(positions[size_t(k)])];
-            s.number = k + 1;
+    const int n = int(positions.size());
+    std::vector<PanelSlot> strip(size_t(2 * around + 1));
+    // Del centro hacia afuera, así con el círculo y pocas hojas cada una aparece una vez, del
+    // lado más cercano (primero atrás).
+    std::vector<int> used;
+    for (int d = 0; d <= around; ++d)
+        for (const int sign : {-1, 1}) {
+            if (d == 0 && sign > 0)
+                continue;
+            const int k = c + sign * d;
+            PanelSlot& s = strip[size_t(around + sign * d)];
+            s.center = c >= 0 && d == 0;
+            int idx = circle && n > 0 ? (k % n + n) % n : k;
+            if (c < 0 || idx < 0 || idx >= n || std::find(used.begin(), used.end(), idx) != used.end())
+                continue;
+            used.push_back(idx);
+            s.id = order.ids[size_t(positions[size_t(idx)])];
+            s.number = idx + 1;
             s.role = roleOf(roles, s.id);
         }
-        s.center = c >= 0 && k == c;
-        strip.push_back(s);
-    }
     return strip;
 }
 
@@ -220,6 +229,7 @@ QImage paintPanel(const PanelInfo& info, const PanelLayout& layout, const QColor
     row(QStringLiteral("Hoja fija"), !info.hasFixed ? QStringLiteral("no") // HU-89
                                      : info.onFixed ? QStringLiteral("dibujando · Ctrl+F")
                                                     : QStringLiteral("sí · Ctrl+F"));
+    row(QStringLiteral("Círculo"), info.circle ? QStringLiteral("sí · O") : QStringLiteral("no")); // HU-94
     row(QStringLiteral("Vista"),
         info.zoom == 100 ? QStringLiteral("%1°").arg(info.degrees) : QStringLiteral("%1° · %2 %").arg(info.degrees).arg(info.zoom),
         true);

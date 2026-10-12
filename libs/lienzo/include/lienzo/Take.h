@@ -33,6 +33,7 @@ struct TakeView {
     double panX = 0, panY = 0; // HU-102: el corrimiento, en fracción del ancho y el alto de la hoja
     SheetRoles roles;   // HU-104: key o breakdown, por id (solo las que tienen)
     uint64_t fixed = 0; // HU-89: la hoja fija, por id (0: ninguna)
+    bool circle = false; // HU-94: la pila en círculo
 };
 
 struct TakeResult {

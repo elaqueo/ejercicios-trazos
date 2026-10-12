@@ -30,8 +30,9 @@ struct PanelSlot {
 };
 // La hoja `center` y `around` antes y después, en orden; los lugares fuera de la pila quedan
 // con id 0. La hoja fija (HU-89) no está en la tira y no se numera; `center` no puede ser ella.
+// circle (HU-94): la tira da la vuelta (sin repetir hojas).
 std::vector<PanelSlot> panelSlots(const SheetOrder& order, int center, int around = 3, const SheetRoles& roles = {},
-                                  uint64_t fixed = 0);
+                                  uint64_t fixed = 0, bool circle = false);
 
 struct PanelInfo {
     QString take;       // el nombre de la toma (vacío: sin toma)
@@ -48,6 +49,7 @@ struct PanelInfo {
     int zoom = 100;             // HU-101, en %
     bool hasFixed = false;      // HU-89: hay hoja fija
     bool onFixed = false;       // HU-89: se está dibujando en ella
+    bool circle = false;        // HU-94: la pila en círculo
     QString key = QStringLiteral("Tab");
     bool operator==(const PanelInfo&) const = default;
 };

@@ -128,6 +128,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     4. Los colores exactos y las opacidades son tokens del tema (`Theme.h`) y figuran en la mesa de diseño de la app.
 92. **HU-92 · Cuántas hojas** (Should · 2 pts). Como animador, quiero ajustar cuántas hojas se ven hacia atrás y hacia adelante, para ver más contexto en una pose y menos en un detalle.
     1. Atajos para subir y bajar cada lado, de 0 a 4; el valor se ve un momento en la hoja y queda en config.
+    2. *Descartada (11 oct 2026): el usuario prefiere dejar fijas 2 hojas atrás y 1 adelante; no hace falta cambiarlo.*
 93. **HU-93 · Solo keys** (Should · 2 pts). Como animador, quiero que la mesa de luz muestre solo las hojas marcadas como key, para dibujar un breakdown entre dos claves sin el ruido del resto.
     1. Un atajo alterna el modo; con él, los conteos de HU-92 cuentan keys, no hojas.
     2. Depende de HU-104.
@@ -135,6 +136,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 94. **HU-94 · Pila en círculo** (Should · 1 pt). Como animador, quiero que después de la última hoja venga la primera, para flipear un ciclo de caminata y probar el empalme.
     1. Un atajo lo prende y apaga; se guarda en la toma.
     2. Con el círculo, la mesa de luz también da la vuelta.
+    3. *Hecho (11 oct 2026): O; "circulo": true en toma.json. El flip, la mesa de luz y la tira del panel dan la vuelta (salteando la hoja fija); la mesa de luz y la tira no repiten hojas en pilas cortas (primero las de atrás). Inicio, Fin y ↑ ↓ no dan la vuelta. El panel dice "Círculo: sí".*
 95. **HU-95 · El anillo pasa hojas** (Should · 3 pts). Como animador, quiero recorrer la pila girando el anillo de la tableta, para pasar hojas sin soltar el lápiz.
     1. El anillo se registra con tres funciones, "Girar la vista", "Zoom" y "Hojas"; el botón central alterna entre ellas y el overlay de Wacom muestra el nombre.
     2. En "Hojas", cada paso del anillo es una hoja (sentido horario = siguiente); mismas reglas que ← → (RNF-01, mesa de luz apagada mientras gira).
