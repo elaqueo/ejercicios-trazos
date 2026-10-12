@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ExerciseCanvas.h"
+#include "exercises/ExerciseCanvas.h"
 #include "exercises/Exercise.h"
 
 #include <QHash>

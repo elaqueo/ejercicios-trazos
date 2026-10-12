@@ -1,4 +1,4 @@
-#include "ExerciseSession.h"
+#include "exercises/ExerciseSession.h"
 
 #include <QRandomGenerator>
 

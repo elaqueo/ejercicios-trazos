@@ -9,8 +9,8 @@
 //   monitor, F3, [ ] tamaño, , . blandura, - = techo, Ctrl+S, F12. Todas en el registro
 //   único de atajos (HU-14).
 
-#include "ExerciseMenu.h"
-#include "ExerciseSession.h"
+#include "exercises/ExerciseMenu.h"
+#include "exercises/ExerciseSession.h"
 #include "exercises/Cajas.h"
 #include "exercises/CajasRotadas.h"
 #include "exercises/Concentricas.h"

@@ -61,7 +61,8 @@ try {
 
     Send 'i' 2
     $l = Take
-    Check 'I desactiva y vuelve a activar el costado' (($l -join ' ') -match 'Costado: desactivado.*Costado: activado') ($l -join ' | ')
+    # El costado queda guardado: puede arrancar apagado; dos I lo cambian y lo devuelven.
+    Check 'I cambia el costado y lo devuelve' (($l -join ' ') -match 'Costado: (desactivado.*Costado: activado|activado.*Costado: desactivado)') ($l -join ' | ')
 
     Send 'e' 2
     $l = Take

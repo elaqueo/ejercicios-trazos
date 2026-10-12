@@ -27,7 +27,8 @@ libs/drymedia/     motor de medios secos: papel en tiles, punta, depósito y gom
 libs/tabletinput/  entrada del lápiz por WM_POINTER (Win32 puro)
 libs/lienzo/       lienzo de baja latencia: ventana nativa con swapchain, hilos de simulación y render, minas
 libs/appkit/       área útil, calibración, configuración, log, atajos, guías y tema
-apps/ejercicios/   generadores de ejercicios y sesión
+libs/exercises/    ejercicios de trazos: generadores por semilla, sesión y menú (los comparten las apps de ejercicios)
+apps/ejercicios/   Ejercicios de trazos: el ejecutable sobre libs/exercises y libs/lienzo
 apps/cartuchera/   hoja libre
 apps/mesadeanimacion/  pila de hojas, flip y mesa de luz
 libs/audio/        lectura del audio (Media Foundation) y reproducción (WASAPI)

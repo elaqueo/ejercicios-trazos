@@ -39,7 +39,7 @@ El nombre es **Ejercicios de animación** (ejecutable `ejerciciosanimacion`), pa
 
 Los ejercicios que ya existen (rectas, hatching, curvas, elipses, cajas, cajas rotadas…) con **la misma consigna en todas las hojas**. Se dibuja hoja por hoja y después se flipea, o se mira con la mesa de luz: si la elipse cambia de grado, si la recta tiembla distinto, si la caja se deforma, salta enseguida. Es la consistencia que pide repetir un personaje en cada dibujo.
 
-No se reescriben: los generadores de `apps/ejercicios/src/exercises` se comparten entre las dos apps. Por eso habría que sacarlos a una biblioteca (ver más abajo). Cuáles tienen sentido en pila se decide con la app andando; escritura y presión, probablemente no.
+No se reescriben: los generadores se comparten entre las dos apps desde `libs/exercises` (HU-118). Cuáles tienen sentido en pila se decide con la app andando; escritura y presión, probablemente no.
 
 ## Ejercicio 2: el prisma que gira
 

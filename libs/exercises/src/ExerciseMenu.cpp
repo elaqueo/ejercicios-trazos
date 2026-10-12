@@ -1,4 +1,4 @@
-#include "ExerciseMenu.h"
+#include "exercises/ExerciseMenu.h"
 
 #include <algorithm>
 

@@ -1,59 +1,9 @@
-# Ejercicios de trazos sobre el lienzo de baja latencia (libs/lienzo, HU-65). La lógica de
-# la app va en una biblioteca estática para que los tests la enlacen; el ejecutable es solo
-# main.cpp.
-qt_add_library(ejercicios_core STATIC
-    src/ExerciseCanvas.h
-    src/ExerciseMenu.h
-    src/ExerciseMenu.cpp
-    src/ExerciseSession.h
-    src/ExerciseSession.cpp
-    src/exercises/Direccion.h
-    src/exercises/Direccion.cpp
-    src/exercises/Elipse.h
-    src/exercises/Elipse.cpp
-    src/exercises/ElipsePerspectiva.h
-    src/exercises/ElipsePerspectiva.cpp
-    src/exercises/Exercise.h
-    src/exercises/Exercise.cpp
-    src/exercises/Ghosting.h
-    src/exercises/Ghosting.cpp
-    src/exercises/Hatching.h
-    src/exercises/Hatching.cpp
-    src/exercises/Cajas.h
-    src/exercises/Cajas.cpp
-    src/exercises/CajasRotadas.h
-    src/exercises/CajasRotadas.cpp
-    src/exercises/Concentricas.h
-    src/exercises/Concentricas.cpp
-    src/exercises/Curva.h
-    src/exercises/Curva.cpp
-    src/exercises/CurvaDireccion.h
-    src/exercises/CurvaDireccion.cpp
-    src/exercises/Parrafo.h
-    src/exercises/Parrafo.cpp
-    src/exercises/Presion.h
-    src/exercises/Presion.cpp
-    src/exercises/Radiales.h
-    src/exercises/Radiales.cpp
-    src/exercises/Recta.h
-    src/exercises/Recta.cpp
-    src/exercises/Renglon.h
-    src/exercises/Renglon.cpp
-    src/exercises/RenglonCurvo.h
-    src/exercises/RenglonCurvo.cpp
-    src/exercises/WritingCurve.h
-    src/exercises/WritingCurve.cpp
-)
-target_include_directories(ejercicios_core PUBLIC src)
-target_link_libraries(ejercicios_core PUBLIC appkit)
-et_target_defaults(ejercicios_core)
-
+# Ejercicios de trazos sobre el lienzo de baja latencia (libs/lienzo, HU-65). Los ejercicios,
+# su sesión y su menú están en libs/exercises (HU-118); el ejecutable es solo main.cpp.
 qt_add_executable(ejercicios WIN32
     src/main.cpp
     ejercicios.rc
 )
-target_link_libraries(ejercicios PRIVATE ejercicios_core lienzo)
+target_link_libraries(ejercicios PRIVATE exercises lienzo)
 et_target_defaults(ejercicios)
 et_deploy_qt(ejercicios)
-
-add_subdirectory(tests)

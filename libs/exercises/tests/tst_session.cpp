@@ -1,5 +1,5 @@
-#include <ExerciseMenu.h>
-#include <ExerciseSession.h>
+#include <exercises/ExerciseMenu.h>
+#include <exercises/ExerciseSession.h>
 #include <exercises/Curva.h>
 #include <exercises/Recta.h>
 
