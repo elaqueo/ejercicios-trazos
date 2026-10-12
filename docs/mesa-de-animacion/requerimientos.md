@@ -266,9 +266,11 @@ Primero se mide el flip con hojas reales; recién después se construye la pila.
 3. **Fase 2 — Mano de animador** (HU-89, HU-92 a HU-95, HU-99 a HU-105, HU-116; 36 pts)
     1. Hoja fija, cuántas hojas, solo keys, círculo, anillo con tres funciones, lápices de color, F5, menú del botón del lápiz, zoom, pan, guía de campo, rol y número, chart.
     2. Salida: un ciclo de caminata con keys y breakdowns, construcción en azul y sombras marcadas.
+    3. *Cerrada (12 oct 2026; HU-92 descartada) y entregada en la v1.4.0.*
 4. **Fase 3 — Audio y salida** (HU-96, HU-106 a HU-109; 15 pts)
     1. Audio con onda, play/pausa y marcas; exportación PNG; el roll, si sumó.
     2. Salida: un lip sync corto animado contra el audio y exportado.
+    3. *Cerrada (12 oct 2026; HU-96 descartada) y entregada en la v1.4.0, con HU-117 (página de atajos rediseñada) y Ctrl+Q para salir.*
 
 Las fases son milestones propios de la app ("Mesa de animación · Fase N"), no de Cartuchera.
 

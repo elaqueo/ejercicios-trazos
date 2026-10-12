@@ -58,7 +58,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Panel de hojas (Tab) | Como la mesa "Panel de hojas": angosto (240 px) a la derecha, con la toma y si está guardada, el número grande en ámbar y el total, las miniaturas de la activa (marco ámbar) y de 3 antes y 3 después, el lápiz, la mesa de luz y el giro | HU-114 |
 | Íconos | Como la mesa "Íconos": fondo gris oscuro redondeado; Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; Mesa de animación, tres hojas apiladas con la pelota en grafito y, debajo, la del dibujo anterior en naranja, como la mesa de luz; el instalador, la hoja y el lápiz juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70, HU-110 |
 
-## Teclas (v1.3.0)
+## Teclas (v1.4.0)
 
 Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden la misma tecla, la app avisa al iniciar.
 

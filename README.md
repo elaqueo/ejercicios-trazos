@@ -13,7 +13,7 @@ Apps de escritorio para dibujar con tableta digitalizadora sobre un lienzo propi
 
   F4 abre el menú y F2 el panel con los parámetros de cada ejercicio. La tabla completa de teclas está en [docs/diseno.md](docs/diseno.md#teclas-v130).
 - **Cartuchera** (`apps/cartuchera`): hoja libre para dibujar, con deshacer.
-- **Mesa de animación** (`apps/mesadeanimacion`): hojas apiladas para la etapa de rough animation, con un solo grafito (HB) sobre papel de animación. ← → flipean a mano (mantener la flecha muestra la hoja vecina; al soltar queda activa), L prende la mesa de luz (2 hojas atrás en naranja, 1 adelante en turquesa), 1 a 5 eligen el grafito o un lápiz de color (azul de construcción, rojo y verde de sombras, violeta de cierres), Insert agrega una hoja, ↑ ↓ la mueven en la pila, Inicio y Fin saltan a la primera y la última, F deja una hoja fija debajo de todas (el layout), G muestra la guía de campo, C la carta de timing de las keys, O pone la pila en círculo, A elige un audio de referencia (W muestra su onda, P lo reproduce, M pone marcas), y Tab muestra el panel de hojas. La toma se guarda sola. Sin reproducción automática ni fps: el timing lo da la mano. [Idea](docs/mesa-de-animacion/idea.md) · [requerimientos y backlog](docs/mesa-de-animacion/requerimientos.md) · [arquitectura y formato de la toma](docs/mesa-de-animacion/arquitectura.md).
+- **Mesa de animación** (`apps/mesadeanimacion`): hojas apiladas para la etapa de rough animation, con un solo grafito (HB) sobre papel de animación. ← → flipean a mano (mantener la flecha muestra la hoja vecina; al soltar queda activa), L prende la mesa de luz (2 hojas atrás en naranja, 1 adelante en turquesa), 1 a 5 eligen el grafito o un lápiz de color (azul de construcción, rojo y verde de sombras, violeta de cierres), Insert agrega una hoja, ↑ ↓ la mueven en la pila, Inicio y Fin saltan a la primera y la última, K marca keys y breakdowns, + − y Espacio + arrastrar acercan y mueven la vista, el botón del lápiz abre un menú alrededor de la punta, F deja una hoja fija debajo de todas (el layout), G muestra la guía de campo, C la carta de timing de las keys, O pone la pila en círculo, A elige un audio de referencia (W muestra su onda, P lo reproduce, M pone marcas), Ctrl+E exporta la toma como PNG numerados, y Tab muestra el panel de hojas. Ctrl+, muestra todos los atajos y Ctrl+Q sale (en las tres apps). La toma se guarda sola. Sin reproducción automática ni fps: el timing lo da la mano. [Idea](docs/mesa-de-animacion/idea.md) · [requerimientos y backlog](docs/mesa-de-animacion/requerimientos.md) · [arquitectura y formato de la toma](docs/mesa-de-animacion/arquitectura.md).
 
 - [Alcance de la v1](docs/alcance-v1.md)
 - [Diseño (sistema visual y pantallas)](docs/diseno.md)
@@ -29,7 +29,7 @@ libs/appkit/       área útil, calibración, configuración, log, atajos, guía
 apps/ejercicios/   generadores de ejercicios y sesión
 apps/cartuchera/   hoja libre
 apps/mesadeanimacion/  pila de hojas, flip y mesa de luz
-apps/mesadeanimacion/  pila de hojas, flip y mesa de luz
+libs/audio/        lectura del audio (Media Foundation) y reproducción (WASAPI)
 spikes/            mediciones de la Fase 0 de Cartuchera (se compilan para que no se rompan)
 cmake/             opciones comunes de los targets
 scripts/           build.ps1 (comando único) y vsenv.ps1 (entorno de MSVC)
@@ -65,7 +65,7 @@ Las apps abren a pantalla completa en el monitor guardado (F10 pasa al siguiente
 pwsh scripts/package.ps1
 ```
 
-Compila Release y genera `dist/TrazosSetup-<versión>.exe` con [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`). El instalador es por usuario y no pide administrador: instala en `%LOCALAPPDATA%\Programs\Trazos`, agrega "Ejercicios de trazos", "Cartuchera" y "Mesa de animación" al menú Inicio (y, si se elige, al escritorio) y lleva su desinstalador. Incluye Qt y el runtime de Visual C++ junto a los ejecutables, así corre en una máquina sin nada instalado. Los datos (`%LOCALAPPDATA%\trazos`: calibración, minas, configuración, tomas) no son del instalador: quedan al desinstalar y al actualizar. La versión es la de `project()` en `CMakeLists.txt`; el script de Inno Setup está en `installer/trazos.iss`.
+Compila Release y genera `dist/TrazosSetup-<versión>.exe` con [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`). El instalador es por usuario y no pide administrador: instala en `%LOCALAPPDATA%\Programs\Trazos`, agrega "Ejercicios de trazos", "Cartuchera" y "Mesa de animación" al menú Inicio (y, si se elige, al escritorio) y lleva su desinstalador. Incluye Qt y el runtime de Visual C++ junto a los ejecutables, así corre en una máquina sin nada instalado (en las ediciones N de Windows, Mesa de animación necesita el Media Feature Pack, por el audio). Los datos (`%LOCALAPPDATA%\trazos`: calibración, minas, configuración, tomas) no son del instalador: quedan al desinstalar y al actualizar. La versión es la de `project()` en `CMakeLists.txt`; el script de Inno Setup está en `installer/trazos.iss`.
 
 ## Pruebas
 
