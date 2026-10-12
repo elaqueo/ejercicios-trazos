@@ -56,9 +56,11 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Selector de lápices (F5, Mesa de animación) | Como la mesa "Selector de lápices": panel de 400 px centrado sobre la hoja (al alcance del lápiz: la hoja es el área útil de la tableta), con el grafito y los cuatro colores; cada fila con su tecla, una muestra simulada (tres pasadas, para que se vea el color a 300 dpi), el nombre y para qué es; el activo con borde ámbar. Se elige con el lápiz, clic, 1 a 5 o ↑ ↓ y Enter | HU-100 |
 | Lápices de color | Como la mesa "Selector de lápices": azul `#4F8FD6`, rojo `#D0392F`, verde `#3C9A52`, violeta `#8B52C4` (tokens `kLapiz*`), más tenues que el grafito y siempre bajo él; el panel de hojas muestra el activo con un cuadrito de su color | HU-99 |
 | Panel de hojas (Tab) | Como la mesa "Panel de hojas": angosto (240 px) a la derecha, con la toma y si está guardada, el número grande en ámbar y el total, las miniaturas de la activa (marco ámbar) y de 3 antes y 3 después, el lápiz, la mesa de luz y el giro | HU-114 |
-| Íconos | Como la mesa "Íconos": fondo gris oscuro redondeado; Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; Mesa de animación, tres hojas apiladas con la pelota en grafito y, debajo, la del dibujo anterior en naranja, como la mesa de luz; el instalador, la hoja y el lápiz juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70, HU-110 |
+| Íconos | Como la mesa "Íconos": fondo gris oscuro redondeado; Ejercicios es la hoja con dos puntos azules y un trazo; Cartuchera, un lápiz ámbar; Mesa de animación, tres hojas apiladas con la pelota en grafito y, debajo, la del dibujo anterior en naranja, como la mesa de luz; Ejercicios de animación, las mismas hojas con el ghost del prisma en gris tinta y el grafito encima, siguiendo las aristas de adelante; el instalador, la hoja y el lápiz juntos. Se generan en vector con `assets/icons/make-icons.ps1` | HU-70, HU-110, HU-124 |
+| Prisma que gira (Ejercicios de animación) | Como la mesa "Prisma que gira": el ghost del prisma de cada hoja en wireframe, gris tinta #6B7178 al 50 % (`kGhostOpacidad`; el azul se confunde con el lápiz azul), aristas ocultas punteadas y más finas (un parámetro las saca), el ángulo de la hoja chico abajo a la derecha en el gris del número. Va en el render, bajo el grafito, como una guía por hoja | HU-123 |
+| Panel de hojas (Ejercicios de animación) | Como la variante de la mesa "Panel de hojas": en vez de la toma, "EJERCICIO" y el título del ejercicio, con "modo mixto" a la derecha si está prendido; sin estado de guardado (la pila no se guarda) | HU-120, HU-121 |
 
-## Teclas (v1.4.0)
+## Teclas (v1.5.0)
 
 Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden la misma tecla, la app avisa al iniciar.
 
@@ -118,3 +120,13 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Rueda, en su tercer modo | "Hojas": flipea como mantener la flecha, una hoja cada 30° (horario = la siguiente); al levantar el dedo queda activa (HU-95) |
 | Botón lateral del lápiz | Menú del lápiz en la punta: los cinco lápices y mesa de luz, hojas, deshacer, rehacer y vista inicial (HU-116) |
 | Z / Ctrl+Y | Deshacer / rehacer lo más reciente: el último trazo de la hoja activa o la última operación con las hojas (incluido mover) |
+
+**Ejercicios de animación:** las teclas de la Mesa de animación (flip, mesa de luz, lápices, zoom y pan, deshacer, Inicio y Fin, Tab) salvo las de la toma (Insert, Supr, Ctrl+D, ↑ ↓, K, F, A, P, M, W, C, O, Ctrl+E, la guía de campo): la pila la arma el ejercicio y no se guarda. Más las de Ejercicios:
+
+| Tecla | Qué hace |
+| --- | --- |
+| Enter | Ejercicio siguiente: otra semilla, la pila en blanco con su guía en cada hoja (→ es flip) (HU-121) |
+| R | Repetir: la misma pila en blanco, con las mismas guías (HU-121) |
+| G | Mostrar u ocultar las guías de todas las hojas, para comparar (HU-121) |
+| F4 | Menú de ejercicios: el prisma que gira (Volumen), los trazos en pila (Líneas, Curvas, Elipses, Perspectiva) y el modo mixto (HU-121, HU-122, HU-123) |
+| F2 | Panel: los parámetros del ejercicio (las hojas, entre ellos) y qué ejercicios entran en el modo mixto (HU-121) |

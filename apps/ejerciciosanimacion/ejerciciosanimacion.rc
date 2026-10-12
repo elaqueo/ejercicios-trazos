@@ -1,2 +1,2 @@
-// Ícono del ejecutable: por ahora el de la Mesa; el propio llega con el instalador (HU-124).
-IDI_ICON1 ICON "../../assets/icons/mesadeanimacion.ico"
+// Ícono del ejecutable (HU-124, mesa "Íconos"): las hojas con el ghost del prisma y el grafito.
+IDI_ICON1 ICON "../../assets/icons/ejerciciosanimacion.ico"

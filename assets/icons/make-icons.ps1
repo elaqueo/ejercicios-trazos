@@ -1,4 +1,4 @@
-﻿# Íconos de Ejercicios, Cartuchera, Mesa de animación (HU-110) y el instalador (HU-70), con los colores del diseño "Taller
+﻿# Íconos de Ejercicios, Cartuchera, Mesa de animación (HU-110), Ejercicios de animación (HU-124) y el instalador (HU-70), con los colores del diseño "Taller
 # nocturno" (docs/diseno.md). Se dibujan en vector a cada tamaño (no se escalan), así se leen
 # también a 16 px, y se empaquetan en .ico con entradas PNG.
 # Corre en Windows PowerShell 5.1 (GDI+ de .NET Framework):
@@ -114,7 +114,7 @@ public static class TrazosIcons
     // Mesa de animación (mesa "Íconos" del canvas): tres hojas apiladas y corridas; en la de
     // arriba, la pelota en grafito y, debajo, la del dibujo anterior en naranja, como la muestra
     // la mesa de luz.
-    static void Stack(Graphics g, float k)
+    static void Sheets(Graphics g)
     {
         using (var back = new SolidBrush(Color.FromArgb(0xB9, 0xB3, 0xA8)))
         using (var path = Rounded(new RectangleF(80, 30, 140, 160), 12))
@@ -125,12 +125,42 @@ public static class TrazosIcons
         using (var top = new SolidBrush(Hoja))
         using (var path = Rounded(new RectangleF(40, 66, 140, 160), 12))
             g.FillPath(top, path);
+    }
+
+    static void Stack(Graphics g, float k)
+    {
+        Sheets(g);
         using (var red = new Pen(Color.FromArgb(191, 0xE8, 0x86, 0x2A), 10 * k))
             g.DrawEllipse(red, 92 - 24, 122 - 24, 48, 48);
         using (var ink = new Pen(Tinta, 12 * k))
             g.DrawEllipse(ink, 128 - 24, 170 - 24, 48, 48);
         using (var floor = new Pen(Color.FromArgb(115, 0x11, 0x11, 0x11), 6 * k) { StartCap = LineCap.Round, EndCap = LineCap.Round })
             g.DrawLine(floor, 62, 206, 158, 206);
+    }
+
+    // Ejercicios de animación (HU-124, mesa "Íconos"): las hojas de la Mesa; en la de arriba, el
+    // ghost del prisma que gira en gris tinta (las ocultas punteadas, desde 48 px) y el grafito
+    // encima, siguiendo las aristas de adelante.
+    static readonly PointF[] Prism = {
+        new PointF(63.6f, 166.4f), new PointF(86.8f, 186.9f), new PointF(61.2f, 127.7f), new PointF(85.6f, 143.4f),
+        new PointF(120.3f, 152.3f), new PointF(148.4f, 168.5f), new PointF(121.0f, 117.1f), new PointF(150.8f, 129.3f) };
+
+    static void Edges(Graphics g, Pen pen, int[] pairs, float dx, float dy)
+    {
+        for (int i = 0; i < pairs.Length; i += 2)
+            g.DrawLine(pen, Prism[pairs[i]].X + dx, Prism[pairs[i]].Y + dy, Prism[pairs[i + 1]].X + dx, Prism[pairs[i + 1]].Y + dy);
+    }
+
+    static void AnimationExercises(Graphics g, float k, int size)
+    {
+        Sheets(g);
+        using (var ghost = new Pen(Color.FromArgb(153, 0x6B, 0x71, 0x78), 4 * k) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+            Edges(g, ghost, new[] { 2, 6, 0, 1, 0, 2, 1, 3, 3, 7, 7, 5, 5, 1, 3, 2, 7, 6 }, 0, 0);
+        if (size >= 48)
+            using (var hidden = new Pen(Color.FromArgb(128, 0x6B, 0x71, 0x78), 3) { DashPattern = new[] { 7f / 3, 2f } })
+                Edges(g, hidden, new[] { 4, 0, 4, 5, 4, 6 }, 0, 0);
+        using (var ink = new Pen(Tinta, 9 * k) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
+            Edges(g, ink, new[] { 1, 3, 3, 7, 7, 5, 5, 1, 3, 2, 7, 6 }, 3, -2);
     }
 
     static Bitmap Draw(string which, int size)
@@ -146,6 +176,8 @@ public static class TrazosIcons
                 Pencil(g, k, 1f, new PointF(0, 0));
             else if (which == "mesadeanimacion")
                 Stack(g, k);
+            else if (which == "ejerciciosanimacion")
+                AnimationExercises(g, k, size);
             else
             {
                 Exercise(g, k);
@@ -183,10 +215,10 @@ public static class TrazosIcons
         }
     }
 
-    // Lámina de vista previa: los cuatro íconos a 256, 48, 32 y 16 sobre fondo claro y oscuro.
+    // Lámina de vista previa: los íconos a 256, 48, 32 y 16 sobre fondo claro y oscuro.
     public static void WritePreview(string path)
     {
-        string[] names = { "ejercicios", "cartuchera", "mesadeanimacion", "instalador" };
+        string[] names = { "ejercicios", "cartuchera", "mesadeanimacion", "ejerciciosanimacion", "instalador" };
         int[] sizes = { 256, 48, 32, 16 };
         using (var sheet = new Bitmap(names.Length * 300, 2 * 300))
         using (var g = Graphics.FromImage(sheet))
@@ -212,7 +244,7 @@ public static class TrazosIcons
 }
 '@
 $dir = $PSScriptRoot
-foreach ($name in 'ejercicios', 'cartuchera', 'mesadeanimacion', 'instalador') {
+foreach ($name in 'ejercicios', 'cartuchera', 'mesadeanimacion', 'ejerciciosanimacion', 'instalador') {
     [TrazosIcons]::WriteIco($name, (Join-Path $dir "$name.ico"))
 }
 if ($Preview) {

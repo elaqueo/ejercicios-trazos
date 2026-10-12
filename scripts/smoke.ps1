@@ -586,7 +586,7 @@ finally {
     if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
     Remove-Item $takeDir -Recurse -Force -ErrorAction SilentlyContinue
 }
-# Ejercicios de animación (HU-120, HU-121, HU-123): arranca con su nombre y sus atajos en el último
+# Ejercicios de animación (HU-120, HU-121, HU-123, HU-124): arranca con su nombre y sus atajos en el último
 # ejercicio (aquí el prisma que gira en 12 hojas); Enter, R y G arman la pila en menos de 300 ms (RNF-04);
 # el flip y la mesa de luz como en la Mesa.
 $anim = Join-Path $root 'build\release\ejerciciosanimacion.exe'
@@ -647,6 +647,19 @@ try {
     } else {
         Write-Host "  FALLA flip en Ejercicios de animación: $shown pedidos, $($flips.Count) presentados, $($slow.Count) de 18 ms o más (máx. $max ms) · $toggles"
         $failures.Add('Flip en Ejercicios de animación')
+    }
+
+    # HU-124: F4 abre el menú y elegir otro ejercicio (el de abajo del prisma en la grilla) arma su
+    # pila (6 hojas por defecto).
+    foreach ($k in '{F4}', '{DOWN}', '{ENTER}') { $ws.SendKeys($k); Start-Sleep -Milliseconds 600 }
+    $l = @(Get-Content $animLog -Encoding utf8)
+    $picked = @($l | ForEach-Object { if ($_ -match 'Menú: "([^"]+)"') { $Matches[1] } })
+    $last = $l | Where-Object { $_ -match 'Pila armada: (\d+) hojas' } | Select-Object -Last 1
+    if ($picked.Count -eq 1 -and $picked[0] -ne 'prismaQueGira' -and $last -match 'Pila armada: 6 hojas') {
+        Write-Host "  ok   F4 elige otro ejercicio ($($picked[0])) y arma su pila de 6 hojas"
+    } else {
+        Write-Host "  FALLA F4 en Ejercicios de animación: elegido $($picked -join ',') · $last"
+        $failures.Add('Menú de Ejercicios de animación')
     }
     Ctrl 0x51
     if ($app.WaitForExit(10000)) {
