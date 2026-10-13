@@ -1,4 +1,4 @@
-﻿# Íconos de Ejercicios, Cartuchera, Mesa de animación (HU-110), Ejercicios de animación (HU-124) y el instalador (HU-70), con los colores del diseño "Taller
+﻿# Íconos de Ejercicios, Cartuchera, Mesa de animación (HU-110), Ejercicios de animación (HU-124), Bocetos (HU-139) y el instalador (HU-70), con los colores del diseño "Taller
 # nocturno" (docs/diseno.md). Se dibujan en vector a cada tamaño (no se escalan), así se leen
 # también a 16 px, y se empaquetan en .ico con entradas PNG.
 # Corre en Windows PowerShell 5.1 (GDI+ de .NET Framework):
@@ -163,6 +163,33 @@ public static class TrazosIcons
             Edges(g, ink, new[] { 1, 3, 3, 7, 7, 5, 5, 1, 3, 2, 7, 6 }, 3, -2);
     }
 
+    // Bocetos (HU-139, mesa "Íconos"): un cuaderno apaisado, la tapa terracota (el primer color
+    // de tapa) con el lomo más oscuro, el canto de hojas debajo (rayado desde 48 px) y un trazo
+    // claro en la tapa.
+    static void Sketchbook(Graphics g, float k, int size)
+    {
+        using (var edge = new SolidBrush(Hoja))
+        using (var path = Rounded(new RectangleF(44, 176, 172, 34), 8))
+            g.FillPath(edge, path);
+        if (size >= 48)
+            using (var line = new Pen(Color.FromArgb(0xDC, 0xD5, 0xC6), 2))
+                foreach (var y in new[] { 192f, 198f, 204f })
+                    g.DrawLine(line, 46, y, 214, y);
+        var cover = new RectangleF(36, 58, 184, 128);
+        using (var path = Rounded(cover, 12))
+        {
+            using (var fill = new SolidBrush(Color.FromArgb(0xA9, 0x53, 0x3D)))
+                g.FillPath(fill, path);
+            var state = g.Save();
+            g.SetClip(path);
+            using (var spine = new SolidBrush(Color.FromArgb(56, 0, 0, 0)))
+                g.FillRectangle(spine, 36, 58, 22, 128);
+            g.Restore(state);
+        }
+        using (var pen = new Pen(Hoja, 10 * k) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+            g.DrawBezier(pen, new PointF(84, 150), new PointF(104, 104), new PointF(138, 162), new PointF(186, 104));
+    }
+
     static Bitmap Draw(string which, int size)
     {
         Graphics g; float k;
@@ -178,6 +205,8 @@ public static class TrazosIcons
                 Stack(g, k);
             else if (which == "ejerciciosanimacion")
                 AnimationExercises(g, k, size);
+            else if (which == "bocetos")
+                Sketchbook(g, k, size);
             else
             {
                 Exercise(g, k);
@@ -218,7 +247,7 @@ public static class TrazosIcons
     // Lámina de vista previa: los íconos a 256, 48, 32 y 16 sobre fondo claro y oscuro.
     public static void WritePreview(string path)
     {
-        string[] names = { "ejercicios", "cartuchera", "mesadeanimacion", "ejerciciosanimacion", "instalador" };
+        string[] names = { "ejercicios", "cartuchera", "mesadeanimacion", "ejerciciosanimacion", "bocetos", "instalador" };
         int[] sizes = { 256, 48, 32, 16 };
         using (var sheet = new Bitmap(names.Length * 300, 2 * 300))
         using (var g = Graphics.FromImage(sheet))
@@ -244,7 +273,7 @@ public static class TrazosIcons
 }
 '@
 $dir = $PSScriptRoot
-foreach ($name in 'ejercicios', 'cartuchera', 'mesadeanimacion', 'ejerciciosanimacion', 'instalador') {
+foreach ($name in 'ejercicios', 'cartuchera', 'mesadeanimacion', 'ejerciciosanimacion', 'bocetos', 'instalador') {
     [TrazosIcons]::WriteIco($name, (Join-Path $dir "$name.ico"))
 }
 if ($Preview) {

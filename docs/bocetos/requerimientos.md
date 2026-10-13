@@ -4,7 +4,7 @@
 
 Backlog de la app definida en [idea.md](idea.md): la quinta app de la suite, la biblioteca de cuadernos de bocetos que se llenan dibujando en Cartuchera. Mismo enfoque ágil que [requerimientos-backlog.md](../requerimientos-backlog.md) (roles, sprints, MoSCoW, puntos Fibonacci, Definition of Ready y Done) y mismo molde que los [requerimientos de Ejercicios de animación](../ejercicios-animacion/requerimientos.md). La numeración sigue la de la suite: HU-132 en adelante.
 
-> **Estado (13 de octubre de 2026):** todas las historias están en los [issues](https://github.com/elaqueo/ejercicios-trazos/issues?q=label%3A%22E13+%C2%B7+Bocetos%22) (#132 a #145, la issue #N es la HU-N) y el [tablero](https://github.com/users/elaqueo/projects/3), con el milestone de su fase. El estado vivo está ahí; este documento es el plan.
+> **Estado (13 de octubre de 2026):** la Fase 1 está cerrada (HU-132 a HU-139 y HU-144). Todas las historias están en los [issues](https://github.com/elaqueo/ejercicios-trazos/issues?q=label%3A%22E13+%C2%B7+Bocetos%22) (#132 a #145, la issue #N es la HU-N) y el [tablero](https://github.com/users/elaqueo/projects/3), con el milestone de su fase. El estado vivo está ahí; este documento es el plan.
 
 ## Visión y MVP
 

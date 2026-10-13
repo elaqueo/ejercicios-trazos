@@ -1,8 +1,9 @@
-﻿; Instalador de Ejercicios de trazos, Cartuchera (HU-70), Mesa de animación (HU-110) y Ejercicios
-; de animación (HU-124). Lo
+﻿; Instalador de Ejercicios de trazos, Cartuchera (HU-70), Mesa de animación (HU-110), Ejercicios
+; de animación (HU-124) y Bocetos (HU-139). Lo
 ; genera scripts/package.ps1, que pasa AppVersion, SourceDir (build/package) y OutputDir (dist).
 ; Por usuario y sin administrador. Los datos (%LOCALAPPDATA%\trazos: calibración, medios.json,
-; config.json, las tomas) no son del instalador: quedan al desinstalar y al actualizar.
+; config.json, las tomas) no son del instalador: quedan al desinstalar y al actualizar. Tampoco los
+; cuadernos de Bocetos (Documentos\Trazos\Bocetos): son dibujos del usuario.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -47,11 +48,13 @@ Name: "{group}\Ejercicios de trazos"; Filename: "{app}\ejercicios.exe"; WorkingD
 Name: "{group}\Cartuchera"; Filename: "{app}\cartuchera.exe"; WorkingDir: "{app}"
 Name: "{group}\Mesa de animación"; Filename: "{app}\mesadeanimacion.exe"; WorkingDir: "{app}"
 Name: "{group}\Ejercicios de animación"; Filename: "{app}\ejerciciosanimacion.exe"; WorkingDir: "{app}"
+Name: "{group}\Bocetos"; Filename: "{app}\bocetos.exe"; WorkingDir: "{app}"
 Name: "{group}\Desinstalar Trazos"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\Ejercicios de trazos"; Filename: "{app}\ejercicios.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 Name: "{userdesktop}\Cartuchera"; Filename: "{app}\cartuchera.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 Name: "{userdesktop}\Mesa de animación"; Filename: "{app}\mesadeanimacion.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 Name: "{userdesktop}\Ejercicios de animación"; Filename: "{app}\ejerciciosanimacion.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userdesktop}\Bocetos"; Filename: "{app}\bocetos.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\ejercicios.exe"; Description: "Abrir Ejercicios de trazos"; Flags: nowait postinstall skipifsilent unchecked

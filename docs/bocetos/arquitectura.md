@@ -112,6 +112,10 @@ Bocetos lanza `cartuchera --hoja <cuaderno>/hoja-NNNN` y espera; se hablan solo 
 2. **Terminar** escribe `terminada.png` de una vez (al lado y renombrado) y después `updated` en `cuaderno.json`. Desde ese momento la hoja está terminada y Cartuchera no la vuelve a abrir.
 3. **Cerrar sin terminar** deja la toma sin `terminada.png`: un borrador, que es la siguiente hoja la próxima vez. Si era una hoja nueva y no tiene trazos, Cartuchera borra la carpeta al salir: sigue vacía (HU-138).
 
+## Entrega (HU-139)
+
+`bocetos.exe` va en el instalador de Trazos (`scripts/package.ps1`, `installer/trazos.iss`), junto a `cartuchera.exe` (Bocetos la busca al lado), con su acceso en el menú Inicio y, si se elige, en el escritorio. El ícono (`assets/icons/bocetos.ico`, de `make-icons.ps1`; mesa "Íconos") entra al exe por `bocetos.rc`. Los cuadernos no son del instalador: quedan al desinstalar y al actualizar.
+
 ## Pruebas
 
 `tst_notebooks`: ida y vuelta del json, el papel guardado manda sobre el de partida, versión nueva, ausente o dañado, los tres estados de hoja, la siguiente hoja (vacía, con borrador, lleno), nombres de carpeta (acentos, signos, vacío), crear con nombres que chocan y listar salteando lo que no es un cuaderno.

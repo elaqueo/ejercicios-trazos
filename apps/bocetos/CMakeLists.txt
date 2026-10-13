@@ -5,7 +5,7 @@ target_include_directories(bocetos_core PUBLIC src)
 target_link_libraries(bocetos_core PUBLIC notebooks appkit)
 et_target_defaults(bocetos_core)
 
-qt_add_executable(bocetos WIN32 src/main.cpp src/LibraryWindow.h src/LibraryWindow.cpp src/NotebookDialog.h src/NotebookDialog.cpp
+qt_add_executable(bocetos WIN32 src/main.cpp bocetos.rc src/LibraryWindow.h src/LibraryWindow.cpp src/NotebookDialog.h src/NotebookDialog.cpp
                   src/NotebookView.h src/NotebookView.cpp src/Paint.h src/Paint.cpp src/Notice.h src/Notice.cpp)
 target_link_libraries(bocetos PRIVATE bocetos_core appkit)
 et_target_defaults(bocetos)
