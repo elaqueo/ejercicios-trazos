@@ -2,6 +2,7 @@
 
 #include "NotebookDialog.h"
 #include "NotebookView.h"
+#include "Notice.h"
 #include "Paint.h"
 
 #include <appkit/ConfirmOverlay.h>
@@ -17,6 +18,8 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QProcess>
+#include <QCloseEvent>
 
 #include <algorithm>
 #include <cmath>
@@ -131,6 +134,7 @@ LibraryWindow::LibraryWindow(appkit::Shortcuts& shortcuts, appkit::Config& confi
     setFocusPolicy(Qt::StrongFocus);
     m_view = new NotebookView(m_shortcuts, this);
     m_view->hide();
+    m_notice = new Notice(this);
     m_dialog = new NotebookDialog(this);
     m_dialog->onCancel = [this] {
         qInfo() << "Bocetos: diálogo cancelado";
@@ -332,6 +336,91 @@ void LibraryWindow::openSelected()
     setFocus();
 }
 
+void LibraryWindow::draw()
+{
+    const Book* book = selectedBook();
+    if (!book || dialogOpen() || m_drawing.sheet)
+        return;
+    const bocetos::DrawPlan plan = bocetos::drawPlan(*book, m_cartuchera);
+    if (plan.action == bocetos::DrawAction::Full) { // seguir en uno nuevo (HU-136)
+        if (openNotebook()) {
+            m_view->hide();
+            m_view->release();
+        }
+        newNotebook();
+        return;
+    }
+    if (plan.action == bocetos::DrawAction::NoCartuchera) {
+        qWarning() << "Bocetos: no se puede dibujar: no está cartuchera.exe junto a bocetos.exe";
+        m_notice->warn(QStringLiteral("No se puede dibujar"), QStringLiteral("No está cartuchera.exe junto a bocetos.exe."));
+        return;
+    }
+    m_drawing = {book->dir, book->notebook.name, plan.sheet};
+    auto* process = new QProcess(this);
+    connect(process, &QProcess::finished, this, [this, process](int code, QProcess::ExitStatus status) {
+        process->deleteLater();
+        drawn(code, status == QProcess::CrashExit);
+    });
+    connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart)
+            return; // el resto llega también por finished
+        process->deleteLater();
+        m_drawing.sheet = 0;
+        qWarning().noquote() << QStringLiteral("Bocetos: no arrancó Cartuchera (%1)").arg(process->errorString());
+        m_notice->warn(QStringLiteral("No arrancó Cartuchera"), process->errorString());
+    });
+    qInfo().noquote() << QStringLiteral("Bocetos: dibujar «%1» · hoja %2 en Cartuchera").arg(book->notebook.name).arg(plan.sheet);
+    m_notice->busy(QStringLiteral("Dibujando en Cartuchera"),
+                   QStringLiteral("%1 · hoja %2. Ctrl+Enter la termina; al cerrar Cartuchera se vuelve acá.").arg(book->notebook.name).arg(plan.sheet));
+    process->start(m_cartuchera, plan.args);
+}
+
+void LibraryWindow::drawn(int exitCode, bool crashed)
+{
+    const Drawing drawing = m_drawing;
+    m_drawing.sheet = 0;
+    m_notice->hide();
+    const bocetos::DrawResult result = bocetos::drawResult(drawing.dir, drawing.sheet, exitCode, crashed);
+    static const char* const names[] = {"terminada", "en borrador", "sin tocar", "no se abrió", "se cerró de golpe"};
+    qInfo().noquote() << QStringLiteral("Bocetos: volvió de Cartuchera: hoja %1 %2 (código %3)")
+                             .arg(drawing.sheet)
+                             .arg(QLatin1String(names[int(result)]))
+                             .arg(exitCode);
+    // Relee el cuaderno (la tapa, las fechas, la hoja nueva) y vuelve a donde estaba; si la hoja
+    // quedó terminada, la muestra.
+    const bool wasOpen = openNotebook() != nullptr;
+    if (wasOpen) {
+        m_view->hide();
+        m_view->release();
+    }
+    reload(QDir(drawing.dir).dirName());
+    if (result == bocetos::DrawResult::Finished || wasOpen) {
+        openSelected();
+        m_view->showSheet(drawing.sheet);
+    }
+    if (result == bocetos::DrawResult::Refused)
+        m_notice->warn(QStringLiteral("Cartuchera no abrió la hoja %1").arg(drawing.sheet), QStringLiteral("El motivo quedó en cartuchera.log."));
+    else if (result == bocetos::DrawResult::Crashed)
+        m_notice->warn(QStringLiteral("Cartuchera se cerró de golpe"),
+                       notebooks::sheetState(drawing.dir, drawing.sheet) == notebooks::SheetState::Draft
+                           ? QStringLiteral("El borrador de la hoja %1 quedó guardado.").arg(drawing.sheet)
+                           : QStringLiteral("La hoja %1 quedó en blanco.").arg(drawing.sheet));
+    raise();
+    activateWindow();
+    setFocus();
+}
+
+void LibraryWindow::closeEvent(QCloseEvent* event)
+{
+    // Cerrar Bocetos mataría a Cartuchera (QProcess) con la hoja abierta: primero se cierra ella.
+    if (m_drawing.sheet) {
+        qInfo() << "Bocetos: no se cierra mientras se dibuja en Cartuchera";
+        event->ignore();
+        return;
+    }
+    QWidget::closeEvent(event);
+}
+
 void LibraryWindow::closeNotebook()
 {
     if (!openNotebook())
@@ -444,6 +533,7 @@ void LibraryWindow::paintEvent(QPaintEvent*)
     if (books > 0) {
         hint({QStringLiteral("←"), QStringLiteral("→"), QStringLiteral("↑"), QStringLiteral("↓")}, QStringLiteral("elegir"));
         hint({QStringLiteral("Enter")}, QStringLiteral("abrir"));
+        hint({QStringLiteral("D")}, QStringLiteral("dibujar"));
     }
     hint({QStringLiteral("Ctrl+N")}, QStringLiteral("cuaderno nuevo"));
     if (books > 0)
@@ -461,7 +551,12 @@ void LibraryWindow::paintEvent(QPaintEvent*)
 void LibraryWindow::keyPressEvent(QKeyEvent* event)
 {
     // El registro va por la tecla virtual de Windows, como en el lienzo. Las flechas repiten.
-    if (dialogOpen()) { // las teclas son del diálogo
+    if (dialogOpen() || m_drawing.sheet) { // las teclas son del diálogo, o de Cartuchera
+        event->accept();
+        return;
+    }
+    if (m_notice->isVisible()) { // un aviso: cualquier tecla lo saca
+        m_notice->hide();
         event->accept();
         return;
     }
@@ -492,5 +587,7 @@ void LibraryWindow::resizeEvent(QResizeEvent*)
     if (m_dialog->isVisible())
         m_dialog->setGeometry(rect());
     m_view->setGeometry(rect());
+    if (m_notice->isVisible())
+        m_notice->setGeometry(rect());
     relayout();
 }

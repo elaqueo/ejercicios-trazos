@@ -760,10 +760,12 @@ finally {
 # en menos de 500 ms (RNF-01); encuentra Cartuchera al lado; Ctrl+, abre los atajos y Esc los cierra;
 # las flechas eligen otro cuaderno y Enter lo abre; Ctrl+Q sale. HU-137: cada cuaderno tiene de 2 a 4
 # hojas terminadas de tamaño real (7680 × 4800, como las de Cartuchera); AvPág y RePág pasan de hoja
-# en menos de 100 ms (RNF-02), + y − acercan y alejan, Esc vuelve a la biblioteca.
+# en menos de 100 ms (RNF-02), + y − acercan y alejan, Esc vuelve a la biblioteca. HU-138: D dibuja la
+# siguiente hoja en Cartuchera; F11 pantalla completa.
 $boc = Join-Path $root 'build\release\bocetos.exe'
 $bocLog = Join-Path $data 'bocetos.log'
 if (Get-Process bocetos -ErrorAction SilentlyContinue) { throw 'Bocetos está abierta: cerrarla antes de la prueba' }
+if (Get-Process cartuchera -ErrorAction SilentlyContinue) { throw 'Cartuchera está abierta: cerrarla antes de la prueba' }
 $bocBackup = if (Test-Path $config) { [IO.File]::ReadAllBytes($config) } else { $null } # guarda el elegido
 $libDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-bocetos-$PID"
 Remove-Item $libDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -838,6 +840,50 @@ try {
     $l = $l -join ' '
     Check 'Inicio, Fin, + + − sobre una terminada (se lee entera) y Esc vuelve a la biblioteca' `
         ($l -match 'Cuaderno: hoja 1 en' -and $l -match 'zoom 150 %.*zoom 225 %.*entera, leída.*zoom 150 %' -and $l -match 'vuelve a la biblioteca') $l
+    # HU-138: D abre la siguiente hoja en Cartuchera (--hoja) y Bocetos espera; Ctrl+Q la cierra sin
+    # tocar y Bocetos sigue en la biblioteca. En el cuaderno abierto, D otra vez, Ctrl+Enter y Ctrl+Enter
+    # (en blanco pregunta) la terminan y Bocetos la muestra. F11 entra y sale de pantalla completa.
+    function BoCartuchera {
+        foreach ($i in 1..40) { # arranca y toma la pantalla
+            $c = Get-Process cartuchera -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($c -and $c.MainWindowHandle -ne 0) { break }
+            Start-Sleep -Milliseconds 250
+        }
+        Start-Sleep 3
+        if ($c) { $null = (New-Object -ComObject WScript.Shell).AppActivate($c.Id) }
+        Start-Sleep 1
+        return $c
+    }
+    function BoBack($c) {
+        $done = $c -and $c.WaitForExit(15000)
+        Start-Sleep 2
+        $null = (New-Object -ComObject WScript.Shell).AppActivate($app.Id)
+        Start-Sleep 1
+        return $done
+    }
+    $mark = @(Get-Content $bocLog -Encoding utf8).Count
+    BoKey 0x44 # D
+    $c = BoCartuchera
+    BoCtrl 0x51 # Ctrl+Q en Cartuchera
+    $back = BoBack $c
+    $l = @(Get-Content $bocLog -Encoding utf8 | Select-Object -Skip $mark) -join ' '
+    Check 'D abre la siguiente hoja en Cartuchera y, cerrada sin tocar, Bocetos sigue en la biblioteca' `
+        ($back -and $l -match 'dibujar «Cuaderno \d+» · hoja (\d+) en Cartuchera.*volvió de Cartuchera: hoja \d+ sin tocar' -and $l -notmatch 'Cuaderno: abierto') $l
+    $mark = @(Get-Content $bocLog -Encoding utf8).Count
+    BoKey 0x0D # Enter: el cuaderno
+    BoKey 0x44 # D
+    $c = BoCartuchera
+    BoCtrl 0x0D; BoCtrl 0x0D # Ctrl+Enter en blanco pregunta; Ctrl+Enter la termina
+    $back = BoBack $c
+    Start-Sleep 1
+    $l = @(Get-Content $bocLog -Encoding utf8 | Select-Object -Skip $mark) -join ' '
+    $sheetNo = if ($l -match 'hoja (\d+) en Cartuchera') { $Matches[1] } else { '?' }
+    Check "desde el cuaderno, D, Ctrl+Enter y Ctrl+Enter terminan la hoja $sheetNo y Bocetos la muestra" `
+        ($back -and $l -match "volvió de Cartuchera: hoja $sheetNo terminada" -and $l -match "Cuaderno: hoja $sheetNo en") $l
+    BoKey 0x1B # Esc
+    BoKey 0x7A; BoKey 0x7A # F11 F11
+    $l = @(Get-Content $bocLog -Encoding utf8 | Select-Object -Skip $mark) -join ' '
+    Check 'F11 entra y sale de pantalla completa' ($l -match 'Bocetos: pantalla completa.*Bocetos: ventana común') $l
     # HU-136: Ctrl+N, un nombre y Enter crean el cuaderno; F2, otro nombre y Enter lo renombran; Supr y
     # Supr lo mandan a la papelera.
     function BoType([string]$text) {
@@ -883,6 +929,7 @@ try {
     $app = $null
 }
 finally {
+    Get-Process cartuchera -ErrorAction SilentlyContinue | Stop-Process -Force # la que lanzó D, si quedó (Bocetos no se cierra mientras se dibuja)
     if ($app -and -not $app.HasExited) {
         $null = $app.CloseMainWindow()
         if (-not $app.WaitForExit(15000)) { $app.Kill() }

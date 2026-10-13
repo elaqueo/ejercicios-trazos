@@ -25,6 +25,8 @@ public:
     void release();
 
     // PgDn/PgUp (±1), Inicio y Fin.
+    // HU-138: la hoja `sheet` (desde 1), al volver de Cartuchera.
+    void showSheet(int sheet);
     void step(int delta);
     void first();
     void last();

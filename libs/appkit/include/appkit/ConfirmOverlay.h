@@ -16,8 +16,10 @@ public:
     explicit ConfirmOverlay(QWidget* owner);
 
     // title: "¿Borrar la hoja 7?" · detail: "Tiene trazos. Se puede deshacer con Z." · key:
-    // la tecla que confirma, con su nombre ("Supr") y lo que hace ("la borra").
-    void ask(const QString& title, const QString& detail, Qt::Key key, const QString& keyName, const QString& action);
+    // la tecla que confirma, con su nombre ("Supr") y lo que hace ("la borra"); modifiers, los que
+    // lleva ("Ctrl+Enter", HU-138). La marca del teclado numérico no cuenta.
+    void ask(const QString& title, const QString& detail, Qt::Key key, const QString& keyName, const QString& action,
+             Qt::KeyboardModifiers modifiers = Qt::NoModifier);
 
     std::function<void()> onConfirm;
     std::function<void()> onCancel;
@@ -34,6 +36,7 @@ private:
 
     QString m_title, m_detail, m_keyName, m_action;
     Qt::Key m_key = Qt::Key_unknown;
+    Qt::KeyboardModifiers m_modifiers;
     bool m_finishing = false; // hide() pierde el foco y volvería a cancelar (HU-136)
 };
 

@@ -298,4 +298,34 @@ QRectF sheetRect(const QSizeF& sheet, const QRectF& area, double zoom, const QPo
     return rect;
 }
 
+DrawPlan drawPlan(const Book& book, const QString& cartuchera)
+{
+    DrawPlan plan;
+    const std::optional<int> next = notebooks::nextSheet(book.dir, book.notebook);
+    if (!next) {
+        plan.action = DrawAction::Full;
+        return plan;
+    }
+    plan.sheet = *next;
+    plan.sheetDir = notebooks::sheetFolder(book.dir, *next);
+    if (cartuchera.isEmpty()) {
+        plan.action = DrawAction::NoCartuchera;
+        return plan;
+    }
+    plan.args = {QStringLiteral("--hoja"), QDir::toNativeSeparators(plan.sheetDir)};
+    return plan;
+}
+
+DrawResult drawResult(const QString& bookDir, int sheet, int exitCode, bool crashed)
+{
+    const notebooks::SheetState state = notebooks::sheetState(bookDir, sheet);
+    if (state == notebooks::SheetState::Finished)
+        return DrawResult::Finished; // terminó antes de cualquier otra cosa
+    if (crashed)
+        return DrawResult::Crashed;
+    if (exitCode == 2)
+        return DrawResult::Refused;
+    return state == notebooks::SheetState::Draft ? DrawResult::Draft : DrawResult::Untouched;
+}
+
 } // namespace bocetos

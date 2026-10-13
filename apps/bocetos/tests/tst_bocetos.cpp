@@ -312,6 +312,37 @@ private slots:
         QVERIFY(cache.get(tmp.filePath(QStringLiteral("no.png"))).isNull());
         QTRY_COMPARE(ready.size(), 3);
     }
+    // HU-138: lo que hace D y cómo vuelve Cartuchera.
+    void dibujar()
+    {
+        QTemporaryDir tmp;
+        notebooks::Notebook nb;
+        nb.maxSheets = 2;
+        Book book{tmp.path(), nb};
+        // En blanco: la hoja 1, con --hoja y su carpeta.
+        DrawPlan plan = drawPlan(book, QStringLiteral("C:/x/cartuchera.exe"));
+        QCOMPARE(plan.action, DrawAction::Launch);
+        QCOMPARE(plan.sheet, 1);
+        QCOMPARE(plan.args.size(), 2);
+        QCOMPARE(plan.args[0], QStringLiteral("--hoja"));
+        QCOMPARE(QDir::fromNativeSeparators(plan.args[1]), notebooks::sheetFolder(tmp.path(), 1));
+        QCOMPARE(drawPlan(book, QString()).action, DrawAction::NoCartuchera);
+        // Sin tocar, borrador, terminada, no la quiso abrir, se cerró de golpe.
+        QCOMPARE(drawResult(tmp.path(), 1, 0, false), DrawResult::Untouched);
+        QCOMPARE(drawResult(tmp.path(), 1, 2, false), DrawResult::Refused);
+        QVERIFY(QDir().mkpath(notebooks::sheetFolder(tmp.path(), 1)));
+        QCOMPARE(drawResult(tmp.path(), 1, 0, false), DrawResult::Draft);
+        QCOMPARE(drawResult(tmp.path(), 1, 0, true), DrawResult::Crashed);
+        // Con borrador, D lo retoma.
+        QCOMPARE(drawPlan(book, QStringLiteral("c.exe")).sheet, 1);
+        touch(notebooks::sheetFolder(tmp.path(), 1) + QStringLiteral("/terminada.png"));
+        QCOMPARE(drawResult(tmp.path(), 1, 0, false), DrawResult::Finished);
+        QCOMPARE(drawPlan(book, QStringLiteral("c.exe")).sheet, 2);
+        // Lleno: no lanza nada.
+        QVERIFY(QDir().mkpath(notebooks::sheetFolder(tmp.path(), 2)));
+        touch(notebooks::sheetFolder(tmp.path(), 2) + QStringLiteral("/terminada.png"));
+        QCOMPARE(drawPlan(book, QStringLiteral("c.exe")).action, DrawAction::Full);
+    }
 };
 
 QTEST_MAIN(TestBocetos)

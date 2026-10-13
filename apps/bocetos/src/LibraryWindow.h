@@ -9,6 +9,7 @@
 #include <QWidget>
 
 class NotebookDialog;
+class Notice;
 class NotebookView;
 namespace appkit {
 class ConfirmOverlay;
@@ -33,6 +34,10 @@ public:
     NotebookView* openNotebook() const;
     void closeNotebook();
 
+    // HU-138: D dibuja la siguiente hoja del elegido en Cartuchera y espera; al volver relee el
+    // cuaderno y, si la hoja quedó terminada, la muestra. Lleno: ofrece seguir en uno nuevo.
+    void draw();
+
     // HU-136: Ctrl+N cuaderno nuevo (o seguir en uno nuevo si el elegido está lleno), F2 editarlo
     // (Ctrl+M con el foco en la colección), Supr mandarlo a la Papelera de reciclaje (con
     // confirmación).
@@ -45,8 +50,10 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void closeEvent(QCloseEvent* event) override;
 
 private:
+    void drawn(int exitCode, bool crashed);
     void relayout();
     void reload(const QString& selectFolder);
     bool dialogOpen() const;
@@ -65,6 +72,11 @@ private:
     int m_scroll = 0;
     NotebookDialog* m_dialog = nullptr;
     NotebookView* m_view = nullptr;
+    Notice* m_notice = nullptr;
+    struct Drawing {
+        QString dir, name;
+        int sheet = 0; // 0: no se está dibujando
+    } m_drawing;
     appkit::ConfirmOverlay* m_confirm = nullptr;
     QString m_editing; // la carpeta del cuaderno que se edita
 };

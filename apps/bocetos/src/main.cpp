@@ -59,8 +59,11 @@ int main(int argc, char* argv[])
         const QRect area = screen->availableGeometry();
         place(screen, QSize(std::max(800, area.width() * 3 / 4), std::max(560, area.height() * 3 / 4)));
     }
+    // La ventana común se guarda al salir; a pantalla completa (F11), la de antes de entrar.
+    const auto saveGeometry = [&] { config.setValue(QStringLiteral("geometry"), QString::fromLatin1(window.saveGeometry().toBase64())); };
     QObject::connect(&app, &QApplication::aboutToQuit, [&] {
-        config.setValue(QStringLiteral("geometry"), QString::fromLatin1(window.saveGeometry().toBase64()));
+        if (!window.isFullScreen())
+            saveGeometry();
     });
     window.setLibrary(root, cartuchera); // con el ancho de la ventana, para acomodar los libros
 
@@ -71,6 +74,8 @@ int main(int argc, char* argv[])
     shortcuts.add(QStringLiteral("Fila de arriba"), {{VK_UP}}, [&] { window.move(bocetos::Move::Up); });
     shortcuts.add(QStringLiteral("Fila de abajo"), {{VK_DOWN}}, [&] { window.move(bocetos::Move::Down); });
     shortcuts.add(QStringLiteral("Abrir el cuaderno"), {{VK_RETURN}}, [&] { window.openSelected(); });
+    // HU-138: en la biblioteca y en el cuaderno abierto.
+    shortcuts.add(QStringLiteral("Dibujar la siguiente hoja"), {{'D'}}, [&] { window.draw(); });
     // HU-136: crear, editar, mover de colección y borrar (a la papelera).
     shortcuts.add(QStringLiteral("Cuaderno nuevo"), {{'N', true}}, [&] { window.newNotebook(); });
     shortcuts.add(QStringLiteral("Editar el cuaderno"), {{VK_F2}}, [&] { window.editSelected(); });
@@ -119,16 +124,34 @@ int main(int argc, char* argv[])
         QScreen* next = appkit::nextScreen(config, window.screen());
         if (next == window.screen())
             return;
-        const bool maximized = window.isMaximized();
+        const bool maximized = window.isMaximized(), full = window.isFullScreen();
         window.showNormal();
         place(next, window.size());
-        if (maximized)
+        if (full)
+            window.showFullScreen();
+        else if (maximized)
             window.showMaximized();
         qInfo().noquote() << "Monitor siguiente:" << appkit::ScreenId::of(next).describe();
     });
+    // F11 (pedido del usuario del 13 de octubre de 2026): pantalla completa, y vuelta a la ventana
+    // común como estaba; queda para la próxima vez. Esc no sale: en el cuaderno vuelve a la biblioteca.
+    shortcuts.add(QStringLiteral("Pantalla completa"), {{VK_F11}}, [&] {
+        const bool full = !window.isFullScreen();
+        if (full) {
+            saveGeometry();
+            window.showFullScreen();
+        } else {
+            window.showNormal();
+        }
+        config.setValue(QStringLiteral("fullscreen"), full);
+        qInfo().noquote() << (full ? "Bocetos: pantalla completa" : "Bocetos: ventana común");
+    });
     shortcuts.add(QStringLiteral("Salir"), {{'Q', true}}, [] { QApplication::quit(); });
 
-    window.show();
+    if (config.value(QStringLiteral("fullscreen")).toBool())
+        window.showFullScreen();
+    else
+        window.show();
     window.activateWindow();
     window.setFocus();
     return QApplication::exec();

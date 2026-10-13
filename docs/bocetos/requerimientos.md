@@ -4,7 +4,7 @@
 
 Backlog de la app definida en [idea.md](idea.md): la quinta app de la suite, la biblioteca de cuadernos de bocetos que se llenan dibujando en Cartuchera. Mismo enfoque ágil que [requerimientos-backlog.md](../requerimientos-backlog.md) (roles, sprints, MoSCoW, puntos Fibonacci, Definition of Ready y Done) y mismo molde que los [requerimientos de Ejercicios de animación](../ejercicios-animacion/requerimientos.md). La numeración sigue la de la suite: HU-132 en adelante.
 
-> **Estado (13 de octubre de 2026):** todas las historias están en los [issues](https://github.com/elaqueo/ejercicios-trazos/issues?q=label%3A%22E13+%C2%B7+Bocetos%22) (#132 a #143, la issue #N es la HU-N) y el [tablero](https://github.com/users/elaqueo/projects/3), con el milestone de su fase. El estado vivo está ahí; este documento es el plan.
+> **Estado (13 de octubre de 2026):** todas las historias están en los [issues](https://github.com/elaqueo/ejercicios-trazos/issues?q=label%3A%22E13+%C2%B7+Bocetos%22) (#132 a #145, la issue #N es la HU-N) y el [tablero](https://github.com/users/elaqueo/projects/3), con el milestone de su fase. El estado vivo está ahí; este documento es el plan.
 
 ## Visión y MVP
 
@@ -29,13 +29,13 @@ Decisiones firmes que acotan el backlog (ver idea.md, "Qué no es"): no edita ho
 
 ## Épicas
 
-Cuatro épicas, 8 historias en el MVP y 4 para después.
+Cuatro épicas, 9 historias en el MVP y 5 para después.
 
 | ID | Épica | Objetivo | Historias | Fase |
 | --- | --- | --- | --- | --- |
 | E1 | Plataforma | El formato del cuaderno, el modo cuaderno de Cartuchera, la app | HU-132 a HU-134 | 1 |
 | E2 | Biblioteca | La grilla de cuadernos por estantes y administrarlos | HU-135, HU-136 | 1 |
-| E3 | Cuaderno | Recorrer el cuaderno y dibujar la siguiente hoja | HU-137, HU-138 | 1 |
+| E3 | Cuaderno | Recorrer el cuaderno, dibujar la siguiente hoja y mostrarla en el TV | HU-137, HU-138, HU-144, HU-145 | 1–2 |
 | E4 | Entrega y más | Instalador y docs; exportar, Krita, miniaturas | HU-139 a HU-143 | 1–2 |
 
 ## Historias
@@ -90,6 +90,14 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     2. Al volver, Bocetos relee el cuaderno: si la hoja quedó terminada la muestra; si quedó en borrador, lo marca.
     3. En un cuaderno lleno, D no lanza nada y ofrece "Seguir en uno nuevo" (HU-136).
     4. Si Cartuchera no está o no arranca, lo dice y queda en el log.
+    5. **F11** pone Bocetos a pantalla completa y la vuelve a la ventana común (pedido del usuario del 13 oct 2026); queda para la próxima vez. Esc no sale de pantalla completa (en el cuaderno vuelve a la biblioteca).
+
+Agregada el 13 de octubre de 2026, a pedido del usuario:
+
+144. **HU-144 · La barra del cuaderno a la derecha** (Should · 2 pts). Como dibujante, quiero la información y las teclas del cuaderno abierto en una barra vertical a la derecha, para que la hoja (apaisada) aproveche toda la altura de la ventana (pedido del usuario del 13 oct 2026).
+    1. El pie de HU-137 pasa a una barra vertical fija a la derecha: arriba el nombre del cuaderno, la hoja ("hoja 7 de 12", en ámbar), la fecha en que se terminó y lo usado ("12 de 40 usadas · borrador en la 13"); abajo, las teclas una debajo de la otra.
+    2. La hoja ocupa el resto, ajustada a lo alto y lo ancho; el zoom y el arrastre (HU-137) quedan dentro de esa área.
+    3. Diseño primero en el canvas (la mesa "Bocetos · cuaderno abierto", al día).
 
 ### E4 · Entrega
 
@@ -100,7 +108,16 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 
 ### Para después (Fase 2)
 
-Se estiman y se refinan cuando la Fase 1 esté en uso.
+Se estiman y se refinan cuando la Fase 1 esté en uso. Primero, agregada el 13 de octubre de 2026 a pedido del usuario:
+
+145. **HU-145 · Mostrar la hoja en el TV** (Should · 5 pts). Como dibujante, quiero mandar la hoja que estoy mirando al TV del living (un Samsung en el mismo wifi), para verla grande y mostrarla (pedido del usuario del 13 oct 2026).
+    1. En el cuaderno abierto, **T** busca los TVs de la red (DLNA/UPnP: SSDP, la descripción del dispositivo y su servicio AVTransport) y manda la hoja; si hay más de uno, se elige de una lista. El último TV queda en la config y la próxima vez va directo.
+    2. Mientras está conectado, pasar de hoja (RePág, AvPág, Inicio, Fin) la cambia también en el TV; T otra vez lo corta. El pie dice a qué TV se manda.
+    3. La hoja va como JPEG de hasta 4096 px por lado (el límite de DLNA `JPEG_LRG`), servida por un servidor HTTP chico de Bocetos en un puerto fijo (el firewall de Windows lo pregunta una vez); el TV la pide por ahí.
+    4. En C++ con Qt Network (`QUdpSocket`, `QTcpServer`, `QNetworkAccessManager`), sin Python: el protocolo es el de `pdfcast`, probado con el Samsung QN85. Va en una biblioteca propia (`libs/cast`), para que la usen otras apps de la suite (el pencil test de la Mesa, por ejemplo).
+    5. Si no encuentra el TV, o el TV no responde, lo dice y queda en el log. Pruebas: el mensaje de búsqueda, leer la descripción, el SOAP y el servidor HTTP contra un TV de mentira en la misma máquina.
+
+El resto, según lo que pida el uso:
 
 140. **HU-140 · Exportar una hoja** (Could · 2 pts). Como dibujante, quiero guardar la hoja que estoy mirando como PNG donde elija, para compartirla.
 141. **HU-141 · Exportar el cuaderno como PDF** (Could · 3 pts). Como dibujante, quiero el cuaderno entero en un PDF, con la tapa y una hoja por página, para mostrarlo o imprimirlo.
@@ -112,13 +129,13 @@ Se estiman y se refinan cuando la Fase 1 esté en uso.
 
 ## Plan por fases
 
-1. **Fase 1 — MVP: llenar y recorrer un cuaderno** (HU-132 a HU-139; 28 pts)
-    1. El formato, Cartuchera en modo cuaderno, la app, la biblioteca, administrar cuadernos, recorrer, dibujar la siguiente hoja, instalador.
+1. **Fase 1 — MVP: llenar y recorrer un cuaderno** (HU-132 a HU-139 y HU-144; 30 pts)
+    1. El formato, Cartuchera en modo cuaderno, la app, la biblioteca, administrar cuadernos, recorrer, dibujar la siguiente hoja, la barra del cuaderno a la derecha, instalador.
     2. Salida: un cuaderno "Bocetos diarios" con varias hojas dibujadas y terminadas en Cartuchera, recorrido con PgUp y PgDn.
-2. **Fase 2 — Compartir y más apps** (HU-140 a HU-143; 12 pts)
-    1. Exportar, cuadernos de Krita y miniaturas, según lo que pida el uso.
+2. **Fase 2 — Compartir y más apps** (HU-145 y HU-140 a HU-143; 17 pts)
+    1. Primero la hoja en el TV (HU-145); después exportar, cuadernos de Krita y miniaturas, según lo que pida el uso.
 
-Las fases son milestones propios de la app ("Bocetos · Fase N"). El orden dentro de la Fase 1 es el numérico: primero la plataforma (HU-132 a HU-134), después la biblioteca y el cuaderno.
+Las fases son milestones propios de la app ("Bocetos · Fase N"). El orden dentro de la Fase 1 es el numérico: primero la plataforma (HU-132 a HU-134), después la biblioteca y el cuaderno; HU-144 va después de HU-138 y antes del instalador (HU-139), para que la primera entrega ya tenga la barra a la derecha.
 
 ## Diseño
 

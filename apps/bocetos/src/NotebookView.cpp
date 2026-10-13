@@ -64,6 +64,13 @@ void NotebookView::release()
     m_page = -1;
 }
 
+void NotebookView::showSheet(int sheet)
+{
+    for (int i = 0; i < m_pages.size(); ++i)
+        if (m_pages[i].sheet == sheet)
+            showPage(i);
+}
+
 void NotebookView::step(int delta)
 {
     showPage(std::clamp(m_page + delta, 0, int(m_pages.size()) - 1));
@@ -290,6 +297,8 @@ void NotebookView::paintEvent(QPaintEvent*)
     hint({QStringLiteral("Primera hoja"), QStringLiteral("Última hoja")}, QStringLiteral("primera / última"), true);
     hint({QStringLiteral("Acercar"), QStringLiteral("Alejar")},
          m_zoom > 1.0 ? QStringLiteral("zoom %1 %").arg(std::lround(m_zoom * 100)) : QStringLiteral("zoom"), true);
+    if (m_pages.last().state != SheetState::Finished) // HU-138; lleno, no hay siguiente
+        hint({QStringLiteral("Dibujar la siguiente hoja")}, QStringLiteral("dibujar la hoja %1").arg(m_pages.last().sheet), true);
     hint({QStringLiteral("Volver a la biblioteca")}, QStringLiteral("biblioteca"), false);
 }
 

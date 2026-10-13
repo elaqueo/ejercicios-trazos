@@ -118,4 +118,20 @@ double zoomOut(double zoom);
 QPointF clampPan(const QSizeF& sheet, const QRectF& area, double zoom, const QPointF& pan);
 QRectF sheetRect(const QSizeF& sheet, const QRectF& area, double zoom, const QPointF& pan);
 
+// HU-138: D dibuja la siguiente hoja en Cartuchera (`--hoja`, HU-133).
+enum class DrawAction { Launch, Full, NoCartuchera };
+struct DrawPlan {
+    DrawAction action = DrawAction::Launch;
+    int sheet = 0;     // la que se abre (Launch)
+    QString sheetDir;  // su carpeta
+    QStringList args;  // para cartuchera.exe
+};
+// Lleno: no lanza nada (se ofrece seguir en uno nuevo); sin Cartuchera: no se puede.
+DrawPlan drawPlan(const Book& book, const QString& cartuchera);
+
+// Cómo volvió Cartuchera: la hoja terminada, en borrador, sin tocar (se cerró sin dibujar), no la
+// quiso abrir (sale con 2, HU-133) o se cerró de golpe.
+enum class DrawResult { Finished, Draft, Untouched, Refused, Crashed };
+DrawResult drawResult(const QString& bookDir, int sheet, int exitCode, bool crashed);
+
 } // namespace bocetos

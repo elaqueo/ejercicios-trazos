@@ -19,6 +19,7 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QScreen>
 
 #include <optional>
@@ -34,6 +35,7 @@ int main(int argc, char* argv[])
     // Modo cuaderno (HU-133): si la hoja no se puede dibujar (terminada, fuera de orden, no es de
     // un cuaderno), sale sin abrir, con el motivo en el log.
     std::optional<cartuchera::NotebookSheet> sheet;
+    bool sheetExisted = false; // la carpeta de la hoja, antes de abrirla
     if (const QString arg = cartuchera::sheetArgument(QApplication::arguments()); !arg.isEmpty()) {
         QString error;
         sheet = cartuchera::notebookSheet(arg, &error);
@@ -41,6 +43,7 @@ int main(int argc, char* argv[])
             qWarning().noquote() << "Cuaderno: no se abre:" << error;
             return 2;
         }
+        sheetExisted = QDir(sheet->sheetDir).exists();
         qInfo().noquote() << QStringLiteral("Cuaderno: %1 · hoja %2 de %3 · papel %4")
                                  .arg(sheet->notebook.name)
                                  .arg(sheet->index)
@@ -107,7 +110,7 @@ int main(int argc, char* argv[])
             if (canvas.activeSheetBlank()) { // en blanco: se pregunta
                 confirm.ask(QStringLiteral("¿Terminar la hoja %1 en blanco?").arg(sheet->index),
                             QStringLiteral("Queda vacía en el cuaderno y no se puede editar."), Qt::Key_Return,
-                            QStringLiteral("Ctrl+Enter"), QStringLiteral("la termina"));
+                            QStringLiteral("Ctrl+Enter"), QStringLiteral("la termina"), Qt::ControlModifier);
                 canvas.showOverlay(&confirm);
                 qInfo() << "Cuaderno: confirmar terminar en blanco";
                 return;
@@ -117,6 +120,13 @@ int main(int argc, char* argv[])
     }
     canvas.start();
     const int result = QApplication::exec();
+    const bool blank = sheet && canvas.activeSheetBlank();
     canvas.stop();
+    // Una hoja nueva que se cerró sin un trazo no deja carpeta (el guardado automático escribe
+    // toma.json al abrir): sigue vacía, no queda un borrador en blanco (HU-138).
+    if (sheet && !sheetExisted && blank && !QFileInfo::exists(QDir(sheet->sheetDir).filePath(QString::fromLatin1(notebooks::kFinishedImage)))) {
+        QDir(sheet->sheetDir).removeRecursively();
+        qInfo().noquote() << QStringLiteral("Cuaderno: hoja %1 cerrada sin trazos: sigue vacía").arg(sheet->index);
+    }
     return result;
 }

@@ -40,8 +40,9 @@ ConfirmOverlay::ConfirmOverlay(QWidget* owner)
 }
 
 void ConfirmOverlay::ask(const QString& title, const QString& detail, Qt::Key key, const QString& keyName,
-                         const QString& action)
+                         const QString& action, Qt::KeyboardModifiers modifiers)
 {
+    m_modifiers = modifiers;
     m_title = title;
     m_detail = detail;
     m_key = key;
@@ -69,7 +70,7 @@ void ConfirmOverlay::keyPressEvent(QKeyEvent* event)
     const int key = event->key();
     if (key == Qt::Key_Control || key == Qt::Key_Shift || key == Qt::Key_Alt || key == Qt::Key_Meta)
         return;
-    finish(key == m_key && event->modifiers() == Qt::NoModifier);
+    finish(key == m_key && (event->modifiers() & ~Qt::KeypadModifier) == m_modifiers);
 }
 
 void ConfirmOverlay::focusOutEvent(QFocusEvent* event)
