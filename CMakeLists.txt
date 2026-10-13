@@ -48,6 +48,7 @@ add_subdirectory(apps/ejercicios)
 add_subdirectory(apps/cartuchera)
 add_subdirectory(apps/mesadeanimacion)
 add_subdirectory(apps/ejerciciosanimacion)
+add_subdirectory(apps/bocetos)
 # Spikes de Cartuchera (Fase 0): código descartable que se compila igual, para que no
 # se rompa sin que nadie lo note.
 add_subdirectory(spikes/cartuchera-entrada)

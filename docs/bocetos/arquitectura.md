@@ -9,6 +9,7 @@ Cómo está hecha la app definida en [idea.md](idea.md) y [requerimientos.md](re
 | Pieza | Dónde | Qué hace |
 | --- | --- | --- |
 | El cuaderno | `libs/notebooks` | `cuaderno.json`, el estado de las hojas y la biblioteca (HU-132). Solo Qt Core y Gui (por `QColor`): sin widgets ni lienzo, para que la usen Bocetos y Cartuchera. |
+| La app | `apps/bocetos` (`LibraryWindow`, `BocetosCore.h` en `bocetos_core`) | Qt Widgets a pantalla completa, sin el lienzo (RNF-06): la ventana, los atajos y dónde están los cuadernos y Cartuchera (HU-134). |
 | Cartuchera en modo cuaderno | `apps/cartuchera` (`NotebookMode.h`), `libs/lienzo` (`SideNote.h`, `exportActiveSheet`) | Abre una hoja con `--hoja`, la guarda sola con el papel del cuaderno y la termina con Ctrl+Enter (HU-133). Detalle en [medios-secos/arquitectura.md](../medios-secos/arquitectura.md#modo-cuaderno-hu-133-bocetos). |
 
 ## El formato del cuaderno (HU-132)
@@ -62,6 +63,14 @@ No se guarda en el json: sale de las carpetas, así no hay dos fuentes que pueda
 
 **La siguiente hoja** (`nextSheet`) es la primera que no está terminada: el borrador o la primera vacía, porque el cuaderno se llena en orden. Ninguna si está lleno.
 
+## La app (HU-134)
+
+- **Una app Qt común**: una ventana a pantalla completa y sin bordes, pintada con QPainter y el tema de la suite (`appkit/Theme.h`). No enlaza `libs/lienzo` (no hay ventana nativa ni Direct3D): muestra PNG.
+- **El monitor** es el de la familia (`appkit::savedScreen`, que salió del lienzo para esto). F10 pasa al siguiente y lo guarda para todas (`appkit::nextScreen`); como no hay lienzo nativo, la ventana se muda sin reiniciar.
+- **Las teclas** van al registro de `appkit::Shortcuts` por la tecla virtual de Windows (`QKeyEvent::nativeVirtualKey`), como en el lienzo; Ctrl+, abre la página de atajos de siempre y Ctrl+Q sale.
+- **La biblioteca** es la de `--biblioteca <carpeta>` (la prueba de la app real, para no tocar los cuadernos del usuario) o `Documentos\Trazos\Bocetos`. **Cartuchera** es `cartuchera.exe` junto a `bocetos.exe` (`bocetos::findCartuchera`); si no está, queda en el log y en la pantalla.
+- Su log es `bocetos.log` y su sección de `config.json`, `bocetos`.
+
 ## El viaje a Cartuchera (HU-133)
 
 Bocetos lanza `cartuchera --hoja <cuaderno>/hoja-NNNN` y espera; se hablan solo por archivos.
@@ -75,3 +84,5 @@ Bocetos lanza `cartuchera --hoja <cuaderno>/hoja-NNNN` y espera; se hablan solo 
 `tst_notebooks`: ida y vuelta del json, el papel guardado manda sobre el de partida, versión nueva, ausente o dañado, los tres estados de hoja, la siguiente hoja (vacía, con borrador, lleno), nombres de carpeta (acentos, signos, vacío), crear con nombres que chocan y listar salteando lo que no es un cuaderno.
 
 `tst_notebook_mode` (Cartuchera): el argumento `--hoja`, la siguiente hoja abre con su papel, lo que no abre (terminada, fuera de orden, fuera del máximo, fuera de un cuaderno) y que terminar actualiza la fecha. La prueba de la app real abre, deja un borrador, lo retoma, lo termina y verifica que no se vuelve a abrir.
+
+`tst_bocetos`: el argumento `--biblioteca` y encontrar Cartuchera (una carpeta con ese nombre no cuenta). La prueba de la app real arranca Bocetos con una biblioteca de 2 cuadernos, abre y cierra los atajos y la cierra con Ctrl+Q.

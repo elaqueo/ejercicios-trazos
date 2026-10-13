@@ -154,16 +154,7 @@ void Shell::focusOutEvent(QFocusEvent* event)
 
 QScreen* savedScreen(const appkit::Config& config)
 {
-    const QList<QScreen*> screens = QGuiApplication::screens();
-    if (const auto saved =
-            appkit::ScreenId::fromVariant(config.value(QStringLiteral("monitor"), {}, appkit::Config::Scope::Common))) {
-        QList<appkit::ScreenId> ids;
-        for (const QScreen* s : screens)
-            ids.append(appkit::ScreenId::of(s));
-        if (const auto index = appkit::findScreen(ids, *saved))
-            return screens[*index];
-    }
-    return QGuiApplication::primaryScreen();
+    return appkit::savedScreen(config); // HU-134: vive en appkit
 }
 
 struct Lienzo::Impl {
@@ -1229,8 +1220,7 @@ struct Lienzo::Impl {
         const QList<QScreen*> screens = QGuiApplication::screens();
         if (screens.size() < 2)
             return;
-        QScreen* next = screens[(screens.indexOf(screen) + 1) % screens.size()];
-        config->setValue(QStringLiteral("monitor"), appkit::ScreenId::of(next).toVariant(), appkit::Config::Scope::Common);
+        QScreen* next = appkit::nextScreen(*config, screen);
         qInfo() << "Monitor siguiente:" << appkit::ScreenId::of(next).describe() << "· reiniciando";
         QProcess::startDetached(QCoreApplication::applicationFilePath(), QCoreApplication::arguments().mid(1));
         QApplication::quit();

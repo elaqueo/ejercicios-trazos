@@ -1,5 +1,8 @@
 #include "appkit/ScreenChoice.h"
 
+#include "appkit/Config.h"
+
+#include <QGuiApplication>
 #include <QScreen>
 
 namespace appkit {
@@ -62,6 +65,29 @@ std::optional<int> findScreen(const QList<ScreenId>& screens, const ScreenId& sa
     else
         index = find([&](const ScreenId& s) { return sameModel(s) && s.name == saved.name; });
     return index < 0 ? std::nullopt : std::optional<int>(index);
+}
+
+QScreen* savedScreen(const Config& config)
+{
+    const QList<QScreen*> screens = QGuiApplication::screens();
+    if (const auto saved = ScreenId::fromVariant(config.value(QStringLiteral("monitor"), {}, Config::Scope::Common))) {
+        QList<ScreenId> ids;
+        for (const QScreen* s : screens)
+            ids.append(ScreenId::of(s));
+        if (const auto index = findScreen(ids, *saved))
+            return screens[*index];
+    }
+    return QGuiApplication::primaryScreen();
+}
+
+QScreen* nextScreen(Config& config, QScreen* current)
+{
+    const QList<QScreen*> screens = QGuiApplication::screens();
+    if (screens.size() < 2)
+        return current;
+    QScreen* next = screens[(screens.indexOf(current) + 1) % screens.size()];
+    config.setValue(QStringLiteral("monitor"), ScreenId::of(next).toVariant(), Config::Scope::Common);
+    return next;
 }
 
 } // namespace appkit

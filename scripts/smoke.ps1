@@ -756,5 +756,51 @@ finally {
     Remove-Item $nbDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+# Bocetos (HU-134): arranca con una biblioteca temporal de 2 cuadernos (--biblioteca), encuentra
+# Cartuchera al lado, Ctrl+, abre los atajos y Esc los cierra; Ctrl+Q sale.
+$boc = Join-Path $root 'build\release\bocetos.exe'
+$bocLog = Join-Path $data 'bocetos.log'
+if (Get-Process bocetos -ErrorAction SilentlyContinue) { throw 'Bocetos está abierta: cerrarla antes de la prueba' }
+$libDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-bocetos-$PID"
+Remove-Item $libDir -Recurse -Force -ErrorAction SilentlyContinue
+foreach ($n in 'diarios', 'gestos') {
+    New-Item -ItemType Directory -Force (Join-Path $libDir $n) | Out-Null
+    @{ version = 1; name = $n; collection = ''; cover = '#3f5f80'; maxSheets = 10; started = '2026-10-01'; updated = '2026-10-01'
+       paper = @{ preset = 'crema'; color = '#f5f0e6'; grain = 2047; texture = 20 } } | ConvertTo-Json -Depth 4 |
+        Set-Content (Join-Path $libDir "$n\cuaderno.json") -Encoding utf8
+}
+$app = $null
+try {
+    if (-not ('Smoke.Keys' -as [type])) {
+        Add-Type -Namespace Smoke -Name Keys -MemberDefinition '[DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, System.UIntPtr extra);'
+    }
+    function BoCtrl([byte]$vk) {
+        [Smoke.Keys]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
+        [Smoke.Keys]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
+        [Smoke.Keys]::keybd_event($vk, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
+        [Smoke.Keys]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 600
+    }
+    $app = Start-Process $boc -ArgumentList '--biblioteca', "`"$libDir`"" -PassThru
+    Start-Sleep 3
+    $null = (New-Object -ComObject WScript.Shell).AppActivate($app.Id)
+    Start-Sleep 1
+    BoCtrl 0xBC # Ctrl+,
+    [Smoke.Keys]::keybd_event(0x1B, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
+    [Smoke.Keys]::keybd_event(0x1B, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 600
+    $l = @(Get-Content $bocLog -Encoding utf8) -join ' '
+    Check 'Bocetos arranca con la biblioteca de 2 cuadernos, encuentra Cartuchera y Ctrl+, abre sus atajos' `
+        ($l -match 'Bocetos: biblioteca .* · 2 cuadernos' -and $l -match 'Bocetos: Cartuchera en' -and $l -match 'Atajos: abiertos.*Atajos: cerrados') $l
+    BoCtrl 0x51 # Ctrl+Q
+    Check 'Ctrl+Q cierra Bocetos' $app.WaitForExit(10000) ''
+    $app = $null
+}
+finally {
+    if ($app -and -not $app.HasExited) {
+        $null = $app.CloseMainWindow()
+        if (-not $app.WaitForExit(15000)) { $app.Kill() }
+    }
+    Remove-Item $libDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 if ($failures.Count) { Write-Host "$($failures.Count) falla(s)"; exit 1 }
 Write-Host 'Prueba de la app real: todo bien'
