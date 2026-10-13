@@ -32,6 +32,7 @@ El nombre es **Bocetos** (ejecutable `bocetos`, documentos en `docs/bocetos/`).
 - Cada **hoja** está en uno de tres estados: **vacía**, **borrador** (empezada en Cartuchera, sin terminar) o **terminada** (definitiva, no editable).
 - **Se llena en orden**, como un cuaderno de verdad: "dibujar" abre siempre el borrador en curso o, si no hay, la primera hoja vacía. No quedan huecos y hay a lo sumo un borrador por cuaderno.
 - **El papel es del cuaderno.** Al crearlo se elige el papel de Cartuchera (color, grano y textura) y queda fijo para todas sus hojas: cada cuaderno tiene su personalidad, como uno de papel. El tamaño es el de siempre: la superficie de la tableta, apaisada, a 600 dpi.
+- **Los papeles:** crema y blanco (los de hoy), **kraft** (papel madera, marrón y con fibra) y los **tonados**, tostado y gris, como el Strathmore Toned: un medio tono de fondo para dibujar las sombras con grafito y las luces con un lápiz blanco.
 - **Cuando se llena, se cierra:** se puede seguir mirando pero no suma hojas. Bocetos ofrece crear "Bocetos diarios 2" con el mismo papel y en la misma colección.
 - **Borrar:** solo cuadernos enteros, con confirmación. Los cuadernos se pueden renombrar y mover de colección.
 
@@ -129,6 +130,7 @@ Como en todas las apps: Ctrl+, muestra los atajos y Ctrl+Q sale.
 - ¿Cómo se ordenan los cuadernos dentro de un estante: por última actualización, por nombre o a mano?
 - ¿Miniaturas de las últimas hojas en el canto o al pasar por encima de un libro?
 - Exportar, para más adelante: el PNG de una hoja donde se elija, el cuaderno entero como PDF (con la tapa).
+- **Un lápiz blanco en Cartuchera:** el kraft y los tonados lucen con las luces en blanco, y hoy Cartuchera tiene grafito y goma. Sería un medio nuevo en `libs/drymedia` (pigmento claro que cubre, no que oscurece); mientras tanto, esos papeles se usan solo con grafito.
 - ¿Una portada o índice del cuaderno (título, fechas, cantidad de hojas)?
 - ¿Un cuaderno lleno se puede ampliar o reabrir? Por ahora no.
 - **Dibujar en Krita**, para más adelante: al dibujar, elegir si la hoja se abre en Cartuchera o en Krita. Es viable porque el viaje es por archivos:
