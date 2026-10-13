@@ -45,9 +45,9 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 ### E1 · Plataforma
 
 132. **HU-132 · El formato del cuaderno** (enabler · Must · 3 pts). Como desarrollador, quiero el cuaderno y sus hojas en una biblioteca, para que Bocetos y Cartuchera lean y escriban lo mismo.
-    1. `libs/notebooks` (sin Qt Widgets ni lienzo): leer y escribir `cuaderno.json` (nombre, colección, color de tapa, papel, máximo de hojas, fecha de inicio, última actualización, versión) y listar los cuadernos de la carpeta de datos.
+    1. `libs/notebooks` (sin Qt Widgets ni lienzo; QtGui solo por `QColor`): leer y escribir `cuaderno.json` (nombre, colección, color de tapa, papel, máximo de hojas, fecha de inicio, última actualización, versión) y listar los cuadernos de la carpeta de datos.
     2. El estado de cada hoja sale de su carpeta `hoja-NNNN/`: vacía (no existe), borrador (hay toma sin `terminada.png`) o terminada (hay `terminada.png`). "La siguiente hoja" es el borrador o la primera vacía; ninguna si el cuaderno está lleno.
-    3. La carpeta de datos es `Documentos\Trazos\Bocetos` (decisión abierta 1); la carpeta de un cuaderno sale de su nombre, sin chocar con otra.
+    3. La carpeta de datos es `Documentos\Trazos\Bocetos` (decisión 1); la carpeta de un cuaderno sale de su nombre, sin chocar con otra.
     4. Pruebas: ida y vuelta del json, versión nueva rechazada, estados de hoja, la siguiente hoja con borrador, sin borrador y lleno, nombres que chocan.
 133. **HU-133 · Cartuchera en modo cuaderno** (Must · 5 pts). Como dibujante, quiero que Cartuchera abra una hoja de un cuaderno, la guarde sola y la termine con una tecla, para dibujar en el cuaderno sin pasos de más.
     1. `cartuchera --hoja <carpeta>` abre la toma de esa hoja (`useTake`, una sola hoja), con el papel del cuaderno (color, grano y textura de `cuaderno.json`), y guarda sola mientras se dibuja; si no existe, la crea.
@@ -128,7 +128,7 @@ Cada pantalla nueva tiene su mesa en el canvas de diseño de Trazos antes de imp
 
 Cada una se cierra en la historia que la toca.
 
-1. Dónde viven los cuadernos: propuesta `Documentos\Trazos\Bocetos` (HU-132).
+1. ~~Dónde viven los cuadernos~~: en `Documentos\Trazos\Bocetos`, porque son dibujos del usuario y así entran en sus backups (HU-132, 13 oct 2026).
 2. Las teclas de dibujar y terminar: propuesta `D` y `Ctrl+Enter` (HU-133, HU-138).
 3. El orden dentro de un estante: propuesta por última actualización (HU-135).
 4. La paleta de colores de tapa: propuesta de seis tonos apagados que se leen con texto claro, terracota `#A9533D`, ocre `#A87A2A`, oliva `#5B7646`, pizarra `#3F5F80`, ciruela `#714765` y grafito `#4A5059` (HU-136, mesa "Bocetos · cuaderno nuevo").
