@@ -240,6 +240,7 @@ Bocetos abre Cartuchera con `--hoja <carpeta>` sobre la hoja siguiente de un cua
 4. **Terminar (Ctrl+Enter)**: `Lienzo::exportActiveSheet` escribe la hoja a 600 dpi (como `exportTake`, sin guías) al lado y la renombra a `terminada.png`, así aparece entera o no aparece; después se actualiza la fecha del cuaderno y la app cierra (stop() espera a que la toma esté escrita). En blanco, pregunta antes (la confirmación de la suite, que se confirma con Ctrl+Enter: `ConfirmOverlay::ask` acepta la tecla con sus modificadores, HU-138).
 5. **Cerrar una hoja nueva sin trazos** no deja carpeta: el guardado automático escribe `toma.json` al abrir, así que al salir, si la carpeta no existía, la hoja sigue en blanco y no se terminó, Cartuchera la borra y la hoja sigue vacía (no un borrador en blanco; HU-138).
 6. **El aviso** (`lienzo/SideNote.h`): el cuaderno, la hoja y las teclas en el costado libre, pintado por Qt cuando cambia y puesto por el render encima de todo (`Renderer::setNote`, como la franja del audio); sin costado, una línea arriba a la izquierda.
+7. **Cuadernos de Krita** (HU-142): `--hoja` no los abre (código 2). `--papel <cuaderno>` escribe `papel.png` sin abrir ventana: el papel del cuaderno con su textura, a 4 celdas por píxel (`lienzo::exportPaper`, con la hoja de `sheetPaperSpec`), para el fondo de las hojas de Krita.
 
 ## Plan por fases
 

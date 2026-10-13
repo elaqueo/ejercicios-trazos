@@ -11,6 +11,7 @@ Cómo está hecha la app definida en [idea.md](idea.md) y [requerimientos.md](re
 | El cuaderno | `libs/notebooks` | `cuaderno.json`, el estado de las hojas y la biblioteca (HU-132). Solo Qt Core y Gui (por `QColor`): sin widgets ni lienzo, para que la usen Bocetos y Cartuchera. |
 | La app | `apps/bocetos` (`LibraryWindow`, `NotebookView`; `BocetosCore.h` y `SheetCache.h` en `bocetos_core`) | Qt Widgets en una ventana común, sin el lienzo (RNF-06): la ventana, los atajos y dónde están los cuadernos y Cartuchera (HU-134); la biblioteca, con los estantes y los libros (HU-135); el cuaderno abierto (HU-137). |
 | La hoja en el TV | `libs/cast` (`Dlna.h`, `Discovery`, `MediaServer`, `AvTransport`); en Bocetos, `TvLink` y `TvChooser` | DLNA/UPnP en C++ con Qt Network: buscar el TV, servirle la hoja y pedirle que la muestre (HU-145). |
+| Cuadernos de Krita | En Bocetos, `Kra.h` (escribir y leer el `.kra`); en Cartuchera, `--papel`; en `libs/lienzo`, `exportPaper` | Las hojas se dibujan en Krita sobre el papel del cuaderno; se terminan desde Bocetos (HU-142). |
 | Cartuchera en modo cuaderno | `apps/cartuchera` (`NotebookMode.h`), `libs/lienzo` (`SideNote.h`, `exportActiveSheet`) | Abre una hoja con `--hoja`, la guarda sola con el papel del cuaderno y la termina con Ctrl+Enter (HU-133). Detalle en [medios-secos/arquitectura.md](../medios-secos/arquitectura.md#modo-cuaderno-hu-133-bocetos). |
 
 ## El formato del cuaderno (HU-132)
@@ -27,6 +28,13 @@ Bocetos/
       terminada.png      solo si la hoja está terminada
     hoja-0002/
   diseno-de-personajes/
+  personajes-en-krita/   un cuaderno de Krita (HU-142)
+    cuaderno.json
+    papel.png            el papel del cuaderno, a un cuarto de la resolución
+    hoja-0001/
+      hoja.kra           la hoja de Krita (el papel, capa de archivo bloqueada, y una capa para dibujar)
+      borrador.png       lo último que se guardó en Krita
+      terminada.png      solo si la hoja está terminada
 ```
 
 - **La carpeta** sale del nombre (`folderName`): minúsculas, sin acentos y con guiones, "Diseño de personajes" → `diseno-de-personajes`. Si choca, `-2`, `-3`… (`createNotebook`).
@@ -50,6 +58,7 @@ Bocetos/
 - `collection` vacía es el estante general.
 - **El papel** guarda de qué papel partió (`preset`) y los valores reales: `color`, `grain` (`drymedia::PaperSpec::grain`, 0 a 2047) y `texture` (la textura visual del lienzo, 0 a 100). Mandan los valores: si un papel de partida se ajusta, los cuadernos que ya existen no cambian. Los de partida (`paperPresets()`) son crema, blanco, kraft, tonado tostado y tonado gris.
 - **La versión** (`kNotebookVersion`): uno de una versión más nueva no se abre (`LoadError::NewerVersion`, queda en el log); uno viejo se lee con la nueva.
+- **La app** (HU-142): sin `app`, Cartuchera; `"app": "krita"`, Krita. Los de Krita se escriben como versión 2, así un Bocetos anterior no los abre ni los manda a Cartuchera; los de Cartuchera siguen en la 1.
 - Se escribe con `QSaveFile`: entero o nada.
 
 ### El estado de las hojas
@@ -124,16 +133,28 @@ Bocetos lanza `cartuchera --hoja <cuaderno>/hoja-NNNN` y espera; se hablan solo 
 2. **Terminar** escribe `terminada.png` de una vez (al lado y renombrado) y después `updated` en `cuaderno.json`. Desde ese momento la hoja está terminada y Cartuchera no la vuelve a abrir.
 3. **Cerrar sin terminar** deja la toma sin `terminada.png`: un borrador, que es la siguiente hoja la próxima vez. Si era una hoja nueva y no tiene trazos, Cartuchera borra la carpeta al salir: sigue vacía (HU-138).
 
+## Cuadernos de Krita (HU-142)
+
+Al crear el cuaderno se elige con qué app se dibuja ("Dibujar en" en el panel; no cambia después). En uno de Krita, D hace lo mismo que con Cartuchera con estos pasos (`drawPlan` con `krita`; `LibraryWindow::preparePaper` y `launch`):
+
+1. **El papel**, una sola vez: si falta `papel.png`, Bocetos lanza `cartuchera --papel <cuaderno>` ("Preparando el papel"). Cartuchera lo arma sin ventana con `lienzo::exportPaper`: el color del papel con su textura (HU-75) como se ve en el lienzo, a 4 celdas por píxel (1920 × 1200 para la hoja de 7680 × 4800, unos 2 s y 2,7 MB; la hoja entera tardaba 11 s solo en comprimirse a PNG) y con el tamaño de la hoja como texto del PNG (`Trazos-hoja`). Sin Cartuchera no se puede.
+2. **La hoja**: si es nueva, Bocetos escribe `hoja.kra` (`writeKra`): el zip de Krita con `mimetype` primero y sin comprimir, `maindoc.xml` con el tamaño de la hoja a 600 dpi y dos capas, `Dibujo` (vacía) y debajo `Papel`, una capa de archivo bloqueada que apunta a `../papel.png` y que Krita agranda a la hoja (`scale="true"`, `scalingmethod="1"`); además la imagen (el papel) y la vista previa. Así cada `.kra` pesa lo que el papel. QZipWriter y QZipReader son API privada de Qt Core (`Qt6::CorePrivate`).
+3. **Krita**: `krita --nosplash <hoja.kra>` (`findKrita`: `--krita <exe>`, el que abre los `.kra` según el registro, o la instalación de siempre); Bocetos espera con el cartel "Dibujando en Krita". Krita no sabe de Bocetos: se dibuja y se guarda con Ctrl+S.
+4. **La vuelta** (`kritaResult`): si el `.kra` cambió, Krita lo guardó: `refreshDraft` saca `mergedimage.png` (la imagen entera que Krita escribe al guardar) a `borrador.png` y el cuaderno se abre en ese borrador, que se ve con la marca "borrador" (mesa "Bocetos · cuaderno de Krita"). Sin guardar: una hoja nueva se borra (sigue vacía). Si Krita volvió en menos de 5 s sin guardar, ya había un Krita abierto y le pasó la hoja a ese: un aviso, y el borrador se toma al abrir el cuaderno (`refreshDraft` también corre ahí; distingue lo que guardó Krita porque Krita agrega `documentinfo.xml`).
+5. **Terminar**: Ctrl+Enter en el cuaderno, parado en el borrador, con confirmación (mesa "Bocetos · terminar en Krita"; "en blanco" si nunca se guardó). `finishKritaSheet` copia `borrador.png` (o el papel solo) a `terminada.png`, al lado y renombrado, deja el `.kra` de solo lectura y actualiza `updated`.
+
+Cartuchera rechaza `--hoja` en un cuaderno de Krita (sale con 2).
+
 ## Entrega (HU-139)
 
 `bocetos.exe` va en el instalador de Trazos (`scripts/package.ps1`, `installer/trazos.iss`), junto a `cartuchera.exe` (Bocetos la busca al lado), con su acceso en el menú Inicio y, si se elige, en el escritorio. El ícono (`assets/icons/bocetos.ico`, de `make-icons.ps1`; mesa "Íconos") entra al exe por `bocetos.rc`. Los cuadernos no son del instalador: quedan al desinstalar y al actualizar.
 
 ## Pruebas
 
-`tst_notebooks`: ida y vuelta del json, el papel guardado manda sobre el de partida, versión nueva, ausente o dañado, los tres estados de hoja, la siguiente hoja (vacía, con borrador, lleno), nombres de carpeta (acentos, signos, vacío), crear con nombres que chocan y listar salteando lo que no es un cuaderno.
+`tst_notebooks`: ida y vuelta del json, la app (Krita en la versión 2, Cartuchera en la 1), el papel guardado manda sobre el de partida, versión nueva, ausente o dañado, los tres estados de hoja, la siguiente hoja (vacía, con borrador, lleno), nombres de carpeta (acentos, signos, vacío), crear con nombres que chocan y listar salteando lo que no es un cuaderno.
 
-`tst_notebook_mode` (Cartuchera): el argumento `--hoja`, la siguiente hoja abre con su papel, lo que no abre (terminada, fuera de orden, fuera del máximo, fuera de un cuaderno) y que terminar actualiza la fecha. La prueba de la app real abre, deja un borrador, lo retoma, lo termina y verifica que no se vuelve a abrir.
+`tst_notebook_mode` (Cartuchera): los argumentos `--hoja` y `--papel`, que un cuaderno de Krita no abre, la siguiente hoja abre con su papel, lo que no abre (terminada, fuera de orden, fuera del máximo, fuera de un cuaderno) y que terminar actualiza la fecha. La prueba de la app real abre, deja un borrador, lo retoma, lo termina y verifica que no se vuelve a abrir.
 
 `tst_cast`: el M-SEARCH y la LOCATION, la descripción (anidada, con URLBase, sin AVTransport), el SOAP y la foto escapados, el servidor (GET, HEAD, 404, solo las últimas), y de punta a punta contra un TV de mentira (`FakeRenderer`: la descripción y el AVTransport, que descarga la imagen como un TV): encontrarlo, mostrar, las mañas (error y ya cargada, Stop y reintento, 701, dos errores) y que de varias seguidas va la última. El mismo TV de mentira es un programa (`fake_renderer`) para la prueba de la app real.
 
-`tst_bocetos`: el argumento `--biblioteca`, encontrar Cartuchera (una carpeta con ese nombre no cuenta), el orden de los estantes y los libros, lo que dice la tapa (hojas usadas, borrador, lleno, fechas), el acomodo con filas que se cortan, la navegación con las cuatro flechas, el nombre siguiente, las colecciones, lo que propone "Cuaderno nuevo" (también lleno), el cuaderno que sale del panel, lo que hace D (en blanco, con borrador, lleno, sin Cartuchera) y cómo vuelve Cartuchera (terminada, borrador, sin tocar, código 2, de golpe), la hoja para el TV (achicada, sin agrandar, el papel, el JPEG y `--tv`), las páginas del cuaderno abierto (sin hojas, con borrador, lleno), el área de la hoja con la barra, el ajuste, los pasos y el tope del zoom, el corrimiento y la carga en segundo plano (achicada, entera, soltar y un archivo que no es imagen). La prueba de la app real arranca Bocetos con una biblioteca de 30 cuadernos en 3 estantes, con hojas de tamaño real (menos de 500 ms), abre y cierra los atajos, elige con las flechas, abre con Enter en la última hoja terminada (a la izquierda de la barra), pasa de hoja con RePág y AvPág (menos de 100 ms) hasta la siguiente en blanco, va con Inicio y Fin, acerca hasta leer la hoja entera, con T la manda al TV de mentira (y AvPág la siguiente; T corta), vuelve con Esc, dibuja con D (Cartuchera cerrada sin tocar: sigue en la biblioteca; desde el cuaderno, Ctrl+Enter y Ctrl+Enter la terminan y Bocetos la muestra), prueba F11, crea un cuaderno con Ctrl+N, lo renombra con F2, lo manda a la papelera con Supr y Supr, y cierra con Ctrl+Q.
+`tst_bocetos`: el argumento `--biblioteca`, encontrar Cartuchera (una carpeta con ese nombre no cuenta), el orden de los estantes y los libros, lo que dice la tapa (hojas usadas, borrador, lleno, fechas), el acomodo con filas que se cortan, la navegación con las cuatro flechas, el nombre siguiente, las colecciones, lo que propone "Cuaderno nuevo" (también lleno), el cuaderno que sale del panel, lo que hace D (en blanco, con borrador, lleno, sin Cartuchera) y cómo vuelve Cartuchera (terminada, borrador, sin tocar, código 2, de golpe), D en un cuaderno de Krita (sin papel, sin Krita, sin Cartuchera) y cómo vuelve Krita (guardada, sin guardar, ya abierto, de golpe), encontrar Krita, la hoja de Krita (el zip, las capas, la vista previa, lo que guarda Krita, el borrador, que solo se ve en un cuaderno de Krita, terminarla y terminarla en blanco), la hoja para el TV (achicada, sin agrandar, el papel, el JPEG y `--tv`), las páginas del cuaderno abierto (sin hojas, con borrador, lleno), el área de la hoja con la barra, el ajuste, los pasos y el tope del zoom, el corrimiento y la carga en segundo plano (achicada, entera, soltar y un archivo que no es imagen). La prueba de la app real arranca Bocetos con una biblioteca de 30 cuadernos en 3 estantes, con hojas de tamaño real (menos de 500 ms), abre y cierra los atajos, elige con las flechas, abre con Enter en la última hoja terminada (a la izquierda de la barra), pasa de hoja con RePág y AvPág (menos de 100 ms) hasta la siguiente en blanco, va con Inicio y Fin, acerca hasta leer la hoja entera, con T la manda al TV de mentira (y AvPág la siguiente; T corta), vuelve con Esc, dibuja con D (Cartuchera cerrada sin tocar: sigue en la biblioteca; desde el cuaderno, Ctrl+Enter y Ctrl+Enter la terminan y Bocetos la muestra), prueba F11, crea un cuaderno con Ctrl+N, lo renombra con F2, lo manda a la papelera con Supr y Supr, y cierra con Ctrl+Q. Después, con otra biblioteca con un cuaderno de Krita y el Krita de mentira (`fake_krita`, que "dibuja" un rectángulo y guarda como Krita; nunca el de verdad), D arma el papel, abre la hoja y Bocetos muestra el borrador; Ctrl+Enter y Ctrl+Enter la terminan. Que Krita abre el `.kra` con el papel se probó a mano con `krita hoja.kra --export`.

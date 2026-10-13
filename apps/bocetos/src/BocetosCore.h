@@ -26,6 +26,12 @@ QString libraryRoot(const QStringList& args);
 // HU-134: cartuchera.exe junto a Bocetos (en `appDir`), o vacío si no está.
 QString findCartuchera(const QString& appDir);
 
+// HU-142: krita.exe: el de `--krita <exe>` (el Krita de mentira del smoke); si no, el que abre los
+// .kra (el registro, `registryCommand`); si no, el de la instalación de siempre; o vacío.
+QString findKrita(const QStringList& args, const QString& registryCommand);
+// El exe de un comando del registro: `"C:\...\krita.exe" "%1"` → `C:\...\krita.exe`.
+QString exeOfCommand(const QString& command);
+
 // HU-135: un libro de la biblioteca: el cuaderno y lo que dice su tapa.
 struct Book {
     QString dir;
@@ -82,6 +88,7 @@ struct Draft {
     QColor cover;
     notebooks::Paper paper = notebooks::paperPreset(QStringLiteral("crema"));
     int maxSheets = 40;
+    notebooks::App app = notebooks::App::Cartuchera; // HU-142: no cambia después
 };
 inline constexpr int kMinSheets = 1, kMaxSheets = 200;
 
@@ -101,8 +108,8 @@ notebooks::Notebook notebookFrom(const Draft& draft, const QDate& today);
 struct Page {
     int sheet = 0; // desde 1
     notebooks::SheetState state = notebooks::SheetState::Empty;
-    QString image; // terminada.png (solo las terminadas)
-    QDate finished; // la fecha de terminada.png
+    QString image; // terminada.png; en un cuaderno de Krita, también el borrador (borrador.png, HU-142)
+    QDate finished; // la fecha de la imagen
 };
 QList<Page> pagesOf(const QString& dir, const notebooks::Notebook& notebook);
 // Abre en la última terminada; sin terminadas, en la siguiente (la hoja 1 en blanco).
@@ -136,20 +143,29 @@ QByteArray jpegOf(const QImage& image, int quality = 90);
 // `--tv <url de la descripción>`: ese TV, sin buscar en la red (el TV de mentira del smoke).
 QUrl tvArgument(const QStringList& args);
 
-// HU-138: D dibuja la siguiente hoja en Cartuchera (`--hoja`, HU-133).
-enum class DrawAction { Launch, Full, NoCartuchera };
+// HU-138: D dibuja la siguiente hoja en Cartuchera (`--hoja`, HU-133); HU-142: en un cuaderno de
+// Krita, en Krita (`krita <hoja.kra>`), y antes, si falta, Cartuchera arma el papel (`--papel`).
+enum class DrawAction { Launch, Full, NoCartuchera, NoKrita };
 struct DrawPlan {
     DrawAction action = DrawAction::Launch;
     int sheet = 0;     // la que se abre (Launch)
     QString sheetDir;  // su carpeta
-    QStringList args;  // para cartuchera.exe
+    QString program;   // cartuchera.exe o krita.exe
+    QStringList args;
+    bool krita = false;
+    QString kra;            // la hoja de Krita
+    bool needsPaper = false; // falta papel.png: Cartuchera lo arma primero (necesita Cartuchera)
 };
-// Lleno: no lanza nada (se ofrece seguir en uno nuevo); sin Cartuchera: no se puede.
-DrawPlan drawPlan(const Book& book, const QString& cartuchera);
+// Lleno: no lanza nada (se ofrece seguir en uno nuevo); sin Cartuchera (o sin Krita): no se puede.
+DrawPlan drawPlan(const Book& book, const QString& cartuchera, const QString& krita = QString());
 
 // Cómo volvió Cartuchera: la hoja terminada, en borrador, sin tocar (se cerró sin dibujar), no la
-// quiso abrir (sale con 2, HU-133) o se cerró de golpe.
-enum class DrawResult { Finished, Draft, Untouched, Refused, Crashed };
+// quiso abrir (sale con 2, HU-133) o se cerró de golpe. Krita (HU-142): AlreadyOpen es que volvió
+// enseguida sin guardar, porque ya había un Krita abierto y le pasó la hoja a ese.
+enum class DrawResult { Finished, Draft, Untouched, Refused, Crashed, AlreadyOpen };
 DrawResult drawResult(const QString& bookDir, int sheet, int exitCode, bool crashed);
+inline constexpr qint64 kKritaQuickMs = 5000;
+// `saved`: Krita guardó la hoja (el .kra cambió) mientras estuvo abierto.
+DrawResult kritaResult(bool saved, qint64 elapsedMs, bool crashed);
 
 } // namespace bocetos

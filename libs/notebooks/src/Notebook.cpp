@@ -89,6 +89,7 @@ std::optional<Notebook> loadNotebook(const QString& dir, LoadError* error)
     nb.maxSheets = std::max(1, o.value(QStringLiteral("maxSheets")).toInt(nb.maxSheets));
     nb.started = QDate::fromString(o.value(QStringLiteral("started")).toString(), Qt::ISODate);
     nb.updated = QDate::fromString(o.value(QStringLiteral("updated")).toString(), Qt::ISODate);
+    nb.app = o.value(QStringLiteral("app")).toString() == QLatin1String("krita") ? App::Krita : App::Cartuchera;
     if (nb.name.isEmpty())
         return fail(LoadError::Corrupt);
     if (error)
@@ -98,7 +99,8 @@ std::optional<Notebook> loadNotebook(const QString& dir, LoadError* error)
 
 bool saveNotebook(const QString& dir, const Notebook& notebook)
 {
-    const QJsonObject o{{QStringLiteral("version"), kNotebookVersion},
+    const bool krita = notebook.app == App::Krita;
+    QJsonObject o{{QStringLiteral("version"), krita ? kNotebookVersion : 1},
                         {QStringLiteral("name"), notebook.name},
                         {QStringLiteral("collection"), notebook.collection},
                         {QStringLiteral("cover"), notebook.cover.name()},
@@ -106,6 +108,8 @@ bool saveNotebook(const QString& dir, const Notebook& notebook)
                         {QStringLiteral("maxSheets"), notebook.maxSheets},
                         {QStringLiteral("started"), notebook.started.toString(Qt::ISODate)},
                         {QStringLiteral("updated"), notebook.updated.toString(Qt::ISODate)}};
+    if (krita)
+        o.insert(QStringLiteral("app"), QStringLiteral("krita"));
     QSaveFile file(filePath(dir));
     if (!file.open(QIODevice::WriteOnly))
         return false;

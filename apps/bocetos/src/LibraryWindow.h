@@ -5,6 +5,8 @@
 #include <appkit/Config.h>
 #include <appkit/Shortcuts.h>
 
+#include <QDateTime>
+#include <QElapsedTimer>
 #include <QString>
 #include <QUrl>
 #include <QWidget>
@@ -40,6 +42,9 @@ public:
     // HU-138: D dibuja la siguiente hoja del elegido en Cartuchera y espera; al volver relee el
     // cuaderno y, si la hoja quedó terminada, la muestra. Lleno: ofrece seguir en uno nuevo.
     void draw();
+    // HU-142: krita.exe (vacío si no está); Ctrl+Enter en el cuaderno de Krita termina el borrador.
+    void setKrita(const QString& krita);
+    void finishSheet();
 
     // HU-145: T en el cuaderno abierto: la hoja también en el TV, o cortar. --tv fuerza un TV.
     void toggleTv();
@@ -61,6 +66,8 @@ protected:
 
 private:
     void drawn(int exitCode, bool crashed);
+    void launch(const bocetos::DrawPlan& plan);
+    void preparePaper(const bocetos::DrawPlan& plan);
     void relayout();
     void reload(const QString& selectFolder);
     bool dialogOpen() const;
@@ -72,7 +79,7 @@ private:
 
     appkit::Shortcuts& m_shortcuts;
     appkit::Config& m_config;
-    QString m_root, m_cartuchera;
+    QString m_root, m_cartuchera, m_krita;
     QList<bocetos::Shelf> m_shelves;
     bocetos::Layout m_layout;
     int m_selected = -1;
@@ -85,7 +92,15 @@ private:
     struct Drawing {
         QString dir, name;
         int sheet = 0; // 0: no se está dibujando
+        // HU-142, en Krita: la hoja, si la carpeta es nueva (sin guardar se borra), cuándo se
+        // escribió el .kra por última vez antes de abrirlo y desde cuándo está abierto.
+        bool krita = false;
+        QString kra;
+        bool newSheet = false;
+        QDateTime before;
+        QElapsedTimer open;
     } m_drawing;
     appkit::ConfirmOverlay* m_confirm = nullptr;
+    appkit::ConfirmOverlay* m_finish = nullptr; // HU-142: terminar el borrador de Krita
     QString m_editing; // la carpeta del cuaderno que se edita
 };

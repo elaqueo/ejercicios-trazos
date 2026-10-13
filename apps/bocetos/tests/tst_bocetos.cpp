@@ -1,10 +1,15 @@
 #include "BocetosCore.h"
+#include "Kra.h"
 #include "SheetCache.h"
+
+#include <QtCore/private/qzipreader_p.h>
+#include <QtCore/private/qzipwriter_p.h>
 
 #include <appkit/Theme.h>
 
 #include <notebooks/Library.h>
 
+#include <QBuffer>
 #include <QDir>
 #include <QFile>
 #include <QImage>
@@ -30,6 +35,33 @@ void touch(const QString& path)
 {
     QFile file(path);
     QVERIFY(file.open(QIODevice::WriteOnly));
+}
+
+// Lo que hace Krita al guardar la hoja: la misma con otra imagen y documentinfo.xml.
+void kritaSaves(const QString& kra, const QColor& color)
+{
+    QList<QPair<QString, QByteArray>> entries;
+    {
+        QZipReader in(kra);
+        QVERIFY(in.isReadable());
+        for (const QZipReader::FileInfo& f : in.fileInfoList())
+            entries.append({f.filePath, in.fileData(f.filePath)});
+    }
+    for (auto& [name, data] : entries)
+        if (name == QLatin1String("mergedimage.png")) {
+            QImage image = QImage::fromData(data);
+            image.fill(color);
+            data.clear();
+            QBuffer buffer(&data);
+            buffer.open(QIODevice::WriteOnly);
+            image.save(&buffer, "PNG");
+        }
+    entries.append({QStringLiteral("documentinfo.xml"), "<document-info/>"});
+    QFile file(kra);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    QZipWriter zip(&file);
+    for (const auto& [name, data] : entries)
+        zip.addFile(name, data);
 }
 
 // n libros en un estante.
@@ -387,6 +419,120 @@ private slots:
         QVERIFY(QDir().mkpath(notebooks::sheetFolder(tmp.path(), 2)));
         touch(notebooks::sheetFolder(tmp.path(), 2) + QStringLiteral("/terminada.png"));
         QCOMPARE(drawPlan(book, QStringLiteral("c.exe")).action, DrawAction::Full);
+    }
+
+    // HU-142: D en un cuaderno de Krita, dónde está Krita y cómo vuelve.
+    void dibujarEnKrita()
+    {
+        QTemporaryDir tmp;
+        notebooks::Notebook nb;
+        nb.maxSheets = 2;
+        nb.app = notebooks::App::Krita;
+        const Book book{tmp.path(), nb};
+        // Sin papel.png: Cartuchera lo arma primero.
+        DrawPlan plan = drawPlan(book, QStringLiteral("c.exe"), QStringLiteral("C:/k/krita.exe"));
+        QCOMPARE(plan.action, DrawAction::Launch);
+        QVERIFY(plan.krita);
+        QVERIFY(plan.needsPaper);
+        QCOMPARE(plan.program, QStringLiteral("C:/k/krita.exe"));
+        QCOMPARE(QDir::fromNativeSeparators(plan.args.last()), QDir(notebooks::sheetFolder(tmp.path(), 1)).filePath(QStringLiteral("hoja.kra")));
+        QCOMPARE(plan.kra, QDir::fromNativeSeparators(plan.args.last()));
+        QCOMPARE(drawPlan(book, QStringLiteral("c.exe"), QString()).action, DrawAction::NoKrita);
+        QCOMPARE(drawPlan(book, QString(), QStringLiteral("k.exe")).action, DrawAction::NoCartuchera);
+        // Con el papel, ya no hace falta Cartuchera.
+        touch(QDir(tmp.path()).filePath(QStringLiteral("papel.png")));
+        plan = drawPlan(book, QString(), QStringLiteral("k.exe"));
+        QCOMPARE(plan.action, DrawAction::Launch);
+        QVERIFY(!plan.needsPaper);
+
+        QCOMPARE(kritaResult(true, 100, false), DrawResult::Draft);
+        QCOMPARE(kritaResult(true, 60000, true), DrawResult::Draft);
+        QCOMPARE(kritaResult(false, 60000, false), DrawResult::Untouched);
+        QCOMPARE(kritaResult(false, 800, false), DrawResult::AlreadyOpen);
+        QCOMPARE(kritaResult(false, 60000, true), DrawResult::Crashed);
+
+        const QString quoted = QStringLiteral("\"C:\\Program Files\\Krita (x64)\\bin\\krita.exe\" \"%1\"");
+        QCOMPARE(exeOfCommand(quoted), QStringLiteral("C:\\Program Files\\Krita (x64)\\bin\\krita.exe"));
+        QCOMPARE(exeOfCommand(QStringLiteral("C:\\k\\krita.exe %1")), QStringLiteral("C:\\k\\krita.exe"));
+        QCOMPARE(findKrita({"bocetos.exe", "--krita", "C:/x/fake_krita.exe"}, QString()), QStringLiteral("C:/x/fake_krita.exe"));
+        const QString exe = tmp.filePath(QStringLiteral("krita.exe"));
+        touch(exe);
+        QCOMPARE(findKrita({"bocetos.exe"}, QStringLiteral("\"%1\" \"%2\"").arg(QDir::toNativeSeparators(exe), QStringLiteral("%1"))), exe);
+    }
+
+    // HU-142: la hoja de Krita: el .kra que escribe Bocetos, lo que guarda Krita, el borrador y
+    // terminarla.
+    void laHojaDeKrita()
+    {
+        QTemporaryDir tmp;
+        notebooks::Notebook nb;
+        nb.name = QStringLiteral("Personajes en Krita");
+        nb.maxSheets = 3;
+        nb.app = notebooks::App::Krita;
+        nb.started = nb.updated = QDate(2026, 10, 1);
+        QVERIFY(notebooks::saveNotebook(tmp.path(), nb));
+        const QString paper = tmp.filePath(QStringLiteral("papel.png"));
+        QImage paperImage(160, 100, QImage::Format_RGB32);
+        paperImage.fill(QColor(0xB5, 0x98, 0x78));
+        paperImage.setText(QString::fromLatin1(kPaperSizeKey), QStringLiteral("640x400")); // la hoja, 4 veces el papel
+        QVERIFY(paperImage.save(paper));
+
+        const QString sheet = notebooks::sheetFolder(tmp.path(), 1);
+        QVERIFY(QDir().mkpath(sheet));
+        const QString kra = QDir(sheet).filePath(QStringLiteral("hoja.kra"));
+        QString error;
+        QVERIFY2(writeKra(kra, paper, &error), qPrintable(error));
+        {
+            QZipReader zip(kra);
+            QVERIFY(zip.isReadable());
+            const QList<QZipReader::FileInfo> files = zip.fileInfoList();
+            QCOMPARE(files.first().filePath, QStringLiteral("mimetype")); // primero y sin comprimir
+            QFile raw(kra);
+            QVERIFY(raw.open(QIODevice::ReadOnly));
+            QCOMPARE(raw.read(38 + 19).mid(38), QByteArray("application/x-krita"));
+            const QString doc = QString::fromUtf8(zip.fileData(QStringLiteral("maindoc.xml")));
+            QVERIFY(doc.contains(QStringLiteral(R"(width="640" height="400")")));
+            QVERIFY(doc.contains(QStringLiteral(R"(nodetype="filelayer" source="../papel.png" scale="true" scalingmethod="1")")));
+            QVERIFY(doc.contains(QStringLiteral(R"(locked="1")")));
+            QVERIFY(doc.contains(QStringLiteral(R"(nodetype="paintlayer")")));
+            QCOMPARE(QImage::fromData(zip.fileData(QStringLiteral("preview.png"))).width(), 256);
+        }
+        QVERIFY(!kraSavedByKrita(kra));
+        // Sin guardar en Krita no hay borrador: la página es el aviso.
+        QVERIFY(!refreshDraft(sheet));
+        QList<Page> pages = pagesOf(tmp.path(), nb);
+        QCOMPARE(pages.size(), 1);
+        QVERIFY(pages[0].image.isEmpty());
+
+        kritaSaves(kra, QColor(0x20, 0x40, 0x60));
+        QVERIFY(kraSavedByKrita(kra));
+        QVERIFY(refreshDraft(sheet));
+        const QString draft = QDir(sheet).filePath(QStringLiteral("borrador.png"));
+        QCOMPARE(QImage(draft).pixelColor(5, 5), QColor(0x20, 0x40, 0x60));
+        pages = pagesOf(tmp.path(), nb);
+        QCOMPARE(pages[0].state, notebooks::SheetState::Draft);
+        QCOMPARE(pages[0].image, draft);
+        // En un cuaderno de Cartuchera, el borrador no se muestra.
+        notebooks::Notebook cartuchera = nb;
+        cartuchera.app = notebooks::App::Cartuchera;
+        QVERIFY(pagesOf(tmp.path(), cartuchera)[0].image.isEmpty());
+
+        // Terminar: el borrador queda como terminada, el .kra de solo lectura y la fecha al día.
+        QVERIFY2(finishKritaSheet(tmp.path(), 1, QDate(2026, 10, 13), &error), qPrintable(error));
+        QCOMPARE(notebooks::sheetState(tmp.path(), 1), notebooks::SheetState::Finished);
+        QCOMPARE(QImage(QDir(sheet).filePath(QStringLiteral("terminada.png"))).pixelColor(5, 5), QColor(0x20, 0x40, 0x60));
+        QVERIFY(!QFileInfo(kra).isWritable());
+        QCOMPARE(notebooks::loadNotebook(tmp.path())->updated, QDate(2026, 10, 13));
+        QVERIFY(!finishKritaSheet(tmp.path(), 1, QDate(2026, 10, 13)));
+        QFile::setPermissions(kra, QFileDevice::ReadOwner | QFileDevice::WriteOwner); // que se pueda borrar
+
+        // Una que nunca se guardó en Krita termina en el papel solo.
+        const QString sheet2 = notebooks::sheetFolder(tmp.path(), 2);
+        QVERIFY(QDir().mkpath(sheet2));
+        QVERIFY(writeKra(QDir(sheet2).filePath(QStringLiteral("hoja.kra")), paper));
+        QVERIFY(finishKritaSheet(tmp.path(), 2, QDate(2026, 10, 13)));
+        QCOMPARE(QImage(QDir(sheet2).filePath(QStringLiteral("terminada.png"))).pixelColor(5, 5), QColor(0xB5, 0x98, 0x78));
+        QFile::setPermissions(QDir(sheet2).filePath(QStringLiteral("hoja.kra")), QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     }
 };
 

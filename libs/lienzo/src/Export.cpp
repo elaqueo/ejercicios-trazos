@@ -1,6 +1,7 @@
 #include "lienzo/Export.h"
 
 #include "lienzo/SheetMapping.h"
+#include "lienzo/Simulation.h"
 #include "lienzo/Tone.h"
 
 #include <QDir>
@@ -49,6 +50,37 @@ void renderCells(const drymedia::Paper& paper, const SheetMapping& m, uint32_t* 
 }
 
 } // namespace
+
+bool exportPaper(const QString& file, const drymedia::PaperSpec& spec, uint32_t paperColor, int texturePercent, QString* error)
+{
+    drymedia::Paper paper(spec);
+    SheetMapping m;
+    m.clientWidth = m.sheetWidth = std::max(1, paper.width() / kPaperCellsPerPixel);
+    m.clientHeight = m.sheetHeight = std::max(1, paper.height() / kPaperCellsPerPixel);
+    m.cellsWidth = paper.width();
+    m.cellsHeight = paper.height();
+    m.pixelsPerCellX = double(m.clientWidth) / paper.width();
+    m.pixelsPerCellY = double(m.clientHeight) / paper.height();
+    PaperTexture texture;
+    if (texturePercent > 0) {
+        texture.build(paper, m);
+        texture.setLight(Simulation::kLightDegrees, std::clamp(texturePercent, 0, 100) / 100.0);
+    }
+    QImage image(m.clientWidth, m.clientHeight, QImage::Format_RGB32);
+    renderTone(paper, m, 0, 0, m.clientWidth, m.clientHeight, reinterpret_cast<uint32_t*>(image.bits()), nullptr,
+               texture.shade(), paperColor);
+    const int dpm = int(std::lround(spec.dpi / double(kPaperCellsPerPixel) / 0.0254));
+    image.setDotsPerMeterX(dpm);
+    image.setDotsPerMeterY(dpm);
+    image.setText(QString::fromLatin1(kPaperSizeKey), QStringLiteral("%1x%2").arg(paper.width()).arg(paper.height()));
+    QSaveFile out(file);
+    if (!out.open(QIODevice::WriteOnly) || !image.save(&out, "PNG") || !out.commit()) {
+        if (error)
+            *error = out.errorString();
+        return false;
+    }
+    return true;
+}
 
 QString exportFileName(int number)
 {

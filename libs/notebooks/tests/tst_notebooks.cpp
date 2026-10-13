@@ -70,6 +70,30 @@ private slots:
         QCOMPARE(back->updated, nb.updated);
     }
 
+    // HU-142: el de Krita se escribe como versión 2 (un Bocetos anterior no lo abre); el de
+    // Cartuchera sigue en la 1 y sin "app".
+    void laAppDelCuaderno()
+    {
+        QTemporaryDir dir;
+        Notebook nb = diarios();
+        QVERIFY(saveNotebook(dir.path(), nb));
+        QFile file(QDir(dir.path()).filePath(QString::fromLatin1(kNotebookFile)));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QByteArray json = file.readAll();
+        QVERIFY(json.contains("\"version\": 1"));
+        QVERIFY(!json.contains("\"app\""));
+        QCOMPARE(loadNotebook(dir.path())->app, App::Cartuchera);
+        file.close();
+
+        nb.app = App::Krita;
+        QVERIFY(saveNotebook(dir.path(), nb));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        json = file.readAll();
+        QVERIFY(json.contains("\"version\": 2"));
+        QVERIFY(json.contains("\"app\": \"krita\""));
+        QCOMPARE(loadNotebook(dir.path())->app, App::Krita);
+    }
+
     // Los valores del papel son los guardados, no los del papel de partida.
     void elPapelGuardadoManda()
     {

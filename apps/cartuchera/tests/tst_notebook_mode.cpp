@@ -39,6 +39,21 @@ private slots:
         QCOMPARE(sheetArgument({"cartuchera.exe", "--hoja", "C:/x/hoja-0001"}), QStringLiteral("C:/x/hoja-0001"));
         QVERIFY(sheetArgument({"cartuchera.exe"}).isEmpty());
         QVERIFY(sheetArgument({"cartuchera.exe", "--hoja"}).isEmpty());
+        QCOMPARE(paperArgument({"cartuchera.exe", "--papel", "C:/x"}), QStringLiteral("C:/x"));
+        QVERIFY(paperArgument({"cartuchera.exe", "--hoja", "C:/x/hoja-0001"}).isEmpty());
+    }
+
+    // HU-142: las hojas de un cuaderno de Krita no se abren en Cartuchera.
+    void unCuadernoDeKritaNoAbre()
+    {
+        QTemporaryDir root;
+        const QString dir = makeNotebook(root);
+        notebooks::Notebook nb = *notebooks::loadNotebook(dir);
+        nb.app = notebooks::App::Krita;
+        QVERIFY(notebooks::saveNotebook(dir, nb));
+        QString error;
+        QVERIFY(!notebookSheet(notebooks::sheetFolder(dir, 1), &error));
+        QVERIFY(error.contains(QStringLiteral("Krita")));
     }
 
     // La siguiente hoja abre, con el cuaderno y su papel; la carpeta todavía no existe.

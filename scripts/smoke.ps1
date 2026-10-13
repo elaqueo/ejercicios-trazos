@@ -762,7 +762,10 @@ finally {
 # hojas terminadas de tamaño real (7680 × 4800, como las de Cartuchera); AvPág y RePág pasan de hoja
 # en menos de 100 ms (RNF-02), + y − acercan y alejan, Esc vuelve a la biblioteca. HU-138: D dibuja la
 # siguiente hoja en Cartuchera; F11 pantalla completa. HU-145: con --tv apuntando a un TV de mentira
-# (fake_renderer, nunca el de verdad), T manda la hoja, AvPág la siguiente y T corta.
+# (fake_renderer, nunca el de verdad), T manda la hoja, AvPág la siguiente y T corta. HU-142: otra
+# biblioteca con un cuaderno de Krita y el Krita de mentira (--krita fake_krita, nunca el de verdad): D
+# arma el papel con Cartuchera, "dibuja" y guarda en Krita, Bocetos muestra el borrador y Ctrl+Enter,
+# Ctrl+Enter lo terminan.
 $boc = Join-Path $root 'build\release\bocetos.exe'
 $bocLog = Join-Path $data 'bocetos.log'
 if (Get-Process bocetos -ErrorAction SilentlyContinue) { throw 'Bocetos está abierta: cerrarla antes de la prueba' }
@@ -942,6 +945,44 @@ try {
     BoCtrl 0x51 # Ctrl+Q
     Check 'Ctrl+Q cierra Bocetos' $app.WaitForExit(10000) ''
     $app = $null
+
+    # HU-142: el cuaderno de Krita, en su propia biblioteca.
+    $kDir = Join-Path $libDir 'krita\personajes'
+    New-Item -ItemType Directory -Force $kDir | Out-Null
+    @{ version = 2; app = 'krita'; name = 'Personajes en Krita'; collection = ''; cover = '#714765'; maxSheets = 10; started = '2026-10-13'
+       updated = '2026-10-13'; paper = @{ preset = 'tonadoTostado'; color = '#d6c4a1'; grain = 1600; texture = 20 } } |
+        ConvertTo-Json -Depth 4 | Set-Content (Join-Path $kDir 'cuaderno.json') -Encoding utf8
+    $app = Start-Process $boc -ArgumentList '--biblioteca', "`"$(Join-Path $libDir 'krita')`"", '--krita', "`"$(Join-Path $root 'build\release\fake_krita.exe')`"" -PassThru
+    Start-Sleep 3
+    $null = (New-Object -ComObject WScript.Shell).AppActivate($app.Id)
+    Start-Sleep 1
+    BoKey 0x44 # D: el papel (Cartuchera --papel), la hoja y Krita, que guarda y sale
+    foreach ($i in 1..60) {
+        $l = @(Get-Content $bocLog -Encoding utf8) -join ' ' # el log empieza de nuevo con cada Bocetos
+        if ($l -match 'volvió de Krita') { break }
+        Start-Sleep -Milliseconds 250
+    }
+    Start-Sleep 2
+    $null = (New-Object -ComObject WScript.Shell).AppActivate($app.Id)
+    Start-Sleep 1
+    $l = @(Get-Content $bocLog -Encoding utf8) -join ' ' # el log empieza de nuevo con cada Bocetos
+    $sheet1 = Join-Path $kDir 'hoja-0001'
+    Check 'D en un cuaderno de Krita arma el papel, abre la hoja en Krita y, guardada, Bocetos muestra el borrador' `
+        ((Test-Path (Join-Path $kDir 'papel.png')) -and (Test-Path (Join-Path $sheet1 'borrador.png')) -and $l -match 'Bocetos: Krita en .*fake_krita' -and
+         $l -match 'papel listo.*dibujar «Personajes en Krita» · hoja 1 en Krita.*volvió de Krita: hoja 1 en borrador' -and $l -match 'Cuaderno: hoja 1 \(borrador de Krita\) en') $l
+    BoCtrl 0x0D; BoCtrl 0x0D # Ctrl+Enter pregunta; Ctrl+Enter la termina
+    foreach ($i in 1..20) {
+        if (Test-Path (Join-Path $sheet1 'terminada.png')) { break }
+        Start-Sleep -Milliseconds 250
+    }
+    Start-Sleep 1
+    $l = @(Get-Content $bocLog -Encoding utf8) -join ' ' # el log empieza de nuevo con cada Bocetos
+    Check 'Ctrl+Enter y Ctrl+Enter terminan el borrador de Krita y Bocetos muestra la hoja terminada' `
+        ((Test-Path (Join-Path $sheet1 'terminada.png')) -and $l -match 'Krita: confirmar terminar la hoja 1 .*Krita: hoja 1 terminada' -and $l -match 'Cuaderno: hoja 1 en') $l
+    BoCtrl 0x51 # Ctrl+Q
+    if (-not $app.WaitForExit(10000)) { $app.Kill() }
+    $app = $null
+    Get-ChildItem $libDir -Recurse -File | ForEach-Object { $_.IsReadOnly = $false } # el .kra terminado queda de solo lectura
 }
 finally {
     Get-Process cartuchera -ErrorAction SilentlyContinue | Stop-Process -Force # la que lanzó D, si quedó (Bocetos no se cierra mientras se dibuja)

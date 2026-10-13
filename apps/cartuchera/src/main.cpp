@@ -9,16 +9,20 @@
 //   Diagnóstico: --grabar (muestras en <datos>/cartuchera-muestras.csv) · --bench [undo] [costado]
 //   Modo cuaderno (HU-133, Bocetos): --hoja <carpeta> abre esa hoja de un cuaderno con su papel y
 //   la guarda sola; Ctrl+Enter la termina (terminada.png) y cierra; cerrar deja el borrador.
+//   Cuadernos de Krita (HU-142, Bocetos): --papel <carpeta del cuaderno> escribe ahí papel.png (el papel
+//   del cuaderno con su textura, del tamaño de la hoja) y sale, sin ventana.
 
 #include "NotebookMode.h"
 
 #include <appkit/ConfirmOverlay.h>
 #include <appkit/Config.h>
 #include <appkit/Log.h>
+#include <lienzo/Export.h>
 #include <lienzo/Lienzo.h>
 
 #include <QApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QScreen>
 
@@ -29,6 +33,28 @@ int main(int argc, char* argv[])
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("Cartuchera"));
     appkit::installFileLog(QStringLiteral("cartuchera"));
+
+    if (const QString dir = cartuchera::paperArgument(QApplication::arguments()); !dir.isEmpty()) {
+        const std::optional<notebooks::Notebook> nb = notebooks::loadNotebook(dir);
+        if (!nb) {
+            qWarning().noquote() << QStringLiteral("Papel: %1 no es un cuaderno").arg(dir);
+            return 2;
+        }
+        QElapsedTimer time;
+        time.start();
+        const QColor color = nb->paper.color;
+        lienzo::LienzoOptions options;
+        options.paperGrain = nb->paper.grain;
+        const QString file = QDir(dir).filePath(QString::fromLatin1(notebooks::kPaperImage));
+        QString error;
+        if (!lienzo::exportPaper(file, lienzo::sheetPaperSpec(options), lienzo::bgra(color.red(), color.green(), color.blue()),
+                                 nb->paper.texture, &error)) {
+            qWarning().noquote() << QStringLiteral("Papel: no se pudo escribir %1 (%2)").arg(file, error);
+            return 1;
+        }
+        qInfo().noquote() << QStringLiteral("Papel: «%1» · %2 en %3 ms").arg(nb->name, cartuchera::paperName(nb->paper)).arg(time.elapsed());
+        return 0;
+    }
 
     // Monitor y área útil: los de la familia de apps (sección común de config.json), los
     // que se eligen y calibran con F10 y F9 (en cualquiera de las apps).

@@ -27,6 +27,28 @@ QString findCartuchera(const QString& appDir)
     return QFileInfo(path).isFile() ? path : QString();
 }
 
+QString exeOfCommand(const QString& command)
+{
+    const QString c = command.trimmed();
+    if (c.startsWith(QLatin1Char('"'))) {
+        const qsizetype end = c.indexOf(QLatin1Char('"'), 1);
+        return end > 1 ? c.mid(1, end - 1) : QString();
+    }
+    const qsizetype exe = c.indexOf(QStringLiteral(".exe"), 0, Qt::CaseInsensitive);
+    return exe > 0 ? c.left(exe + 4) : c.section(QLatin1Char(' '), 0, 0);
+}
+
+QString findKrita(const QStringList& args, const QString& registryCommand)
+{
+    const qsizetype at = args.indexOf(QStringLiteral("--krita"));
+    if (at >= 0 && at + 1 < args.size())
+        return QFileInfo(args[at + 1]).absoluteFilePath();
+    for (const QString& path : {exeOfCommand(registryCommand), QStringLiteral("C:/Program Files/Krita (x64)/bin/krita.exe")})
+        if (!path.isEmpty() && QFileInfo(path).isFile())
+            return QFileInfo(path).absoluteFilePath();
+    return QString();
+}
+
 Book bookOf(const notebooks::Entry& entry)
 {
     Book book{entry.dir, entry.notebook};
@@ -188,6 +210,7 @@ Draft draftFor(const Book* selected)
         draft.cover = selected->notebook.cover;
         draft.paper = selected->notebook.paper;
         draft.maxSheets = selected->notebook.maxSheets;
+        draft.app = selected->notebook.app;
     }
     return draft;
 }
@@ -200,6 +223,7 @@ notebooks::Notebook notebookFrom(const Draft& draft, const QDate& today)
     nb.cover = draft.cover;
     nb.paper = draft.paper;
     nb.maxSheets = std::clamp(draft.maxSheets, kMinSheets, kMaxSheets);
+    nb.app = draft.app;
     nb.started = today;
     nb.updated = today;
     return nb;
@@ -226,7 +250,13 @@ QList<Page> pagesOf(const QString& dir, const notebooks::Notebook& notebook)
             pages.append(page);
             continue;
         }
-        pages.append(page); // la siguiente: el aviso
+        // La siguiente: el aviso; en un cuaderno de Krita, el borrador se ve (HU-142).
+        const QString draft = QDir(notebooks::sheetFolder(dir, i)).filePath(QString::fromLatin1(notebooks::kDraftImage));
+        if (state == notebooks::SheetState::Draft && notebook.app == notebooks::App::Krita && QFileInfo::exists(draft)) {
+            page.image = draft;
+            page.finished = QFileInfo(draft).lastModified().date();
+        }
+        pages.append(page);
         break;
     }
     return pages;
@@ -300,7 +330,7 @@ QRectF sheetRect(const QSizeF& sheet, const QRectF& area, double zoom, const QPo
     return rect;
 }
 
-DrawPlan drawPlan(const Book& book, const QString& cartuchera)
+DrawPlan drawPlan(const Book& book, const QString& cartuchera, const QString& krita)
 {
     DrawPlan plan;
     const std::optional<int> next = notebooks::nextSheet(book.dir, book.notebook);
@@ -310,10 +340,23 @@ DrawPlan drawPlan(const Book& book, const QString& cartuchera)
     }
     plan.sheet = *next;
     plan.sheetDir = notebooks::sheetFolder(book.dir, *next);
+    if (book.notebook.app == notebooks::App::Krita) {
+        plan.krita = true;
+        plan.kra = QDir(plan.sheetDir).filePath(QString::fromLatin1(notebooks::kKritaFile));
+        plan.needsPaper = !QFileInfo::exists(QDir(book.dir).filePath(QString::fromLatin1(notebooks::kPaperImage)));
+        if (krita.isEmpty())
+            plan.action = DrawAction::NoKrita;
+        else if (plan.needsPaper && cartuchera.isEmpty())
+            plan.action = DrawAction::NoCartuchera;
+        plan.program = krita;
+        plan.args = {QStringLiteral("--nosplash"), QDir::toNativeSeparators(plan.kra)};
+        return plan;
+    }
     if (cartuchera.isEmpty()) {
         plan.action = DrawAction::NoCartuchera;
         return plan;
     }
+    plan.program = cartuchera;
     plan.args = {QStringLiteral("--hoja"), QDir::toNativeSeparators(plan.sheetDir)};
     return plan;
 }
@@ -330,6 +373,15 @@ DrawResult drawResult(const QString& bookDir, int sheet, int exitCode, bool cras
     return state == notebooks::SheetState::Draft ? DrawResult::Draft : DrawResult::Untouched;
 }
 
+DrawResult kritaResult(bool saved, qint64 elapsedMs, bool crashed)
+{
+    if (saved)
+        return DrawResult::Draft; // aunque se haya cerrado de golpe: lo guardado queda
+    if (crashed)
+        return DrawResult::Crashed;
+    return elapsedMs < kKritaQuickMs ? DrawResult::AlreadyOpen : DrawResult::Untouched;
+}
+
 QRectF viewerArea(const QSize& window)
 {
     return QRectF(kViewerMargin, kViewerMargin, std::max(1, window.width() - kViewerBar - 2 * kViewerMargin),
@@ -338,7 +390,7 @@ QRectF viewerArea(const QSize& window)
 
 QImage tvImage(const Page& page, const QColor& paper, const QSize& bound)
 {
-    if (page.state == notebooks::SheetState::Finished) {
+    if (!page.image.isEmpty()) {
         QImageReader reader(page.image);
         const QSize size = reader.size();
         if (size.isValid())

@@ -9,6 +9,7 @@
 #include "lienzo/Tone.h"
 
 #include <appkit/Shortcuts.h>
+#include <drymedia/Paper.h>
 
 #include <windows.h>
 
@@ -83,6 +84,10 @@ struct LienzoOptions {
     // (pan, HU-102).
     bool zoom = false;
 };
+
+// La hoja de estas opciones: el tamaño de la superficie activa de la tableta, a la resolución del
+// perfil y con el grano del papel (HU-142: Cartuchera --papel la usa para el papel de Krita).
+drymedia::PaperSpec sheetPaperSpec(const LienzoOptions& options);
 
 // El lienzo de baja latencia (HU-63, nacido en Cartuchera): una hoja de grafito del tamaño de
 // la superficie activa de la tableta (HU-69) a escala

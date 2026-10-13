@@ -9,6 +9,7 @@
 #include <QImageReader>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPainterPath>
 #include <QScreen>
 
 #include <algorithm>
@@ -103,7 +104,7 @@ void NotebookView::showPage(int page)
     m_waiting = true;
     m_how.clear();
     const Page& p = m_pages[page];
-    if (p.state == SheetState::Finished && !m_sizes.contains(p.image))
+    if (!p.image.isEmpty() && !m_sizes.contains(p.image))
         m_sizes.insert(p.image, QImageReader(p.image).size());
     request();
     update();
@@ -120,12 +121,12 @@ void NotebookView::request()
     QStringList wanted;
     for (int d : {0, 1, -1, 2}) {
         const int i = m_page + d;
-        if (i >= 0 && i < m_pages.size() && m_pages[i].state == SheetState::Finished)
+        if (i >= 0 && i < m_pages.size() && !m_pages[i].image.isEmpty())
             wanted.append(m_pages[i].image);
     }
     const bool full = needFull();
     m_cache.keepOnly(wanted, full ? current.image : QString());
-    if (m_waiting && current.state == SheetState::Finished && !m_cache.get(current.image).isNull())
+    if (m_waiting && !current.image.isEmpty() && !m_cache.get(current.image).isNull())
         m_how = QStringLiteral("precargada");
     if (full)
         m_cache.get(current.image, true);
@@ -149,8 +150,11 @@ void NotebookView::logShown(const QString& how)
 {
     const Page& p = m_pages[m_page];
     const double ms = m_since.nsecsElapsed() / 1e6;
-    if (p.state == SheetState::Finished)
-        qInfo().noquote() << QStringLiteral("Cuaderno: hoja %1 en %2 ms (%3)").arg(p.sheet).arg(ms, 0, 'f', 1).arg(how);
+    if (!p.image.isEmpty())
+        qInfo().noquote() << QStringLiteral("Cuaderno: hoja %1%4 en %2 ms (%3)")
+                                 .arg(p.sheet)
+                                 .arg(ms, 0, 'f', 1)
+                                 .arg(how, p.state == SheetState::Draft ? QStringLiteral(" (borrador de Krita)") : QString());
     else
         qInfo().noquote() << QStringLiteral("Cuaderno: hoja %1 · %2").arg(p.sheet).arg(p.state == SheetState::Draft ? QStringLiteral("borrador") : QStringLiteral("en blanco"));
 }
@@ -162,7 +166,7 @@ QRectF NotebookView::area() const
 
 QSizeF NotebookView::sheetSize() const
 {
-    if (m_page >= 0 && m_pages[m_page].state == SheetState::Finished) {
+    if (m_page >= 0 && !m_pages[m_page].image.isEmpty()) {
         const QSize size = m_sizes.value(m_pages[m_page].image);
         if (size.isValid())
             return size;
@@ -172,7 +176,7 @@ QSizeF NotebookView::sheetSize() const
 
 bool NotebookView::needFull() const
 {
-    if (m_page < 0 || m_pages[m_page].state != SheetState::Finished || m_zoom <= 1.0)
+    if (m_page < 0 || m_pages[m_page].image.isEmpty() || m_zoom <= 1.0)
         return false;
     const QSizeF sheet = sheetSize();
     const double shown = bocetos::sheetRect(sheet, area(), m_zoom, m_pan).width() * devicePixelRatioF();
@@ -224,7 +228,7 @@ void NotebookView::paintEvent(QPaintEvent*)
     p.save();
     p.setClipRect(area);
     QImage image;
-    if (page.state == SheetState::Finished) {
+    if (!page.image.isEmpty()) {
         image = needFull() ? m_cache.peek(page.image, true) : QImage();
         if (image.isNull())
             image = m_cache.peek(page.image);
@@ -234,11 +238,29 @@ void NotebookView::paintEvent(QPaintEvent*)
     else
         p.drawImage(shown, image);
     // RNF-02: cuánto tardó en verse, desde la tecla hasta este pintado.
-    if (m_waiting && (!image.isNull() || page.state != SheetState::Finished)) {
+    if (m_waiting && (!image.isNull() || page.image.isEmpty())) {
         m_waiting = false;
         logShown(m_how);
     }
-    if (page.state != SheetState::Finished) {
+    const bool krita = m_book.notebook.app == notebooks::App::Krita;
+    const QString app = krita ? QStringLiteral("Krita") : QStringLiteral("Cartuchera");
+    if (page.state == SheetState::Draft && !page.image.isEmpty()) {
+        // HU-142: el borrador de Krita se ve, con la marca arriba a la izquierda (mesa "Bocetos ·
+        // cuaderno de Krita").
+        const QFont f = themeFont(false, 13);
+        const QString text = QStringLiteral("borrador");
+        const double w = QFontMetricsF(f).horizontalAdvance(text) + 32;
+        const QRectF chip(std::max(shown.left(), area.left()) + 16, std::max(shown.top(), area.top()) + 14, w, 24);
+        QPainterPath path;
+        path.addRoundedRect(chip, 12, 12);
+        p.fillPath(path, QColor(23, 25, 28, 184));
+        p.setPen(Qt::NoPen);
+        p.setBrush(theme::kSeleccionTexto);
+        p.drawEllipse(QPointF(chip.left() + 13, chip.center().y()), 3, 3);
+        p.setFont(f);
+        p.setPen(theme::kSeleccionTexto);
+        p.drawText(chip.adjusted(22, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, text);
+    } else if (page.state != SheetState::Finished) {
         QColor ink(0x2A, 0x2A, 0x2A);
         p.setFont(themeFont(false, 22, QFont::DemiBold));
         p.setPen(ink);
@@ -251,8 +273,8 @@ void NotebookView::paintEvent(QPaintEvent*)
         p.setPen(ink);
         p.setFont(themeFont(false, 16));
         p.drawText(mid.translated(0, 40), Qt::AlignCenter,
-                   page.state == SheetState::Draft ? QStringLiteral("Empezada en Cartuchera: se sigue desde ahí")
-                   : none                          ? QStringLiteral("Todavía no hay hojas: dibujá la primera en Cartuchera")
+                   page.state == SheetState::Draft ? QStringLiteral("Empezada en %1: se sigue desde ahí").arg(app)
+                   : none                          ? QStringLiteral("Todavía no hay hojas: dibujá la primera en %1").arg(app)
                                                    : QStringLiteral("La siguiente que vas a dibujar"));
     }
     p.restore();
@@ -272,7 +294,7 @@ void NotebookView::paintEvent(QPaintEvent*)
     };
     QFont label = themeFont(false, 12, QFont::DemiBold);
     label.setLetterSpacing(QFont::AbsoluteSpacing, 1);
-    line(QStringLiteral("CUADERNO"), label, theme::kTextoSecundario, 18);
+    line(krita ? QStringLiteral("CUADERNO · KRITA") : QStringLiteral("CUADERNO"), label, theme::kTextoSecundario, 18);
     y += 12;
     const QRectF swatch(left, y, 22, 30);
     p.fillRect(swatch, m_book.notebook.cover.isValid() ? m_book.notebook.cover : QColor(0x4A, 0x50, 0x59));
@@ -287,8 +309,10 @@ void NotebookView::paintEvent(QPaintEvent*)
         line(QStringLiteral("terminada el %1").arg(bocetos::longDate(page.finished)), themeFont(false, 14), theme::kTextoSecundario, 22);
     } else {
         line(QStringLiteral("hoja %1").arg(page.sheet), themeFont(true, 15), theme::kSeleccionTexto, 22);
-        line(page.state == SheetState::Draft ? QStringLiteral("borrador") : QStringLiteral("en blanco"), themeFont(false, 14),
-             theme::kTextoSecundario, 22);
+        const QString state = page.state != SheetState::Draft ? QStringLiteral("en blanco")
+                              : page.image.isEmpty()        ? QStringLiteral("borrador")
+                                                            : QStringLiteral("borrador del %1").arg(bocetos::longDate(page.finished));
+        line(state, themeFont(false, 14), theme::kTextoSecundario, 22);
     }
     y += 18;
     p.fillRect(QRectF(left, y, inner, 1), theme::kBorde);
@@ -323,7 +347,11 @@ void NotebookView::paintEvent(QPaintEvent*)
                       {{QStringLiteral("Acercar"), QStringLiteral("Alejar")},
                        m_zoom > 1.0 ? QStringLiteral("zoom %1 %").arg(std::lround(m_zoom * 100)) : QStringLiteral("zoom")}};
     if (m_pages.last().state != SheetState::Finished) // HU-138; lleno, no hay siguiente
-        hints.append({{QStringLiteral("Dibujar la siguiente hoja")}, QStringLiteral("dibujar la hoja %1").arg(m_pages.last().sheet)});
+        hints.append({{QStringLiteral("Dibujar la siguiente hoja")},
+                      krita && m_pages.last().state == SheetState::Draft ? QStringLiteral("seguir en Krita")
+                                                                          : QStringLiteral("dibujar la hoja %1").arg(m_pages.last().sheet)});
+    if (krita && page.state == SheetState::Draft) // HU-142: el borrador de Krita se termina acá
+        hints.append({{QStringLiteral("Terminar la hoja")}, QStringLiteral("terminar la hoja %1").arg(page.sheet)});
     hints.append({{QStringLiteral("Mostrar en el TV")}, tvOn ? QStringLiteral("cortar el TV") : QStringLiteral("mostrar en el TV")});
     hints.append({{QStringLiteral("Volver a la biblioteca")}, QStringLiteral("biblioteca")});
     double ky = height() - 28 - hints.size() * 38 + 10;

@@ -12,6 +12,12 @@ QString sheetArgument(const QStringList& args)
     return at >= 0 && at + 1 < args.size() ? args[at + 1] : QString();
 }
 
+QString paperArgument(const QStringList& args)
+{
+    const qsizetype at = args.indexOf(QStringLiteral("--papel"));
+    return at >= 0 && at + 1 < args.size() ? args[at + 1] : QString();
+}
+
 std::optional<NotebookSheet> notebookSheet(const QString& sheetDir, QString* error)
 {
     const auto fail = [&](const QString& why) {
@@ -34,6 +40,8 @@ std::optional<NotebookSheet> notebookSheet(const QString& sheetDir, QString* err
                         ? QStringLiteral("el cuaderno de %1 es de una versión más nueva").arg(sheet.notebookDir)
                         : QStringLiteral("%1 no es un cuaderno").arg(sheet.notebookDir));
     sheet.notebook = *nb;
+    if (nb->app != notebooks::App::Cartuchera)
+        return fail(QStringLiteral("«%1» es un cuaderno de Krita: sus hojas se dibujan en Krita").arg(nb->name));
     if (sheet.index < 1 || sheet.index > nb->maxSheets)
         return fail(QStringLiteral("la hoja %1 no existe (el cuaderno tiene %2)").arg(sheet.index).arg(nb->maxSheets));
     if (notebooks::sheetState(sheet.notebookDir, sheet.index) == notebooks::SheetState::Finished)

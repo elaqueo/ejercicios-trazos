@@ -157,13 +157,15 @@ QScreen* savedScreen(const appkit::Config& config)
     return appkit::savedScreen(config); // HU-134: vive en appkit
 }
 
+drymedia::PaperSpec sheetPaperSpec(const LienzoOptions& options)
+{
+    return {.widthMm = kTabletWidthMm, .heightMm = kTabletHeightMm, .dpi = profileDpi(options.profile), .grain = options.paperGrain};
+}
+
 struct Lienzo::Impl {
     explicit Impl(LienzoOptions o)
         : options(std::move(o))
-        , paper({.widthMm = kTabletWidthMm,
-                 .heightMm = kTabletHeightMm,
-                 .dpi = profileDpi(options.profile),
-                 .grain = options.paperGrain})
+        , paper(sheetPaperSpec(options))
     {
     }
     LienzoOptions options;

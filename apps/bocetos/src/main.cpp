@@ -1,10 +1,11 @@
 // Bocetos (docs/bocetos/): la biblioteca de cuadernos de bocetos, en una ventana común. Cada hoja se dibuja en
-// Cartuchera (--hoja, HU-133) y vuelve al cuaderno terminada. Una app Qt común: no enlaza el
-// lienzo (RNF-06).
+// Cartuchera (--hoja, HU-133) y vuelve al cuaderno terminada; en un cuaderno de Krita (HU-142), en Krita, y
+// se termina acá. Una app Qt común: no enlaza el lienzo (RNF-06).
 //   Ctrl+, atajos · F10 monitor siguiente · Ctrl+Q sale
 //   --biblioteca <carpeta>: los cuadernos de esa carpeta en lugar de Documentos\Trazos\Bocetos
 //   (la prueba de la app real, para no tocar los del usuario).
 //   --tv <url>: T usa ese TV (la descripción UPnP) sin buscar en la red (el TV de mentira, HU-145).
+//   --krita <exe>: los cuadernos de Krita (HU-142) se dibujan con ese exe (el Krita de mentira).
 
 #include "BocetosCore.h"
 #include "LibraryWindow.h"
@@ -18,6 +19,7 @@
 
 #include <QApplication>
 #include <QScreen>
+#include <QSettings>
 #include <QStyle>
 
 #include <algorithm>
@@ -66,6 +68,15 @@ int main(int argc, char* argv[])
         if (!window.isFullScreen())
             saveGeometry();
     });
+    // HU-142: Krita, el que abre los .kra.
+    const QString krita = bocetos::findKrita(
+        QApplication::arguments(),
+        QSettings(QStringLiteral("HKEY_CLASSES_ROOT\\Krita.Document\\shell\\open\\command"), QSettings::NativeFormat).value(QStringLiteral("Default")).toString());
+    if (krita.isEmpty())
+        qInfo() << "Bocetos: Krita no está instalado";
+    else
+        qInfo().noquote() << QStringLiteral("Bocetos: Krita en %1").arg(krita);
+    window.setKrita(krita);
     window.setLibrary(root, cartuchera); // con el ancho de la ventana, para acomodar los libros
     if (const QUrl tv = bocetos::tvArgument(QApplication::arguments()); tv.isValid()) {
         window.setTvForced(tv);
@@ -106,6 +117,8 @@ int main(int argc, char* argv[])
     shortcuts.joinWithPrevious(QStringLiteral("Acercar y alejar"));
     shortcuts.note(QStringLiteral("Arrastrar"), QStringLiteral("Mover la hoja acercada"));
     shortcuts.add(QStringLiteral("Volver a la biblioteca"), {{VK_ESCAPE}}, [&] { window.closeNotebook(); });
+    // HU-142: el borrador de un cuaderno de Krita se termina acá.
+    shortcuts.add(QStringLiteral("Terminar la hoja"), {{VK_RETURN, true}}, [&] { window.finishSheet(); });
     // HU-145: la hoja en el TV de la red (DLNA).
     shortcuts.add(QStringLiteral("Mostrar en el TV"), {{'T'}}, [&] { window.toggleTv(); });
 

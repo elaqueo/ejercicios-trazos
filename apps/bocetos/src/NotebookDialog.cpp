@@ -14,6 +14,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
+#include <QPushButton>
 #include <QRandomGenerator>
 #include <QSlider>
 #include <QSpinBox>
@@ -150,6 +151,10 @@ NotebookDialog::NotebookDialog(QWidget* parent)
         QSlider::sub-page:horizontal { background: #E08A1E; border-radius: 2px; }
         QSlider::handle:horizontal { width: 16px; margin: -6px 0; border-radius: 8px; background: #E08A1E; }
         QSlider::sub-page:horizontal:disabled, QSlider::handle:horizontal:disabled { background: %4; }
+        QPushButton#app { background: %6; border: 1px solid %2; border-radius: 8px; text-align: left; }
+        QPushButton#app:checked { background: %8; border-color: %5; }
+        QPushButton#app:focus { border: 2px solid %3; }
+        QPushButton#app:checked:focus { border: 2px solid %5; }
     )")
                                .arg(css(theme::kPanel), css(theme::kBorde), css(theme::kTexto), css(theme::kTextoSecundario),
                                     css(theme::kSeleccionTexto), css(theme::kPanelAlto), QString::fromLatin1(theme::kFuenteMono),
@@ -209,6 +214,42 @@ NotebookDialog::NotebookDialog(QWidget* parent)
     covers->addStretch();
     layout->addLayout(covers);
 
+    // HU-142: con qué app se dibuja (mesa "Bocetos · cuaderno nuevo").
+    auto* appsCol = new QVBoxLayout;
+    appsCol->setSpacing(8);
+    appsCol->addWidget(fieldLabel(QStringLiteral("Dibujar en"), m_panel));
+    auto* appsRow = new QHBoxLayout;
+    appsRow->setSpacing(10);
+    m_apps = new QButtonGroup(this);
+    m_apps->setExclusive(true);
+    const QString notes[] = {QStringLiteral("grafito, con el motor de la suite"), QStringLiteral("sus pinceles, sobre el papel del cuaderno")};
+    for (int i = 0; i < 2; ++i) {
+        auto* b = new QPushButton(m_panel);
+        b->setObjectName(QStringLiteral("app"));
+        b->setCheckable(true);
+        b->setMinimumHeight(58);
+        auto* inner = new QVBoxLayout(b);
+        inner->setContentsMargins(14, 8, 14, 8);
+        inner->setSpacing(2);
+        auto* name = new QLabel(i == 0 ? QStringLiteral("Cartuchera") : QStringLiteral("Krita"), b);
+        auto* note = new QLabel(notes[i], b);
+        note->setObjectName(QStringLiteral("hint"));
+        for (QLabel* l : {name, note}) {
+            l->setAttribute(Qt::WA_TransparentForMouseEvents);
+            inner->addWidget(l);
+        }
+        m_apps->addButton(b, i);
+        m_appButtons.append(b);
+        m_appNames.append(name);
+        m_appNotes.append(note);
+        appsRow->addWidget(b, 1);
+    }
+    appsCol->addLayout(appsRow);
+    auto* appsHint = new QLabel(QStringLiteral("Un cuaderno es de una sola app: no cambia después."), m_panel);
+    appsHint->setObjectName(QStringLiteral("hint"));
+    appsCol->addWidget(appsHint);
+    layout->addLayout(appsCol);
+
     auto* line = new QFrame(m_panel);
     line->setFixedHeight(1);
     line->setStyleSheet(QStringLiteral("background: %1;").arg(css(theme::kBorde)));
@@ -219,7 +260,7 @@ NotebookDialog::NotebookDialog(QWidget* parent)
     auto* paperCol = new QVBoxLayout;
     paperCol->setSpacing(6);
     paperCol->addWidget(fieldLabel(QStringLiteral("Papel"), m_panel));
-    auto* paperHint = new QLabel(QStringLiteral("El de Cartuchera. No cambia después."), m_panel);
+    auto* paperHint = new QLabel(QStringLiteral("El de Cartuchera; en Krita, el fondo de cada hoja."), m_panel);
     paperHint->setObjectName(QStringLiteral("hint"));
     paperCol->addWidget(paperHint);
     m_paper = new QComboBox(m_panel);
@@ -259,6 +300,7 @@ NotebookDialog::NotebookDialog(QWidget* parent)
     layout->addWidget(m_footer);
 
     connect(m_paper, &QComboBox::activated, this, [this](int index) { applyPreset(index); });
+    connect(m_apps, &QButtonGroup::idToggled, this, [this] { updateApps(); });
     connect(m_grain, &QSlider::valueChanged, this, [this] { updateSample(); });
     connect(m_texture, &QSlider::valueChanged, this, [this] { updateSample(); });
 }
@@ -288,9 +330,11 @@ void NotebookDialog::open(Mode mode, const bocetos::Draft& draft, const QStringL
     m_paper->setCurrentIndex(std::max(0, m_paper->findData(draft.paper.preset)));
     m_grain->setValue(draft.paper.grain);
     m_texture->setValue(draft.paper.texture);
-    // Al editar, el papel y las hojas no cambian (las hojas ya dibujadas son de ese papel).
-    for (QWidget* w : std::initializer_list<QWidget*>{m_sheets, m_paper, m_grain, m_texture})
+    m_apps->button(draft.app == notebooks::App::Krita ? 1 : 0)->setChecked(true);
+    // Al editar, el papel, las hojas y la app no cambian (las hojas ya dibujadas son de ese papel).
+    for (QWidget* w : std::initializer_list<QWidget*>{m_sheets, m_paper, m_grain, m_texture, m_appButtons[0], m_appButtons[1]})
         w->setEnabled(create);
+    updateApps();
     updateSample();
     setGeometry(parentWidget()->rect());
     show();
@@ -314,7 +358,21 @@ bocetos::Draft NotebookDialog::draft() const
     d.paper.grain = m_grain->value();
     d.paper.texture = m_texture->value();
     d.maxSheets = m_sheets->value();
+    d.app = m_apps->checkedId() == 1 ? notebooks::App::Krita : notebooks::App::Cartuchera;
     return d;
+}
+
+void NotebookDialog::setKritaFound(bool found)
+{
+    m_appNotes[1]->setText(found ? QStringLiteral("sus pinceles, sobre el papel del cuaderno")
+                                 : QStringLiteral("no está instalado: no se va a poder dibujar"));
+}
+
+void NotebookDialog::updateApps()
+{
+    for (int i = 0; i < m_appNames.size(); ++i)
+        m_appNames[i]->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: 500; color: %1;")
+                                         .arg(css(m_appButtons[i]->isChecked() ? theme::kSeleccionTexto : theme::kTexto)));
 }
 
 void NotebookDialog::applyPreset(int index)

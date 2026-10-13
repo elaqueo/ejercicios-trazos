@@ -49,6 +49,16 @@ constexpr const char* kExportFolder = "export";
 // "0001.png" (number desde 1) o "fija.png" (0).
 QString exportFileName(int number);
 
+// HU-142 (Bocetos, cuadernos de Krita): el papel solo, del color del papel y con su textura (HU-75)
+// como se ve en el lienzo, a 4 celdas por píxel (un cuarto de la resolución de la hoja: la textura
+// es de esa escala, y la hoja entera tardaba 11 s en comprimirse a PNG) con la luz de siempre (arriba
+// a la izquierda). Krita la agranda al tamaño de la hoja, que va en el PNG como texto
+// (kPaperSizeKey, "7679x4877"). Con textura 0, el color liso.
+inline constexpr int kPaperCellsPerPixel = 4;
+inline constexpr const char* kPaperSizeKey = "Trazos-hoja";
+bool exportPaper(const QString& file, const drymedia::PaperSpec& spec, uint32_t paperColor, int texturePercent,
+                 QString* error = nullptr);
+
 // Escribe la exportación: primero borra los PNG y el toma.json que haya en dir (una hoja
 // borrada no queda), después las hojas (progress(hechas, total) después de cada una, desde
 // el hilo que llama) y al final toma.json. cancel (opcional) la corta entre hojas.

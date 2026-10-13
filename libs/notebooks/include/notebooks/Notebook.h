@@ -12,9 +12,19 @@
 // cuaderno; no depende del lienzo. El formato está en docs/bocetos/arquitectura.md.
 namespace notebooks {
 
-inline constexpr int kNotebookVersion = 1;
+// 2: los cuadernos de Krita (HU-142), para que un Bocetos anterior no los abra en Cartuchera; los
+// de Cartuchera se siguen escribiendo como 1.
+inline constexpr int kNotebookVersion = 2;
 inline constexpr const char* kNotebookFile = "cuaderno.json";
 inline constexpr const char* kFinishedImage = "terminada.png";
+// HU-142, cuadernos de Krita: el papel (en la carpeta del cuaderno), la hoja de Krita y lo último
+// que se guardó en Krita (en la carpeta de la hoja).
+inline constexpr const char* kPaperImage = "papel.png";
+inline constexpr const char* kKritaFile = "hoja.kra";
+inline constexpr const char* kDraftImage = "borrador.png";
+
+// Con qué app se dibujan las hojas (HU-142): se elige al crear el cuaderno y no cambia.
+enum class App { Cartuchera, Krita };
 
 // El papel del cuaderno: de qué papel partió (preset) y los valores reales, que son los que
 // valen; si un papel de partida cambia, los cuadernos que ya existen no.
@@ -36,6 +46,7 @@ struct Notebook {
     QColor cover;
     Paper paper = paperPreset(QStringLiteral("crema"));
     int maxSheets = 40;
+    App app = App::Cartuchera;
     QDate started;
     QDate updated;
 };

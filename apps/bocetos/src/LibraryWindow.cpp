@@ -1,5 +1,6 @@
 #include "LibraryWindow.h"
 
+#include "Kra.h"
 #include "NotebookDialog.h"
 #include "NotebookView.h"
 #include "Notice.h"
@@ -13,6 +14,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QElapsedTimer>
 #include <QFont>
 #include <QFontMetricsF>
@@ -193,6 +195,35 @@ LibraryWindow::LibraryWindow(appkit::Shortcuts& shortcuts, appkit::Config& confi
         qInfo().noquote() << QStringLiteral("Bocetos: editado «%1» · colección «%2»").arg(nb->name, nb->collection);
         reload(QDir(m_editing).dirName());
     };
+    // HU-142: terminar el borrador de Krita (mesa "Bocetos · terminar en Krita").
+    m_finish = new appkit::ConfirmOverlay(this);
+    m_finish->onCancel = [this] {
+        qInfo() << "Krita: terminar cancelado";
+        activateWindow();
+        setFocus();
+    };
+    m_finish->onConfirm = [this] {
+        activateWindow();
+        setFocus();
+        const NotebookView* view = openNotebook();
+        const bocetos::Page* page = view ? view->currentPage() : nullptr;
+        if (!page)
+            return;
+        const QString dir = view->book().dir;
+        const int sheet = page->sheet;
+        QString error;
+        if (!bocetos::finishKritaSheet(dir, sheet, QDate::currentDate(), &error)) {
+            qWarning().noquote() << QStringLiteral("Krita: la hoja %1 no se pudo terminar: %2").arg(sheet).arg(error);
+            m_notice->warn(QStringLiteral("La hoja %1 no se pudo terminar").arg(sheet), error);
+            return;
+        }
+        qInfo().noquote() << QStringLiteral("Krita: hoja %1 terminada").arg(sheet);
+        m_view->hide();
+        m_view->release();
+        reload(QDir(dir).dirName());
+        openSelected();
+        m_view->showSheet(sheet);
+    };
     m_confirm = new appkit::ConfirmOverlay(this);
     m_confirm->onCancel = [this] {
         qInfo() << "Bocetos: borrar cancelado";
@@ -222,7 +253,13 @@ LibraryWindow::LibraryWindow(appkit::Shortcuts& shortcuts, appkit::Config& confi
 
 bool LibraryWindow::dialogOpen() const
 {
-    return m_dialog->isVisible() || m_confirm->isVisible();
+    return m_dialog->isVisible() || m_confirm->isVisible() || m_finish->isVisible();
+}
+
+void LibraryWindow::setKrita(const QString& krita)
+{
+    m_krita = krita;
+    m_dialog->setKritaFound(!krita.isEmpty());
 }
 
 NotebookView* LibraryWindow::openNotebook() const
@@ -263,6 +300,7 @@ void LibraryWindow::editSelected(bool focusCollection)
     draft.cover = book->notebook.cover;
     draft.paper = book->notebook.paper;
     draft.maxSheets = book->notebook.maxSheets;
+    draft.app = book->notebook.app;
     m_dialog->open(NotebookDialog::Mode::Edit, draft, bocetos::collectionsOf(m_shelves), focusCollection);
     qInfo().noquote() << QStringLiteral("Bocetos: editar «%1» (diálogo)").arg(book->notebook.name);
 }
@@ -354,6 +392,10 @@ void LibraryWindow::openSelected()
     if (!book || openNotebook())
         return;
     qInfo().noquote() << QStringLiteral("Bocetos: abrir «%1»").arg(book->notebook.name);
+    // HU-142: lo último que se guardó en Krita (también si se guardó con Bocetos ya de vuelta).
+    if (book->notebook.app == notebooks::App::Krita && book->draft)
+        if (const std::optional<int> next = notebooks::nextSheet(book->dir, book->notebook))
+            bocetos::refreshDraft(notebooks::sheetFolder(book->dir, *next));
     m_view->setGeometry(rect());
     m_view->open(*book);
     m_view->show();
@@ -366,7 +408,7 @@ void LibraryWindow::draw()
     const Book* book = selectedBook();
     if (!book || dialogOpen() || m_drawing.sheet)
         return;
-    const bocetos::DrawPlan plan = bocetos::drawPlan(*book, m_cartuchera);
+    const bocetos::DrawPlan plan = bocetos::drawPlan(*book, m_cartuchera, m_krita);
     if (plan.action == bocetos::DrawAction::Full) { // seguir en uno nuevo (HU-136)
         if (openNotebook()) {
             m_view->hide();
@@ -377,27 +419,94 @@ void LibraryWindow::draw()
     }
     if (plan.action == bocetos::DrawAction::NoCartuchera) {
         qWarning() << "Bocetos: no se puede dibujar: no está cartuchera.exe junto a bocetos.exe";
-        m_notice->warn(QStringLiteral("No se puede dibujar"), QStringLiteral("No está cartuchera.exe junto a bocetos.exe."));
+        m_notice->warn(QStringLiteral("No se puede dibujar"),
+                       plan.krita ? QStringLiteral("El papel de las hojas de Krita lo arma Cartuchera, y no está cartuchera.exe junto a bocetos.exe.")
+                                  : QStringLiteral("No está cartuchera.exe junto a bocetos.exe."));
+        return;
+    }
+    if (plan.action == bocetos::DrawAction::NoKrita) {
+        qWarning() << "Bocetos: no se puede dibujar: no está Krita";
+        m_notice->warn(QStringLiteral("No se puede dibujar"), QStringLiteral("«%1» es un cuaderno de Krita y Krita no está instalado.").arg(book->notebook.name));
         return;
     }
     m_drawing = {book->dir, book->notebook.name, plan.sheet};
+    m_drawing.krita = plan.krita;
+    m_drawing.kra = plan.kra;
+    if (plan.needsPaper)
+        preparePaper(plan);
+    else
+        launch(plan);
+}
+
+// HU-142: el papel del cuaderno de Krita lo arma Cartuchera (tiene el motor del papel) una sola vez.
+void LibraryWindow::preparePaper(const bocetos::DrawPlan& plan)
+{
+    auto* process = new QProcess(this);
+    connect(process, &QProcess::finished, this, [this, process, plan](int code, QProcess::ExitStatus status) {
+        process->deleteLater();
+        if (code != 0 || status == QProcess::CrashExit) {
+            m_drawing.sheet = 0;
+            m_notice->hide();
+            qWarning().noquote() << QStringLiteral("Bocetos: Cartuchera no armó el papel (código %1)").arg(code);
+            m_notice->warn(QStringLiteral("No se pudo preparar el papel"), QStringLiteral("El motivo quedó en cartuchera.log."));
+            return;
+        }
+        qInfo() << "Bocetos: papel listo";
+        launch(plan);
+    });
+    connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart)
+            return;
+        process->deleteLater();
+        m_drawing.sheet = 0;
+        m_notice->warn(QStringLiteral("No arrancó Cartuchera"), process->errorString());
+    });
+    qInfo().noquote() << QStringLiteral("Bocetos: preparar el papel de «%1»").arg(m_drawing.name);
+    m_notice->busy(QStringLiteral("Preparando el papel"), QStringLiteral("%1: el papel de las hojas de Krita, una sola vez.").arg(m_drawing.name));
+    process->start(m_cartuchera, {QStringLiteral("--papel"), QDir::toNativeSeparators(m_drawing.dir)});
+}
+
+void LibraryWindow::launch(const bocetos::DrawPlan& plan)
+{
+    const QString app = plan.krita ? QStringLiteral("Krita") : QStringLiteral("Cartuchera");
+    if (plan.krita) {
+        // La hoja nueva: su carpeta y el .kra con el papel.
+        m_drawing.newSheet = !QFileInfo::exists(plan.kra);
+        if (m_drawing.newSheet) {
+            QString error;
+            if (!QDir().mkpath(plan.sheetDir) ||
+                !bocetos::writeKra(plan.kra, QDir(m_drawing.dir).filePath(QString::fromLatin1(notebooks::kPaperImage)), &error)) {
+                qWarning().noquote() << QStringLiteral("Bocetos: no se pudo escribir %1 (%2)").arg(plan.kra, error);
+                QDir(plan.sheetDir).removeRecursively();
+                m_drawing.sheet = 0;
+                m_notice->hide();
+                m_notice->warn(QStringLiteral("No se pudo preparar la hoja %1").arg(plan.sheet), error);
+                return;
+            }
+        }
+        m_drawing.before = QFileInfo(plan.kra).lastModified();
+        m_drawing.open.start();
+    }
     auto* process = new QProcess(this);
     connect(process, &QProcess::finished, this, [this, process](int code, QProcess::ExitStatus status) {
         process->deleteLater();
         drawn(code, status == QProcess::CrashExit);
     });
-    connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError error) {
+    connect(process, &QProcess::errorOccurred, this, [this, process, app](QProcess::ProcessError error) {
         if (error != QProcess::FailedToStart)
             return; // el resto llega también por finished
         process->deleteLater();
         m_drawing.sheet = 0;
-        qWarning().noquote() << QStringLiteral("Bocetos: no arrancó Cartuchera (%1)").arg(process->errorString());
-        m_notice->warn(QStringLiteral("No arrancó Cartuchera"), process->errorString());
+        qWarning().noquote() << QStringLiteral("Bocetos: no arrancó %1 (%2)").arg(app, process->errorString());
+        m_notice->warn(QStringLiteral("No arrancó %1").arg(app), process->errorString());
     });
-    qInfo().noquote() << QStringLiteral("Bocetos: dibujar «%1» · hoja %2 en Cartuchera").arg(book->notebook.name).arg(plan.sheet);
-    m_notice->busy(QStringLiteral("Dibujando en Cartuchera"),
-                   QStringLiteral("%1 · hoja %2. Ctrl+Enter la termina; al cerrar Cartuchera se vuelve acá.").arg(book->notebook.name).arg(plan.sheet));
-    process->start(m_cartuchera, plan.args);
+    qInfo().noquote() << QStringLiteral("Bocetos: dibujar «%1» · hoja %2 en %3").arg(m_drawing.name).arg(plan.sheet).arg(app);
+    m_notice->busy(QStringLiteral("Dibujando en %1").arg(app),
+                   plan.krita ? QStringLiteral("%1 · hoja %2. Guardá con Ctrl+S; al cerrar Krita se vuelve acá y se termina con Ctrl+Enter.")
+                                    .arg(m_drawing.name)
+                                    .arg(plan.sheet)
+                              : QStringLiteral("%1 · hoja %2. Ctrl+Enter la termina; al cerrar Cartuchera se vuelve acá.").arg(m_drawing.name).arg(plan.sheet));
+    process->start(plan.program, plan.args);
 }
 
 void LibraryWindow::drawn(int exitCode, bool crashed)
@@ -405,12 +514,26 @@ void LibraryWindow::drawn(int exitCode, bool crashed)
     const Drawing drawing = m_drawing;
     m_drawing.sheet = 0;
     m_notice->hide();
-    const bocetos::DrawResult result = bocetos::drawResult(drawing.dir, drawing.sheet, exitCode, crashed);
-    static const char* const names[] = {"terminada", "en borrador", "sin tocar", "no se abrió", "se cerró de golpe"};
-    qInfo().noquote() << QStringLiteral("Bocetos: volvió de Cartuchera: hoja %1 %2 (código %3)")
+    bocetos::DrawResult result;
+    if (drawing.krita) { // HU-142: lo que se guardó en Krita es el borrador
+        const bool saved = QFileInfo(drawing.kra).lastModified() > drawing.before;
+        if (saved)
+            bocetos::refreshDraft(QFileInfo(drawing.kra).absolutePath());
+        result = bocetos::kritaResult(saved, drawing.open.elapsed(), crashed);
+        // Una hoja nueva que se cerró sin guardar no deja carpeta: sigue vacía.
+        if (drawing.newSheet && (result == bocetos::DrawResult::Untouched || result == bocetos::DrawResult::Crashed)) {
+            QDir(QFileInfo(drawing.kra).absolutePath()).removeRecursively();
+            qInfo().noquote() << QStringLiteral("Bocetos: hoja %1 cerrada sin guardar: sigue vacía").arg(drawing.sheet);
+        }
+    } else {
+        result = bocetos::drawResult(drawing.dir, drawing.sheet, exitCode, crashed);
+    }
+    static const char* const names[] = {"terminada", "en borrador", "sin tocar", "no se abrió", "se cerró de golpe", "Krita ya estaba abierto"};
+    qInfo().noquote() << QStringLiteral("Bocetos: volvió de %4: hoja %1 %2 (código %3)")
                              .arg(drawing.sheet)
                              .arg(QLatin1String(names[int(result)]))
-                             .arg(exitCode);
+                             .arg(exitCode)
+                             .arg(drawing.krita ? QStringLiteral("Krita") : QStringLiteral("Cartuchera"));
     // Relee el cuaderno (la tapa, las fechas, la hoja nueva) y vuelve a donde estaba; si la hoja
     // quedó terminada, la muestra.
     const bool wasOpen = openNotebook() != nullptr;
@@ -419,12 +542,18 @@ void LibraryWindow::drawn(int exitCode, bool crashed)
         m_view->release();
     }
     reload(QDir(drawing.dir).dirName());
-    if (result == bocetos::DrawResult::Finished || wasOpen) {
+    if (result == bocetos::DrawResult::Finished || (drawing.krita && result == bocetos::DrawResult::Draft) || wasOpen) {
         openSelected();
         m_view->showSheet(drawing.sheet);
     }
     if (result == bocetos::DrawResult::Refused)
         m_notice->warn(QStringLiteral("Cartuchera no abrió la hoja %1").arg(drawing.sheet), QStringLiteral("El motivo quedó en cartuchera.log."));
+    else if (result == bocetos::DrawResult::AlreadyOpen)
+        m_notice->warn(QStringLiteral("Krita ya estaba abierto"),
+                       QStringLiteral("La hoja %1 se abrió en ese Krita: dibujala y guardala ahí (Ctrl+S); Bocetos la toma al abrir el cuaderno.")
+                           .arg(drawing.sheet));
+    else if (result == bocetos::DrawResult::Crashed && drawing.krita)
+        m_notice->warn(QStringLiteral("Krita se cerró de golpe"), QStringLiteral("La hoja %1 no se había guardado.").arg(drawing.sheet));
     else if (result == bocetos::DrawResult::Crashed)
         m_notice->warn(QStringLiteral("Cartuchera se cerró de golpe"),
                        notebooks::sheetState(drawing.dir, drawing.sheet) == notebooks::SheetState::Draft
@@ -433,6 +562,27 @@ void LibraryWindow::drawn(int exitCode, bool crashed)
     raise();
     activateWindow();
     setFocus();
+}
+
+void LibraryWindow::finishSheet()
+{
+    NotebookView* view = openNotebook();
+    if (!view || dialogOpen() || m_drawing.sheet || view->book().notebook.app != notebooks::App::Krita)
+        return;
+    const bocetos::Page* page = view->currentPage();
+    if (!page || page->state != notebooks::SheetState::Draft)
+        return;
+    const bool blank = !bocetos::refreshDraft(notebooks::sheetFolder(view->book().dir, page->sheet));
+    m_finish->ask(blank ? QStringLiteral("¿Terminar la hoja %1 en blanco?").arg(page->sheet) : QStringLiteral("¿Terminar la hoja %1?").arg(page->sheet),
+                  blank ? QStringLiteral("Nunca se guardó en Krita: queda el papel solo, cerrada en el cuaderno.")
+                        : QStringLiteral("Queda como se ve, cerrada en el cuaderno: ya no se sigue en Krita."),
+                  Qt::Key_Return, QStringLiteral("Ctrl+Enter"), QStringLiteral("la termina"), Qt::ControlModifier);
+    m_finish->move(mapToGlobal(rect().center() - QPoint(m_finish->width() / 2, m_finish->height() / 2)));
+    m_finish->show();
+    m_finish->raise();
+    m_finish->activateWindow();
+    m_finish->setFocus();
+    qInfo().noquote() << QStringLiteral("Krita: confirmar terminar la hoja %1%2").arg(page->sheet).arg(blank ? QStringLiteral(" en blanco") : QString());
 }
 
 void LibraryWindow::toggleTv()
@@ -454,7 +604,7 @@ void LibraryWindow::closeEvent(QCloseEvent* event)
 {
     // Cerrar Bocetos mataría a Cartuchera (QProcess) con la hoja abierta: primero se cierra ella.
     if (m_drawing.sheet) {
-        qInfo() << "Bocetos: no se cierra mientras se dibuja en Cartuchera";
+        qInfo() << "Bocetos: no se cierra mientras se dibuja";
         event->ignore();
         return;
     }
