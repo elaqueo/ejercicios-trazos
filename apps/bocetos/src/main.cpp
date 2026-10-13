@@ -1,4 +1,4 @@
-// Bocetos (docs/bocetos/): la biblioteca de cuadernos de bocetos. Cada hoja se dibuja en
+// Bocetos (docs/bocetos/): la biblioteca de cuadernos de bocetos, en una ventana común. Cada hoja se dibuja en
 // Cartuchera (--hoja, HU-133) y vuelve al cuaderno terminada. Una app Qt común: no enlaza el
 // lienzo (RNF-06).
 //   Ctrl+, atajos · F10 monitor siguiente · Ctrl+Q sale
@@ -16,6 +16,9 @@
 
 #include <QApplication>
 #include <QScreen>
+#include <QStyle>
+
+#include <algorithm>
 
 #include <windows.h>
 
@@ -41,14 +44,24 @@ int main(int argc, char* argv[])
 
     appkit::Shortcuts shortcuts;
     LibraryWindow window(shortcuts, config);
-    window.setWindowFlag(Qt::FramelessWindowHint);
     window.setWindowTitle(QApplication::applicationName());
-    const auto place = [&](QScreen* on) {
+    window.setMinimumSize(800, 560);
+    // Una ventana común, no a pantalla completa (pedido del usuario del 13 de octubre de 2026): con
+    // la posición y el tamaño de la última vez ("geometry" en config.json); la primera vez, centrada
+    // en el monitor de la familia, a tres cuartos de él.
+    const auto place = [&](QScreen* on, QSize size) {
+        const QRect area = on->availableGeometry();
         window.setScreen(on);
-        window.setGeometry(on->geometry());
+        window.setGeometry(QStyle::alignedRect(Qt::LeftToRight, Qt::AlignCenter, size.boundedTo(area.size()), area));
     };
-    place(screen);
-    window.setLibrary(root, cartuchera); // con el ancho de la pantalla, para acomodar los libros
+    if (!window.restoreGeometry(QByteArray::fromBase64(config.value(QStringLiteral("geometry")).toByteArray()))) {
+        const QRect area = screen->availableGeometry();
+        place(screen, QSize(std::max(800, area.width() * 3 / 4), std::max(560, area.height() * 3 / 4)));
+    }
+    QObject::connect(&app, &QApplication::aboutToQuit, [&] {
+        config.setValue(QStringLiteral("geometry"), QString::fromLatin1(window.saveGeometry().toBase64()));
+    });
+    window.setLibrary(root, cartuchera); // con el ancho de la ventana, para acomodar los libros
 
     // La biblioteca (HU-135): las flechas eligen, Enter abre.
     shortcuts.setGroup(QStringLiteral("Biblioteca"));
@@ -75,12 +88,16 @@ int main(int argc, char* argv[])
         overlay.setFocus();
         qInfo() << "Atajos: abiertos";
     });
-    // F10 (HU-66): sin lienzo nativo, la ventana se muda sin reiniciar.
+    // F10 (HU-66): la ventana se muda, centrada, al monitor siguiente, sin reiniciar.
     shortcuts.add(QStringLiteral("Monitor siguiente"), {{VK_F10}}, [&] {
         QScreen* next = appkit::nextScreen(config, window.screen());
         if (next == window.screen())
             return;
-        place(next);
+        const bool maximized = window.isMaximized();
+        window.showNormal();
+        place(next, window.size());
+        if (maximized)
+            window.showMaximized();
         qInfo().noquote() << "Monitor siguiente:" << appkit::ScreenId::of(next).describe();
     });
     shortcuts.add(QStringLiteral("Salir"), {{'Q', true}}, [] { QApplication::quit(); });

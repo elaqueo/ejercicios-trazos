@@ -9,7 +9,7 @@ Cómo está hecha la app definida en [idea.md](idea.md) y [requerimientos.md](re
 | Pieza | Dónde | Qué hace |
 | --- | --- | --- |
 | El cuaderno | `libs/notebooks` | `cuaderno.json`, el estado de las hojas y la biblioteca (HU-132). Solo Qt Core y Gui (por `QColor`): sin widgets ni lienzo, para que la usen Bocetos y Cartuchera. |
-| La app | `apps/bocetos` (`LibraryWindow`, `BocetosCore.h` en `bocetos_core`) | Qt Widgets a pantalla completa, sin el lienzo (RNF-06): la ventana, los atajos y dónde están los cuadernos y Cartuchera (HU-134); la biblioteca, con los estantes y los libros (HU-135). |
+| La app | `apps/bocetos` (`LibraryWindow`, `BocetosCore.h` en `bocetos_core`) | Qt Widgets en una ventana común, sin el lienzo (RNF-06): la ventana, los atajos y dónde están los cuadernos y Cartuchera (HU-134); la biblioteca, con los estantes y los libros (HU-135). |
 | Cartuchera en modo cuaderno | `apps/cartuchera` (`NotebookMode.h`), `libs/lienzo` (`SideNote.h`, `exportActiveSheet`) | Abre una hoja con `--hoja`, la guarda sola con el papel del cuaderno y la termina con Ctrl+Enter (HU-133). Detalle en [medios-secos/arquitectura.md](../medios-secos/arquitectura.md#modo-cuaderno-hu-133-bocetos). |
 
 ## El formato del cuaderno (HU-132)
@@ -65,8 +65,8 @@ No se guarda en el json: sale de las carpetas, así no hay dos fuentes que pueda
 
 ## La app (HU-134)
 
-- **Una app Qt común**: una ventana a pantalla completa y sin bordes, pintada con QPainter y el tema de la suite (`appkit/Theme.h`). No enlaza `libs/lienzo` (no hay ventana nativa ni Direct3D): muestra PNG.
-- **El monitor** es el de la familia (`appkit::savedScreen`, que salió del lienzo para esto). F10 pasa al siguiente y lo guarda para todas (`appkit::nextScreen`); como no hay lienzo nativo, la ventana se muda sin reiniciar.
+- **Una app Qt común**: una ventana común, con bordes y redimensionable (no a pantalla completa: pedido del usuario del 13 de octubre de 2026, con HU-135), que recuerda su posición y tamaño (`bocetos.geometry`; la primera vez, centrada a tres cuartos del monitor), pintada con QPainter y el tema de la suite (`appkit/Theme.h`). No enlaza `libs/lienzo` (no hay ventana nativa ni Direct3D): muestra PNG.
+- **El monitor** es el de la familia (`appkit::savedScreen`, que salió del lienzo para esto). F10 pasa al siguiente y lo guarda para todas (`appkit::nextScreen`); la ventana se muda, centrada, sin reiniciar.
 - **Las teclas** van al registro de `appkit::Shortcuts` por la tecla virtual de Windows (`QKeyEvent::nativeVirtualKey`), como en el lienzo; Ctrl+, abre la página de atajos de siempre y Ctrl+Q sale.
 - **La biblioteca** es la de `--biblioteca <carpeta>` (la prueba de la app real, para no tocar los cuadernos del usuario) o `Documentos\Trazos\Bocetos`. **Cartuchera** es `cartuchera.exe` junto a `bocetos.exe` (`bocetos::findCartuchera`); si no está, queda en el log y en la pantalla.
 - Su log es `bocetos.log` y su sección de `config.json`, `bocetos`.

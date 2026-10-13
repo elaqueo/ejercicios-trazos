@@ -8,8 +8,8 @@
 #include <QString>
 #include <QWidget>
 
-// La biblioteca de Bocetos (HU-135, mesa "Bocetos · biblioteca"): pantalla completa, sin bordes,
-// con los cuadernos como libros apaisados en estantes por colección. Las flechas eligen, Enter
+// La biblioteca de Bocetos (HU-135, mesa "Bocetos · biblioteca"): una ventana común con los
+// cuadernos como libros apaisados en estantes por colección. Las flechas eligen, Enter
 // o tocar abre (el visor llega con HU-137). Las teclas van al registro de atajos de appkit.
 class LibraryWindow : public QWidget {
 public:

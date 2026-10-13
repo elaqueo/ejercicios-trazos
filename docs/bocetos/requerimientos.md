@@ -58,7 +58,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
     6. Sin `--hoja`, nada cambia (RNF-05; la prueba de la app real de Cartuchera igual).
     7. Diseño primero en el canvas (mesa "Cartuchera en modo cuaderno").
 134. **HU-134 · App Bocetos** (enabler · Must · 2 pts). Como usuario, quiero una app `bocetos` con el tema de la suite, para empezar a armar la biblioteca.
-    1. `apps/bocetos` arranca a pantalla completa en el monitor de la suite (como las demás: F10 cambia de monitor, Ctrl+, los atajos, Ctrl+Q sale), con el tema "Taller nocturno" y su log.
+    1. `apps/bocetos` arranca en una ventana común en el monitor de la suite (no a pantalla completa, pedido del 13 oct 2026; como las demás: F10 cambia de monitor, Ctrl+, los atajos, Ctrl+Q sale), con el tema "Taller nocturno" y su log.
     2. Comparte config con la familia (monitor) y tiene la suya (sección `bocetos`); no enlaza `libs/lienzo` (RNF-06).
     3. Encuentra `cartuchera.exe` junto a su propio ejecutable.
 
@@ -81,7 +81,7 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 ### E3 · Cuaderno
 
 137. **HU-137 · Recorrer el cuaderno** (Must · 3 pts). Como dibujante, quiero recorrer un cuaderno hoja por hoja, para ver lo que dibujé.
-    1. Al abrirlo se ve la última hoja terminada a pantalla completa (el PNG, ajustado a la pantalla); sin hojas terminadas, la primera en blanco con la invitación a dibujar.
+    1. Al abrirlo se ve la última hoja terminada ocupando la ventana (el PNG, ajustado); sin hojas terminadas, la primera en blanco con la invitación a dibujar.
     2. **PgDn** y **PgUp** pasan de hoja, **Inicio** y **Fin** van a la primera y a la última, **+** y **−** acercan y alejan (con arrastre para mover), **Esc** vuelve a la biblioteca.
     3. Al pie: el nombre del cuaderno, la hoja sobre el total y la fecha en que se terminó.
     4. Cumple RNF-02. Diseño primero en el canvas (mesa "Bocetos · cuaderno abierto").

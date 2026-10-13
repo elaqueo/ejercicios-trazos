@@ -51,7 +51,7 @@ Se navega con las flechas o tocando con el lápiz o el mouse; Enter (o tocar) ab
 
 ## El cuaderno abierto
 
-- La hoja terminada a **pantalla completa**, sobre el fondo del tema.
+- La hoja terminada **ocupando la ventana**, sobre el fondo del tema. Bocetos es una ventana común, no a pantalla completa (13 de octubre de 2026).
 - **PgDn** y **PgUp** pasan a la hoja siguiente y a la anterior; **Inicio** y **Fin** van a la primera y a la última.
 - Al pie, el número de hoja sobre el total y la fecha en que se terminó.
 - **+** y **−** acercan y alejan, para ver el grano de cerca.
