@@ -765,7 +765,7 @@ finally {
 # (fake_renderer, nunca el de verdad), T manda la hoja, AvPág la siguiente y T corta. HU-142: otra
 # biblioteca con un cuaderno de Krita y el Krita de mentira (--krita fake_krita, nunca el de verdad): D
 # arma el papel con Cartuchera, "dibuja" y guarda en Krita, Bocetos muestra el borrador y Ctrl+Enter,
-# Ctrl+Enter lo terminan.
+# Ctrl+Enter lo terminan. HU-143: el panel de la biblioteca arma las miniaturas del elegido.
 $boc = Join-Path $root 'build\release\bocetos.exe'
 $bocLog = Join-Path $data 'bocetos.log'
 if (Get-Process bocetos -ErrorAction SilentlyContinue) { throw 'Bocetos está abierta: cerrarla antes de la prueba' }
@@ -823,6 +823,13 @@ try {
     Check "Bocetos lee 30 cuadernos en 3 estantes en menos de 500 ms ($ms ms), encuentra Cartuchera y Ctrl+, abre sus atajos" `
         ($ms -ge 0 -and $ms -lt 500 -and $l -match 'Bocetos: Cartuchera en' -and $l -match 'Atajos: abiertos.*Atajos: cerrados') $l
     BoKey 0x27; BoKey 0x27; BoKey 0x25; BoKey 0x28 # → → ← ↓: cuatro cambios, con cualquier ancho (el general tiene 10)
+    # HU-143: el panel arma las miniaturas del elegido (miniatura.png junto a cada hoja); al volver a
+    # uno ya visto salen de la memoria.
+    Start-Sleep 3; BoKey 0x27; Start-Sleep 3; BoKey 0x25; BoKey 0x27 # → (nuevo) ← → (ya vistos)
+    $minis = @(Get-Content $bocLog -Encoding utf8 | Where-Object { $_ -match 'Miniaturas: «.*» · \d+ listas en ([\d.]+) ms' } | ForEach-Object { [double]($_ -replace '.* listas en ([\d.]+) ms.*', '$1') })
+    $built = @(Get-ChildItem $libDir -Recurse -Filter 'miniatura.png').Count
+    Check "el panel muestra las últimas hojas del elegido ($built miniaturas armadas) y al volver salen de la memoria ($(($minis | Select-Object -Last 2) -join ' y ') ms)" `
+        ($built -ge 3 -and $minis.Count -ge 3 -and ($minis | Select-Object -Last 2 | Where-Object { $_ -ge 50 }).Count -eq 0) ($minis -join ' | ')
     BoKey 0x0D # Enter
     $l = @(Get-Content $bocLog -Encoding utf8 | Where-Object { $_ -match 'Bocetos: (elegido|abrir)' })
     Check 'las flechas eligen otro cuaderno y Enter lo abre' ($l.Count -ge 5 -and ($l[-1] -match 'abrir')) ($l -join ' | ')

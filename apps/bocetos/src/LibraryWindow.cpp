@@ -7,6 +7,7 @@
 #include "TvChooser.h"
 #include "TvLink.h"
 #include "Paint.h"
+#include "ThumbCache.h"
 
 #include <appkit/ConfirmOverlay.h>
 
@@ -67,6 +68,18 @@ void drawChip(QPainter& p, double x, double y, const QString& text, const QColor
     p.setFont(f);
     p.setPen(color);
     p.drawText(QRectF(tx, y, textW + 2, 20), Qt::AlignLeft | Qt::AlignVCenter, text);
+}
+
+// "12 oct" (el año, si no es este).
+QString shortDay(const QDate& date)
+{
+    static const char* const months[] = {"ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"};
+    if (!date.isValid())
+        return QString();
+    QString out = QStringLiteral("%1 %2").arg(date.day()).arg(QLatin1String(months[date.month() - 1]));
+    if (date.year() != QDate::currentDate().year())
+        out += QStringLiteral(" %1").arg(date.year());
+    return out;
 }
 
 void drawBook(QPainter& p, const Book& book, const QRect& cover, bool selected, const QDate& today)
@@ -161,6 +174,14 @@ LibraryWindow::LibraryWindow(appkit::Shortcuts& shortcuts, appkit::Config& confi
     m_chooser->onCancel = [this] {
         setFocus();
         m_tv->disconnect();
+    };
+    // HU-143: las miniaturas del elegido.
+    m_thumbs = new ThumbCache(this);
+    m_thumbs->onReady = [this](const QString& source, double ms, bool built) {
+        qInfo().noquote() << QStringLiteral("Miniaturas: %1 %2 en %3 ms")
+                                 .arg(QDir::toNativeSeparators(source), built ? QStringLiteral("armada") : QStringLiteral("leída"))
+                                 .arg(ms, 0, 'f', 0);
+        preview();
     };
     m_dialog = new NotebookDialog(this);
     m_dialog->onCancel = [this] {
@@ -352,7 +373,7 @@ void LibraryWindow::setLibrary(const QString& root, const QString& cartuchera)
 
 void LibraryWindow::relayout()
 {
-    m_layout = bocetos::layoutLibrary(m_shelves, width());
+    m_layout = bocetos::layoutLibrary(m_shelves, gridWidth());
     ensureVisible();
     update();
 }
@@ -370,13 +391,122 @@ void LibraryWindow::select(int slot, bool log)
     if (slot == m_selected && log)
         return;
     m_selected = slot;
+    m_preview.clear();
+    m_usage.clear();
     if (const Book* book = selectedBook()) {
         m_config.setValue(QStringLiteral("selected"), QDir(book->dir).dirName());
         if (log)
             qInfo().noquote() << QStringLiteral("Bocetos: elegido «%1»").arg(book->notebook.name);
+        m_usage = bocetos::usageText(bocetos::pagesOf(book->dir, book->notebook), book->notebook.maxSheets);
+        m_preview = bocetos::thumbsOf(book->dir, book->notebook);
+        m_previewSince.start();
+        m_previewLogged = false;
+        preview();
     }
     ensureVisible();
     update();
+}
+
+// Pide las miniaturas del elegido que faltan; cuando están todas, lo anota (con cuánto tardó).
+void LibraryWindow::preview()
+{
+    int ready = 0;
+    for (const bocetos::Thumb& t : m_preview)
+        ready += t.source.isEmpty() || !m_thumbs->get(t.source, t.file).isNull();
+    if (!m_previewLogged && ready == m_preview.size()) {
+        m_previewLogged = true;
+        if (const Book* book = selectedBook())
+            qInfo().noquote() << QStringLiteral("Miniaturas: «%1» · %2 listas en %3 ms")
+                                     .arg(book->notebook.name)
+                                     .arg(ready)
+                                     .arg(m_previewSince.nsecsElapsed() / 1e6, 0, 'f', 1);
+    }
+    update();
+}
+
+int LibraryWindow::gridWidth() const
+{
+    return std::max(1, width() - bocetos::kViewerBar);
+}
+
+// HU-143: el panel de la derecha, como la barra del cuaderno abierto: el elegido y sus últimas hojas.
+void LibraryWindow::paintPanel(QPainter& p) const
+{
+    const QRectF bar(width() - bocetos::kViewerBar, 0, bocetos::kViewerBar, height());
+    p.fillRect(bar, theme::kPanel);
+    p.fillRect(QRectF(bar.left(), 0, 1, height()), theme::kBorde);
+    const Book* book = selectedBook();
+    if (!book)
+        return;
+    const double left = bar.left() + 28, inner = bar.width() - 56;
+    double y = 32;
+    const auto line = [&](const QString& s, const QFont& font, const QColor& color, double h, double x0 = 0) {
+        p.setFont(font);
+        p.setPen(color);
+        p.drawText(QRectF(left + x0, y, inner - x0, h), Qt::AlignLeft | Qt::AlignVCenter,
+                   QFontMetricsF(font).elidedText(s, Qt::ElideRight, inner - x0));
+        y += h;
+    };
+    QFont label = themeFont(false, 12, QFont::DemiBold);
+    label.setLetterSpacing(QFont::AbsoluteSpacing, 1);
+    line(book->notebook.app == notebooks::App::Krita ? QStringLiteral("CUADERNO · KRITA") : QStringLiteral("CUADERNO"), label,
+         theme::kTextoSecundario, 18);
+    y += 12;
+    const QRectF swatch(left, y, 22, 30);
+    p.fillRect(swatch, book->notebook.cover.isValid() ? book->notebook.cover : QColor(0x4A, 0x50, 0x59));
+    p.fillRect(QRectF(swatch.left(), swatch.top(), 4, swatch.height()), QColor(0, 0, 0, 56));
+    line(book->notebook.name, themeFont(false, 18, QFont::DemiBold), theme::kTexto, 30, 34);
+    y += 12;
+    for (const QString& part : m_usage.split(QStringLiteral(" · ")))
+        line(part, themeFont(true, 13), theme::kTextoSecundario, 20);
+    line(bocetos::bookDates(*book, QDate::currentDate()), themeFont(true, 13), theme::kTextoSecundario, 20);
+    y += 14;
+    p.fillRect(QRectF(left, y, inner, 1), theme::kBorde);
+    y += 14;
+    line(QStringLiteral("ÚLTIMAS HOJAS"), label, theme::kTextoSecundario, 18);
+    y += 10;
+    const QColor paper = book->notebook.paper.color.isValid() ? book->notebook.paper.color : theme::kHoja;
+    const double tw = inner, th = std::round(inner / 1.6);
+    if (m_preview.isEmpty()) {
+        const QRectF r(left, y, tw, th);
+        p.fillRect(r, paper);
+        p.setFont(themeFont(false, 14));
+        p.setPen(QColor(0x2A, 0x2A, 0x2A));
+        p.drawText(r, Qt::AlignCenter, QStringLiteral("Todavía no hay hojas"));
+        return;
+    }
+    for (const bocetos::Thumb& t : m_preview) {
+        if (y + th + 26 > height() - 16)
+            break; // las que entran
+        const QRectF r(left, y, tw, th);
+        const QImage image = t.source.isEmpty() ? QImage() : m_thumbs->get(t.source, t.file);
+        if (image.isNull())
+            p.fillRect(r, paper); // mientras se arma, o un borrador sin imagen: el papel
+        else
+            p.drawImage(r, image);
+        if (t.draft) {
+            const QFont f = themeFont(false, 11);
+            const double w = QFontMetricsF(f).horizontalAdvance(QStringLiteral("borrador")) + 26;
+            const QRectF chip(r.left() + 8, r.top() + 8, w, 20);
+            QPainterPath path;
+            path.addRoundedRect(chip, 10, 10);
+            p.fillPath(path, QColor(23, 25, 28, 184));
+            p.setPen(Qt::NoPen);
+            p.setBrush(theme::kSeleccionTexto);
+            p.drawEllipse(QPointF(chip.left() + 10, chip.center().y()), 2.5, 2.5);
+            p.setFont(f);
+            p.setPen(theme::kSeleccionTexto);
+            p.drawText(chip.adjusted(17, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("borrador"));
+        }
+        y += th + 6;
+        p.setFont(themeFont(true, 12));
+        p.setPen(t.draft ? theme::kSeleccionTexto : theme::kTextoSecundario);
+        p.drawText(QRectF(left, y, tw, 18), Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("hoja %1").arg(t.sheet));
+        p.setPen(theme::kTextoSecundario);
+        p.drawText(QRectF(left, y, tw, 18), Qt::AlignRight | Qt::AlignVCenter,
+                   t.draft ? QStringLiteral("borrador") : shortDay(t.date));
+        y += 18 + 14;
+    }
 }
 
 void LibraryWindow::move(bocetos::Move move)
@@ -475,7 +605,8 @@ void LibraryWindow::launch(const bocetos::DrawPlan& plan)
         if (m_drawing.newSheet) {
             QString error;
             if (!QDir().mkpath(plan.sheetDir) ||
-                !bocetos::writeKra(plan.kra, QDir(m_drawing.dir).filePath(QString::fromLatin1(notebooks::kPaperImage)), &error)) {
+                !bocetos::writeKra(plan.kra, QDir(m_drawing.dir).filePath(QString::fromLatin1(notebooks::kPaperImage)), &error,
+                                     bocetos::kritaProfile(m_krita))) {
                 qWarning().noquote() << QStringLiteral("Bocetos: no se pudo escribir %1 (%2)").arg(plan.kra, error);
                 QDir(plan.sheetDir).removeRecursively();
                 m_drawing.sheet = 0;
@@ -655,7 +786,7 @@ void LibraryWindow::paintEvent(QPaintEvent*)
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::TextAntialiasing);
     p.fillRect(rect(), theme::kFondo);
-    const int left = bocetos::kMargin, right = width() - bocetos::kMargin;
+    const int left = bocetos::kMargin, right = gridWidth() - bocetos::kMargin;
     const QDate today = QDate::currentDate();
 
     int books = 0;
@@ -699,7 +830,7 @@ void LibraryWindow::paintEvent(QPaintEvent*)
             const int count = int(m_shelves[s].books.size());
             p.drawText(QRectF(left + titleW + 6, marks.labelY, 200, 18), Qt::AlignLeft | Qt::AlignVCenter,
                        QStringLiteral("· %1 %2").arg(count).arg(count == 1 ? QStringLiteral("cuaderno") : QStringLiteral("cuadernos")));
-            p.fillRect(QRect(48, marks.lineY, width() - 96, 2), theme::kBorde);
+            p.fillRect(QRect(48, marks.lineY, gridWidth() - 96, 2), theme::kBorde);
         }
         for (int i = 0; i < m_layout.items.size(); ++i) {
             const bocetos::Slot& slot = m_layout.items[i];
@@ -707,6 +838,7 @@ void LibraryWindow::paintEvent(QPaintEvent*)
         }
         p.restore();
     }
+    paintPanel(p);
 
     // El pie: las teclas (y si falta Cartuchera, que no se va a poder dibujar).
     double x = left;
@@ -764,7 +896,7 @@ void LibraryWindow::mousePressEvent(QMouseEvent* event)
     if (dialogOpen() || openNotebook())
         return;
     const QPoint content = event->position().toPoint() - QPoint(0, contentTop() - m_scroll);
-    if (event->position().y() < contentTop() - 24 || event->position().y() > viewBottom())
+    if (event->position().y() < contentTop() - 24 || event->position().y() > viewBottom() || event->position().x() >= gridWidth())
         return;
     const int slot = bocetos::slotAt(m_layout, content);
     if (slot < 0)

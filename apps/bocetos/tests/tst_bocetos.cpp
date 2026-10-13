@@ -1,6 +1,7 @@
 #include "BocetosCore.h"
 #include "Kra.h"
 #include "SheetCache.h"
+#include "ThumbCache.h"
 
 #include <QtCore/private/qzipreader_p.h>
 #include <QtCore/private/qzipwriter_p.h>
@@ -10,6 +11,7 @@
 #include <notebooks/Library.h>
 
 #include <QBuffer>
+#include <QColorSpace>
 #include <QDir>
 #include <QFile>
 #include <QImage>
@@ -421,6 +423,66 @@ private slots:
         QCOMPARE(drawPlan(book, QStringLiteral("c.exe")).action, DrawAction::Full);
     }
 
+    // HU-143: las últimas hojas del panel y sus miniaturas.
+    void miniaturas()
+    {
+        QTemporaryDir tmp;
+        notebooks::Notebook nb;
+        nb.maxSheets = 10;
+        QVERIFY(thumbsOf(tmp.path(), nb).isEmpty()); // sin hojas
+        QImage sheet(1600, 1000, QImage::Format_RGB32);
+        sheet.fill(Qt::darkGray);
+        for (int i = 1; i <= 4; ++i) {
+            QVERIFY(QDir().mkpath(notebooks::sheetFolder(tmp.path(), i)));
+            QVERIFY(sheet.save(QDir(notebooks::sheetFolder(tmp.path(), i)).filePath(QStringLiteral("terminada.png"))));
+        }
+        // Las terminadas, de la más nueva a la más vieja, hasta 3.
+        QList<Thumb> thumbs = thumbsOf(tmp.path(), nb);
+        QCOMPARE(thumbs.size(), 3);
+        QCOMPARE(thumbs[0].sheet, 4);
+        QCOMPARE(thumbs[2].sheet, 2);
+        QVERIFY(!thumbs[0].draft);
+        QCOMPARE(thumbs[0].file, QDir(notebooks::sheetFolder(tmp.path(), 4)).filePath(QStringLiteral("miniatura.png")));
+        // Con borrador, va primero; uno de Cartuchera no tiene imagen (el papel).
+        QVERIFY(QDir().mkpath(notebooks::sheetFolder(tmp.path(), 5)));
+        thumbs = thumbsOf(tmp.path(), nb);
+        QCOMPARE(thumbs.size(), 3);
+        QCOMPARE(thumbs[0].sheet, 5);
+        QVERIFY(thumbs[0].draft);
+        QVERIFY(thumbs[0].source.isEmpty());
+        QCOMPARE(thumbs[1].sheet, 4);
+
+        // Armarla: entra en 480 × 300 y queda guardada; está al día hasta que la imagen cambia.
+        const Thumb& t = thumbs[1];
+        QVERIFY(!thumbFresh(t.source, t.file));
+        QCOMPARE(writeThumb(t.source, t.file).size(), QSize(480, 300));
+        QCOMPARE(QImage(t.file).size(), QSize(480, 300));
+        QVERIFY(thumbFresh(t.source, t.file));
+        QFile source(t.source);
+        QVERIFY(source.open(QIODevice::ReadWrite));
+        QVERIFY(source.setFileTime(QDateTime::currentDateTime().addSecs(60), QFileDevice::FileModificationTime));
+        source.close();
+        QVERIFY(!thumbFresh(t.source, t.file));
+
+        // En segundo plano: la primera vez se arma, después sale de la memoria.
+        ThumbCache cache;
+        QList<bool> built;
+        cache.onReady = [&](const QString&, double, bool b) { built.append(b); };
+        QVERIFY(cache.get(t.source, t.file).isNull());
+        QTRY_COMPARE(built.size(), 1);
+        QVERIFY(built[0]);
+        QCOMPARE(cache.get(t.source, t.file).size(), QSize(480, 300));
+        // Otra (la hoja 3, sin miniatura) se arma; leída de nuevo por otro caché, sale del archivo.
+        QVERIFY(cache.get(thumbs[2].source, thumbs[2].file).isNull());
+        QTRY_COMPARE(built.size(), 2);
+        ThumbCache other;
+        QList<bool> again;
+        other.onReady = [&](const QString&, double, bool b) { again.append(b); };
+        QVERIFY(other.get(thumbs[2].source, thumbs[2].file).isNull());
+        QTRY_COMPARE(again.size(), 1);
+        QVERIFY(!again[0]);
+    }
+
     // HU-142: D en un cuaderno de Krita, dónde está Krita y cómo vuelve.
     void dibujarEnKrita()
     {
@@ -496,6 +558,8 @@ private slots:
             QVERIFY(doc.contains(QStringLiteral(R"(locked="1")")));
             QVERIFY(doc.contains(QStringLiteral(R"(nodetype="paintlayer")")));
             QCOMPARE(QImage::fromData(zip.fileData(QStringLiteral("preview.png"))).width(), 256);
+            // El perfil de la capa (sin él Krita avisa al abrirla).
+            QVERIFY(QColorSpace::fromIccProfile(zip.fileData(QStringLiteral("hoja/layers/layer2.icc"))).isValid());
         }
         QVERIFY(!kraSavedByKrita(kra));
         // Sin guardar en Krita no hay borrador: la página es el aviso.
@@ -529,7 +593,17 @@ private slots:
         // Una que nunca se guardó en Krita termina en el papel solo.
         const QString sheet2 = notebooks::sheetFolder(tmp.path(), 2);
         QVERIFY(QDir().mkpath(sheet2));
-        QVERIFY(writeKra(QDir(sheet2).filePath(QStringLiteral("hoja.kra")), paper));
+        QVERIFY(writeKra(QDir(sheet2).filePath(QStringLiteral("hoja.kra")), paper, nullptr, QByteArray("perfil")));
+        QCOMPARE(QZipReader(QDir(sheet2).filePath(QStringLiteral("hoja.kra"))).fileData(QStringLiteral("hoja/layers/layer2.icc")), QByteArray("perfil"));
+        // El perfil de Krita, de su instalación (../share/color/icc/krita/ desde el exe).
+        QVERIFY(kritaProfile(QString()).isEmpty());
+        QVERIFY(QDir().mkpath(tmp.filePath(QStringLiteral("k/share/color/icc/krita"))));
+        QVERIFY(QDir().mkpath(tmp.filePath(QStringLiteral("k/bin"))));
+        QFile icc(tmp.filePath(QStringLiteral("k/share/color/icc/krita/sRGB-elle-V2-srgbtrc.icc")));
+        QVERIFY(icc.open(QIODevice::WriteOnly));
+        icc.write("icc de krita");
+        icc.close();
+        QCOMPARE(kritaProfile(tmp.filePath(QStringLiteral("k/bin/krita.exe"))), QByteArray("icc de krita"));
         QVERIFY(finishKritaSheet(tmp.path(), 2, QDate(2026, 10, 13)));
         QCOMPARE(QImage(QDir(sheet2).filePath(QStringLiteral("terminada.png"))).pixelColor(5, 5), QColor(0xB5, 0x98, 0x78));
         QFile::setPermissions(QDir(sheet2).filePath(QStringLiteral("hoja.kra")), QFileDevice::ReadOwner | QFileDevice::WriteOwner);

@@ -6,6 +6,7 @@
 #include <QtCore/private/qzipwriter_p.h>
 
 #include <QBuffer>
+#include <QColorSpace>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -56,7 +57,15 @@ bool fail(QString* error, const QString& why)
 
 } // namespace
 
-bool writeKra(const QString& kra, const QString& paper, QString* error)
+QByteArray kritaProfile(const QString& kritaExe)
+{
+    if (kritaExe.isEmpty())
+        return {};
+    QFile file(QFileInfo(kritaExe).dir().filePath(QStringLiteral("../share/color/icc/krita/sRGB-elle-V2-srgbtrc.icc")));
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+
+bool writeKra(const QString& kra, const QString& paper, QString* error, const QByteArray& profile)
 {
     QFile paperFile(paper);
     if (!paperFile.open(QIODevice::ReadOnly))
@@ -92,6 +101,9 @@ bool writeKra(const QString& kra, const QString& paper, QString* error)
         // La capa del dibujo, vacía: sin tiles.
         zip.addFile(QStringLiteral("hoja/layers/layer2"), "VERSION 2\nTILEWIDTH 64\nTILEHEIGHT 64\nPIXELSIZE 4\nDATA 0\n");
         zip.addFile(QStringLiteral("hoja/layers/layer2.defaultpixel"), QByteArray(4, '\0'));
+        // El perfil de color de la capa (kritaProfile): el de Krita, leído de su instalación (no
+        // se reparte con Trazos); si no está, el sRGB de Qt.
+        zip.addFile(QStringLiteral("hoja/layers/layer2.icc"), profile.isEmpty() ? QColorSpace(QColorSpace::SRgb).iccProfile() : profile);
         zip.setCompressionPolicy(QZipWriter::NeverCompress); // ya son PNG
         zip.addFile(kMerged, paperPng);
         zip.addFile(QStringLiteral("preview.png"), preview);

@@ -6,6 +6,7 @@
 #include <appkit/Shortcuts.h>
 
 #include <QDateTime>
+#include <QPainter>
 #include <QElapsedTimer>
 #include <QString>
 #include <QUrl>
@@ -16,6 +17,7 @@ class Notice;
 class TvChooser;
 class TvLink;
 class NotebookView;
+class ThumbCache;
 namespace appkit {
 class ConfirmOverlay;
 }
@@ -74,6 +76,9 @@ private:
     void select(int slot, bool log = true);
     void ensureVisible();
     const bocetos::Book* selectedBook() const;
+    void preview();                       // HU-143: el panel del elegido y sus miniaturas
+    void paintPanel(QPainter& p) const;
+    int gridWidth() const;
     int contentTop() const;
     int viewBottom() const;
 
@@ -102,5 +107,11 @@ private:
     } m_drawing;
     appkit::ConfirmOverlay* m_confirm = nullptr;
     appkit::ConfirmOverlay* m_finish = nullptr; // HU-142: terminar el borrador de Krita
+    // HU-143: el panel del elegido: lo usado, las últimas hojas y desde cuándo se esperan.
+    ThumbCache* m_thumbs = nullptr;
+    QString m_usage;
+    QList<bocetos::Thumb> m_preview;
+    QElapsedTimer m_previewSince;
+    bool m_previewLogged = true;
     QString m_editing; // la carpeta del cuaderno que se edita
 };

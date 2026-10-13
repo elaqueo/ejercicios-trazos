@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QDate>
 #include <QString>
 
@@ -16,7 +17,12 @@ inline constexpr int kKritaDpi = 600;
 inline constexpr const char* kPaperSizeKey = "Trazos-hoja";
 
 // Escribe la hoja nueva en `kra` con el papel `paper` (papel.png; sin el tamaño, el de la imagen).
-bool writeKra(const QString& kra, const QString& paper, QString* error = nullptr);
+// `profile`: el perfil de color de la capa (kritaProfile); vacío, el sRGB de Qt.
+bool writeKra(const QString& kra, const QString& paper, QString* error = nullptr, const QByteArray& profile = {});
+// El sRGB de Krita (sRGB-elle-V2-srgbtrc.icc), de la instalación de `kritaExe`: el que Krita usa para
+// la imagen. Con otro perfil en la capa, Krita la marca "≠" (otro espacio de color); sin ninguno, avisa
+// "Could not load profile" al abrirla. Vacío si no está.
+QByteArray kritaProfile(const QString& kritaExe);
 // Si la guardó Krita (Krita agrega documentinfo.xml; la que escribe Bocetos no lo tiene).
 bool kraSavedByKrita(const QString& kra);
 // `mergedimage.png` del .kra, escrito en `png` (entero o nada).

@@ -7,6 +7,7 @@
 #include <QBuffer>
 #include <QImageReader>
 #include <QDateTime>
+#include <QSaveFile>
 
 #include <algorithm>
 #include <cstdlib>
@@ -328,6 +329,43 @@ QRectF sheetRect(const QSizeF& sheet, const QRectF& area, double zoom, const QPo
     QRectF rect(QPointF(), size);
     rect.moveCenter(area.center() + clampPan(sheet, area, zoom, pan));
     return rect;
+}
+
+QList<Thumb> thumbsOf(const QString& dir, const notebooks::Notebook& notebook, int count)
+{
+    const QList<Page> pages = pagesOf(dir, notebook);
+    QList<Thumb> out;
+    for (int i = int(pages.size()) - 1; i >= 0 && out.size() < count; --i) {
+        const Page& p = pages[i];
+        if (p.state == notebooks::SheetState::Empty)
+            continue;
+        const QString file = QDir(notebooks::sheetFolder(dir, p.sheet)).filePath(QString::fromLatin1(kThumbFile));
+        out.append({p.sheet, p.state == notebooks::SheetState::Draft, p.image, p.image.isEmpty() ? QString() : file, p.finished});
+    }
+    return out;
+}
+
+bool thumbFresh(const QString& source, const QString& file)
+{
+    const QFileInfo thumb(file);
+    return thumb.isFile() && thumb.lastModified() >= QFileInfo(source).lastModified();
+}
+
+QImage writeThumb(const QString& source, const QString& file)
+{
+    QImageReader reader(source);
+    const QSize size = reader.size();
+    if (size.isValid())
+        reader.setScaledSize(size.scaled(kThumbSize, Qt::KeepAspectRatio).boundedTo(size));
+    QImage image = reader.read();
+    if (image.isNull()) {
+        qWarning().noquote() << QStringLiteral("Miniaturas: no se pudo leer %1 (%2)").arg(source, reader.errorString());
+        return image;
+    }
+    QSaveFile out(file);
+    if (!out.open(QIODevice::WriteOnly) || !image.save(&out, "PNG") || !out.commit())
+        qWarning().noquote() << QStringLiteral("Miniaturas: no se pudo guardar %1").arg(file);
+    return image;
 }
 
 DrawPlan drawPlan(const Book& book, const QString& cartuchera, const QString& krita)

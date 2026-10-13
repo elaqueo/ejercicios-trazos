@@ -125,14 +125,16 @@ El resto, según lo que pida el uso:
     1. Al crear el cuaderno se elige la app (Cartuchera o Krita) y no cambia: un cuaderno es de una sola app.
     2. Se genera una vez `papel.png`, el papel del cuaderno con su textura. Lo arma Cartuchera (`cartuchera --papel <cuaderno>`, sin ventana), porque la textura visible es del lienzo y Bocetos no lo enlaza (RNF-06); a un cuarto de la resolución de la hoja, y Krita lo agranda. Cada hoja es un `.kra` con ese papel como capa de fondo bloqueada y una capa vacía encima.
     3. D lanza `krita <hoja.kra>`; al volver, la imagen sale del `mergedimage.png` del `.kra`. La hoja queda en borrador (se ve en el cuaderno) y se termina desde Bocetos (Ctrl+Enter en el cuaderno, con confirmación).
-143. **HU-143 · Miniaturas** (Could · 2 pts). Como dibujante, quiero ver las últimas hojas de un cuaderno al pararme sobre él en la biblioteca, para reconocerlo sin abrirlo.
+143. **HU-143 · Miniaturas** (Could · 3 pts; estimada en 2, re-estimada al planearla por la caché de miniaturas y el panel). Como dibujante, quiero ver las últimas hojas de un cuaderno al pararme sobre él en la biblioteca, para reconocerlo sin abrirlo.
+    1. Un panel fijo de 300 px a la derecha de la biblioteca, como la barra del cuaderno abierto, muestra el elegido (con las flechas o tocándolo): la tapa y el nombre, lo usado y las fechas, y sus últimas 3 hojas, de la más nueva a la más vieja, con el número y la fecha; el borrador primero, con la marca. Sin hojas, el papel con "Todavía no hay hojas".
+    2. Cada miniatura (`miniatura.png`, 480 × 300) se arma una vez en segundo plano junto a su hoja y se rehace si la imagen es más nueva; las flechas no se traban mientras tanto (se ve el papel). Al volver a un cuaderno ya visto, salen de la memoria.
 
 ## Plan por fases
 
 1. **Fase 1 — MVP: llenar y recorrer un cuaderno** (HU-132 a HU-139 y HU-144; 30 pts)
     1. El formato, Cartuchera en modo cuaderno, la app, la biblioteca, administrar cuadernos, recorrer, dibujar la siguiente hoja, la barra del cuaderno a la derecha, instalador.
     2. Salida: un cuaderno "Bocetos diarios" con varias hojas dibujadas y terminadas en Cartuchera, recorrido con PgUp y PgDn.
-2. **Fase 2 — Compartir y más apps** (HU-145 y HU-140 a HU-143; 23 pts)
+2. **Fase 2 — Compartir y más apps** (HU-145 y HU-140 a HU-143; 24 pts)
     1. Primero la hoja en el TV (HU-145); después exportar, cuadernos de Krita y miniaturas, según lo que pida el uso.
 
 Las fases son milestones propios de la app ("Bocetos · Fase N"). El orden dentro de la Fase 1 es el numérico: primero la plataforma (HU-132 a HU-134), después la biblioteca y el cuaderno; HU-144 va después de HU-138 y antes del instalador (HU-139), para que la primera entrega ya tenga la barra a la derecha.

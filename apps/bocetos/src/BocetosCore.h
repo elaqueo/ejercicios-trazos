@@ -143,6 +143,25 @@ QByteArray jpegOf(const QImage& image, int quality = 90);
 // `--tv <url de la descripción>`: ese TV, sin buscar en la red (el TV de mentira del smoke).
 QUrl tvArgument(const QStringList& args);
 
+// HU-143: las últimas hojas del elegido, en el panel de la biblioteca (mesa "Bocetos · biblioteca
+// con miniaturas"): el borrador primero (si hay) y las terminadas de la más nueva a la más vieja.
+inline constexpr int kThumbCount = 3;
+inline constexpr QSize kThumbSize{480, 300};
+inline constexpr const char* kThumbFile = "miniatura.png";
+struct Thumb {
+    int sheet = 0;
+    bool draft = false;
+    QString source; // la imagen (terminada.png o borrador.png); vacía: un borrador sin imagen (el papel)
+    QString file;   // su miniatura.png
+    QDate date;
+};
+QList<Thumb> thumbsOf(const QString& dir, const notebooks::Notebook& notebook, int count = kThumbCount);
+// La miniatura está y no es más vieja que la imagen.
+bool thumbFresh(const QString& source, const QString& file);
+// La arma (achicada para que entre en kThumbSize) y la guarda en `file`; la devuelve (vacía si no
+// se pudo leer la imagen).
+QImage writeThumb(const QString& source, const QString& file);
+
 // HU-138: D dibuja la siguiente hoja en Cartuchera (`--hoja`, HU-133); HU-142: en un cuaderno de
 // Krita, en Krita (`krita <hoja.kra>`), y antes, si falta, Cartuchera arma el papel (`--papel`).
 enum class DrawAction { Launch, Full, NoCartuchera, NoKrita };

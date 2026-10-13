@@ -3,7 +3,7 @@
 # HU-142: el .kra es un zip; QZipWriter y QZipReader son API privada de Qt Core (están desde Qt 4).
 find_package(Qt6 ${ET_QT_VERSION} EXACT REQUIRED COMPONENTS CorePrivate)
 qt_add_library(bocetos_core STATIC src/BocetosCore.h src/BocetosCore.cpp src/SheetCache.h src/SheetCache.cpp
-               src/Kra.h src/Kra.cpp)
+               src/Kra.h src/Kra.cpp src/ThumbCache.h src/ThumbCache.cpp)
 target_include_directories(bocetos_core PUBLIC src)
 target_link_libraries(bocetos_core PUBLIC notebooks appkit cast PRIVATE Qt6::CorePrivate)
 et_target_defaults(bocetos_core)
