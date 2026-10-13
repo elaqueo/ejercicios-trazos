@@ -1,0 +1,1 @@
+et_add_qt_test(tst_notebook_mode SOURCES tst_notebook_mode.cpp LIBS cartuchera_core)

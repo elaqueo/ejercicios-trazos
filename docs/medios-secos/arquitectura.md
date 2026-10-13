@@ -230,6 +230,16 @@ Un dibujo se guarda como el registro crudo de las muestras de entrada más insta
 5. **Exportación**: PNG a resolución de simulación, con la iluminación aplicada o sin ella.
 6. **Deshacer**: técnicamente es trivial (re-simular hasta el trazo anterior desde el snapshot más cercano). Si se ofrece o no es una decisión de experiencia (ver Decisiones abiertas).
 
+## Modo cuaderno (HU-133, Bocetos)
+
+Bocetos abre Cartuchera con `--hoja <carpeta>` sobre la hoja siguiente de un cuaderno (`libs/notebooks`; formato en [docs/bocetos/arquitectura.md](../bocetos/arquitectura.md)). Sin `--hoja`, Cartuchera es la de siempre y no guarda nada.
+
+1. **Qué hoja**: `apps/cartuchera/src/NotebookMode.h` (en `cartuchera_core`, con su prueba `tst_notebook_mode`) valida que la carpeta sea una `hoja-NNNN` de un cuaderno, dentro del máximo, sin terminar y la siguiente; si no, la app sale enseguida (código 2) con el motivo en el log.
+2. **El papel del cuaderno**: el color, el grano (`PaperSpec::grain`) y la textura van a `LienzoOptions` (`paperColor`, `paperGrain`, `textureLevel`). Ctrl+[ ] cambian la textura para mirar, pero no la guardan en la configuración de la familia; Ctrl+N no está (`clearKey = false`): limpiaría el borrador sin deshacer.
+3. **Se guarda sola**: la hoja es una toma de una sola hoja (`Lienzo::useTake` sobre la carpeta), como en la Mesa. Cerrar (Ctrl+Q) deja el borrador; volver a abrirla lo retoma.
+4. **Terminar (Ctrl+Enter)**: `Lienzo::exportActiveSheet` escribe la hoja a 600 dpi (como `exportTake`, sin guías) al lado y la renombra a `terminada.png`, así aparece entera o no aparece; después se actualiza la fecha del cuaderno y la app cierra (stop() espera a que la toma esté escrita). En blanco, pregunta antes (la confirmación de la suite).
+5. **El aviso** (`lienzo/SideNote.h`): el cuaderno, la hoja y las teclas en el costado libre, pintado por Qt cuando cambia y puesto por el render encima de todo (`Renderer::setNote`, como la franja del audio); sin costado, una línea arriba a la izquierda.
+
 ## Plan por fases
 
 Primero se valida la latencia y la entrada con un lienzo trivial; recién después se invierte en la simulación. Cada fase termina en algo usable para dibujar.

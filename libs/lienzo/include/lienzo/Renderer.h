@@ -178,6 +178,25 @@ public:
         m_stripVisible = false;
     }
 
+    // El aviso del costado (HU-133, Cartuchera en modo cuaderno; lienzo/SideNote.h): como la
+    // franja, una imagen opaca en (x, y) del cliente, encima de todo.
+    void setNote(int x, int y, int width, int height, std::vector<uint32_t> pixels)
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_noteVisible = true;
+        m_noteX = x;
+        m_noteY = y;
+        m_noteW = width;
+        m_noteH = height;
+        m_notePixels = std::move(pixels);
+        m_noteChanged = true;
+    }
+    void hideNote()
+    {
+        std::lock_guard lock(m_layersMutex);
+        m_noteVisible = false;
+    }
+
     // La marca de la esquina de la hoja que se muestra (HU-104, rol y número): una imagen de
     // size × size (BGRA; se usa el alfa) en (x, y) desde la esquina de la hoja, pintada de
     // `color` encima del grafito y antes del giro. pixels vacío: sin marca. Llamarla junto con
@@ -280,6 +299,9 @@ private:
     bool m_stripVisible = false, m_stripChanged = false;
     int m_stripX = 0, m_stripY = 0, m_stripW = 0, m_stripH = 0;
     std::vector<uint32_t> m_stripPixels;
+    bool m_noteVisible = false, m_noteChanged = false;
+    int m_noteX = 0, m_noteY = 0, m_noteW = 0, m_noteH = 0;
+    std::vector<uint32_t> m_notePixels;
     bool m_chartVisible = false;
     RECT m_chartRect{};
     float m_chartLine = 1;

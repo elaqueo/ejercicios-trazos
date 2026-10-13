@@ -676,5 +676,85 @@ finally {
     }
     if ($backup) { [IO.File]::WriteAllBytes($config, $backup) } else { Remove-Item $config -ErrorAction SilentlyContinue }
 }
+# Cartuchera en modo cuaderno (HU-133, Bocetos): un cuaderno de 3 hojas en una carpeta temporal.
+# --hoja abre la 1 con el papel del cuaderno; Ctrl+Enter en blanco pregunta y Esc sigue; un trazo y
+# Ctrl+Q la dejan en borrador; al volver a abrirla el trazo sigue (Ctrl+Enter ya no pregunta) y la
+# termina: terminada.png y la fecha del cuaderno. Una hoja terminada no se vuelve a abrir.
+$cart = Join-Path $root 'build\release\cartuchera.exe'
+$cartLog = Join-Path $data 'cartuchera.log'
+if (Get-Process cartuchera -ErrorAction SilentlyContinue) { throw 'Cartuchera está abierta: cerrarla antes de la prueba' }
+$nbDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-cuaderno-$PID"
+Remove-Item $nbDir -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force $nbDir | Out-Null
+$nbJson = Join-Path $nbDir 'cuaderno.json'
+@{ version = 1; name = 'Prueba'; collection = ''; cover = '#a9533d'; maxSheets = 3; started = '2026-10-01'; updated = '2026-10-01'
+   paper = @{ preset = 'kraft'; color = '#b59878'; grain = 2047; texture = 35 } } | ConvertTo-Json -Depth 4 | Set-Content $nbJson -Encoding utf8
+$sheet1 = Join-Path $nbDir 'hoja-0001'
+$app = $null
+try {
+    if (-not ('Smoke.Keys' -as [type])) {
+        Add-Type -Namespace Smoke -Name Keys -MemberDefinition '[DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, System.UIntPtr extra);'
+    }
+    if (-not ('SynthPen' -as [type])) { . (Join-Path $PSScriptRoot 'pen.ps1') }
+    function NbCtrl([byte]$vk) {
+        [Smoke.Keys]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
+        [Smoke.Keys]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
+        [Smoke.Keys]::keybd_event($vk, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
+        [Smoke.Keys]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 600
+    }
+    function NbKey([byte]$vk) {
+        [Smoke.Keys]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
+        [Smoke.Keys]::keybd_event($vk, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 600
+    }
+    function NbOpen {
+        $p = Start-Process $cart -ArgumentList '--hoja', "`"$sheet1`"" -PassThru
+        Start-Sleep 4
+        $null = (New-Object -ComObject WScript.Shell).AppActivate($p.Id)
+        Start-Sleep 1
+        return $p
+    }
+
+    $app = NbOpen
+    NbCtrl 0x0D # Ctrl+Enter, en blanco: pregunta
+    NbKey 0x1B  # Esc: sigue dibujando
+    $l = @(Get-Content $cartLog -Encoding utf8) -join ' '
+    Check 'Cartuchera abre la hoja 1 del cuaderno con su papel; en blanco Ctrl+Enter pregunta y Esc sigue' `
+        ($l -match 'Cuaderno: Prueba · hoja 1 de 3 · papel kraft' -and $l -match 'confirmar terminar en blanco.*terminar cancelado') $l
+
+    $null = $l -match 'en (\d+) x (\d+) px desde (-?\d+) (-?\d+)'
+    $cx = [int]$Matches[3] + [int]([int]$Matches[1] / 2); $cy = [int]$Matches[4] + [int]([int]$Matches[2] / 2)
+    Pen $cx $cy; Pen $cx $cy $false 'down' 60
+    foreach ($s in 1..12) { [SynthPen]::Send($cx + 20 * $s, $cy + 8 * $s, $true, $false, 'move'); Start-Sleep -Milliseconds 20 }
+    Pen ($cx + 240) ($cy + 96) $false 'up' 80
+    Start-Sleep 2
+    NbCtrl 0x51 # Ctrl+Q: queda el borrador
+    $closed = $app.WaitForExit(15000)
+    $draft = (Test-Path (Join-Path $sheet1 'toma.json')) -and -not (Test-Path (Join-Path $sheet1 'terminada.png'))
+    Check 'un trazo y Ctrl+Q dejan la hoja en borrador' ($closed -and $draft) "cerró: $closed · borrador: $draft"
+
+    $app = NbOpen
+    NbCtrl 0x0D # con el trazo: termina sin preguntar
+    $closed = $app.WaitForExit(15000)
+    $l = @(Get-Content $cartLog -Encoding utf8) -join ' '
+    $updated = (Get-Content $nbJson -Raw | ConvertFrom-Json).updated
+    $today = (Get-Date).ToString('yyyy-MM-dd')
+    Check 'al volver el trazo sigue y Ctrl+Enter la termina: terminada.png y la fecha del cuaderno' `
+        ($closed -and (Test-Path (Join-Path $sheet1 'terminada.png')) -and $updated -eq $today -and $l -match 'hoja 1 terminada' -and $l -notmatch 'confirmar terminar') `
+        "cerró: $closed · fecha: $updated · $l"
+
+    $p = Start-Process $cart -ArgumentList '--hoja', "`"$sheet1`"" -PassThru
+    $exited = $p.WaitForExit(10000)
+    $l = @(Get-Content $cartLog -Encoding utf8) -join ' '
+    Check 'una hoja terminada no se vuelve a abrir' ($exited -and $l -match 'no se abre: la hoja 1 ya está terminada') $l
+    $app = $null
+}
+finally {
+    if ($app -and -not $app.HasExited) {
+        $null = $app.CloseMainWindow()
+        if (-not $app.WaitForExit(15000)) { $app.Kill() }
+    }
+    Remove-Item $nbDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 if ($failures.Count) { Write-Host "$($failures.Count) falla(s)"; exit 1 }
 Write-Host 'Prueba de la app real: todo bien'

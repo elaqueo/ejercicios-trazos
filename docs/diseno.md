@@ -61,6 +61,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Cilindro que gira (Ejercicios de animación) | Como la mesa "Cilindro que gira": el ghost del prisma (gris tinta al 50 %, lo oculto punteado, el ángulo abajo a la derecha); las tapas en elipses exactas, la silueta de canto y una costura (una generatriz y una marca en la tapa) que deja ver el giro; por defecto, sobre el eje horizontal | HU-130 |
 | Cono y cabeza que giran (Ejercicios de animación) | Como la mesa "Cono y cabeza que giran", con el ghost del prisma. El cono: la base en elipse, la silueta del vértice y la costura; por defecto sobre el eje horizontal. La cabeza: Loomis simplificada, solo la estructura (la esfera, la línea media y la de las cejas, los cortes laterales, la línea de la cara y la mandíbula), sin nariz ni boca; por defecto sobre el eje vertical | HU-131 |
 | Panel de hojas (Ejercicios de animación) | Como la variante de la mesa "Panel de hojas": en vez de la toma, "EJERCICIO" y el título del ejercicio, con "modo mixto" a la derecha si está prendido; sin estado de guardado (la pila no se guarda) | HU-120, HU-121 |
+| Cartuchera en modo cuaderno (Bocetos) | Como la mesa "Cartuchera en modo cuaderno": en el costado libre a la derecha de la hoja, "CUADERNO", la muestra de la tapa y el nombre, "hoja 13 de 40" en ámbar mono, las teclas (Ctrl+Enter resaltada: terminar; Ctrl+Q: queda el borrador; Z) y el papel al pie (`lienzo/SideNote.h`, lo pone el render como la franja del audio). Sin costado libre, una línea en la esquina superior izquierda de la hoja. Terminar en blanco usa la confirmación | HU-133 |
 
 ## Teclas (v1.5.2)
 
@@ -85,6 +86,7 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | Z / Ctrl+Y | — (sin deshacer) | Deshacer / rehacer |
 | `[ ]` · `, .` · `- =` | Tamaño · blandura (fuerza en la goma) · techo, de la herramienta activa | Igual |
 | Ctrl+S · Ctrl+N | Guardar el lápiz · hoja nueva | Igual |
+| Ctrl+Enter | — | En modo cuaderno (`--hoja`, desde Bocetos): terminar la hoja; vuelve al cuaderno y ya no se edita. Ahí no está Ctrl+N (borraría el borrador) y Ctrl+[ ] no guardan la textura (es la del cuaderno; HU-133) |
 | F3 · F9 · F10 · F12 | Latencia · calibrar el área útil · monitor siguiente · captura | Igual |
 | Ctrl+Q / Alt+F4 | Salir (Ctrl+Q, pedido del usuario con HU-109) | Salir |
 

@@ -5,6 +5,7 @@
 #include "lienzo/PenMenu.h"
 #include "lienzo/SheetMapping.h"
 #include "lienzo/SheetRole.h"
+#include "lienzo/SideNote.h"
 #include "lienzo/Tone.h"
 
 #include <appkit/Shortcuts.h>
@@ -17,6 +18,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 class QKeyEvent;
@@ -65,6 +67,12 @@ struct LienzoOptions {
     uint32_t paperColor = kPaperColor;
     int paperGrain = 2047;
     bool paperTexture = true;
+    // HU-133 (Cartuchera en modo cuaderno): la textura del papel fija (0..100) en lugar de la de
+    // la familia; Ctrl+[ ] la cambian para mirar pero no la guardan (el papel es del cuaderno).
+    // -1: la de la familia.
+    int textureLevel = -1;
+    // Ctrl+N limpia la hoja. HU-133: en un cuaderno no, porque borraría el borrador sin deshacer.
+    bool clearKey = true;
     // Lápices de color (HU-99, Mesa de animación): 1 es el grafito y 2 a 5 los colores (azul,
     // rojo, verde, violeta); los números dejan de girar la vista (gira la rueda y Shift +
     // arrastrar). Queda guardado en config.json ("pencil").
@@ -244,6 +252,12 @@ public:
     // el resultado. false si no hay toma o ya está exportando.
     bool exportTake();
     bool exporting() const;
+    // HU-133 (Cartuchera en modo cuaderno): la hoja activa como PNG en `file`, a la resolución de
+    // la simulación y como en exportTake; espera a que esté escrita. Se escribe al lado y se
+    // renombra al final, así `file` aparece entero o no aparece. false si no se pudo.
+    bool exportActiveSheet(const QString& file);
+    // HU-133: el aviso del costado (lienzo/SideNote.h); nullopt lo saca.
+    void setSideNote(const std::optional<SideNote>& note);
     // Panel de hojas (HU-114, lienzo/SheetPanel.h): angosto, a la derecha de la pantalla, con
     // la toma, la hoja activa y sus vecinas en miniatura, el lápiz, la mesa de luz y el giro.
     // Solo con la pila de hojas (options.sheets); la app elige la tecla y lo guarda.

@@ -183,6 +183,8 @@ struct Renderer::Impl {
     SheetMarkLayer markLayer;
     ComPtr<ID3D11Texture2D> strip; // HU-106
     int stripW = 0, stripH = 0;
+    ComPtr<ID3D11Texture2D> note; // HU-133
+    int noteW = 0, noteH = 0;
     ComPtr<ID3D11Texture2D> guide; // HU-103
     ComPtr<ID3D11ShaderResourceView> guideView;
     SheetGuideLayer guideLayer;
@@ -716,6 +718,8 @@ void Renderer::run()
         std::vector<SheetLayer> below;
         bool stripVisible = false;
         int stripX = 0, stripY = 0;
+        bool noteVisible = false;
+        int noteX = 0, noteY = 0;
         bool panelVisible;
         int panelX, panelY;
         std::vector<PanelThumb> panelThumbs;
@@ -820,28 +824,40 @@ void Renderer::run()
                 }
                 m_guidePixels = {};
             }
-            stripVisible = m_stripVisible;
-            stripX = m_stripX;
-            stripY = m_stripY;
-            if (m_stripChanged) { // la franja del audio (HU-106), a su textura
-                m_stripChanged = false;
-                if (!d.strip || d.stripW != m_stripW || d.stripH != m_stripH) {
+            // La franja del audio (HU-106) y el aviso del costado (HU-133), cada una a su textura.
+            const auto upload = [&](ComPtr<ID3D11Texture2D>& texture, int& tw, int& th, int w, int h,
+                                    std::vector<uint32_t>& pixels) {
+                if (!texture || tw != w || th != h) {
                     D3D11_TEXTURE2D_DESC td{};
-                    td.Width = UINT(std::max(1, m_stripW));
-                    td.Height = UINT(std::max(1, m_stripH));
+                    td.Width = UINT(std::max(1, w));
+                    td.Height = UINT(std::max(1, h));
                     td.MipLevels = 1;
                     td.ArraySize = 1;
                     td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
                     td.SampleDesc.Count = 1;
                     td.Usage = D3D11_USAGE_DEFAULT;
-                    d.strip.Reset();
-                    d.device->CreateTexture2D(&td, nullptr, &d.strip);
-                    d.stripW = m_stripW;
-                    d.stripH = m_stripH;
+                    texture.Reset();
+                    d.device->CreateTexture2D(&td, nullptr, &texture);
+                    tw = w;
+                    th = h;
                 }
-                if (d.strip && m_stripPixels.size() == size_t(m_stripW) * size_t(m_stripH))
-                    d.context->UpdateSubresource(d.strip.Get(), 0, nullptr, m_stripPixels.data(), UINT(m_stripW) * 4, 0);
-                m_stripPixels = {};
+                if (texture && pixels.size() == size_t(w) * size_t(h))
+                    d.context->UpdateSubresource(texture.Get(), 0, nullptr, pixels.data(), UINT(w) * 4, 0);
+                pixels = {};
+            };
+            stripVisible = m_stripVisible;
+            stripX = m_stripX;
+            stripY = m_stripY;
+            if (m_stripChanged) {
+                m_stripChanged = false;
+                upload(d.strip, d.stripW, d.stripH, m_stripW, m_stripH, m_stripPixels);
+            }
+            noteVisible = m_noteVisible;
+            noteX = m_noteX;
+            noteY = m_noteY;
+            if (m_noteChanged) {
+                m_noteChanged = false;
+                upload(d.note, d.noteW, d.noteH, m_noteW, m_noteH, m_notePixels);
             }
             chartVisible = m_chartVisible;
             chart = {m_chartRect, m_chartLine, m_chartColor, m_chartOpacity};
@@ -947,14 +963,19 @@ void Renderer::run()
         }
         if (panelVisible)
             d.drawPanel(back.Get(), panelX, panelY, panelThumbs, sheetRect, now);
-        if (stripVisible && d.strip) { // HU-106
-            const int x0 = std::max(stripX, 0), y0 = std::max(stripY, 0);
-            const int x1 = std::min(stripX + d.stripW, int(d.width)), y1 = std::min(stripY + d.stripH, int(d.height));
+        // Imágenes opacas encima de todo: la franja del audio (HU-106) y el aviso (HU-133).
+        const auto blit = [&](ID3D11Texture2D* texture, int x, int y, int w, int h) {
+            const int x0 = std::max(x, 0), y0 = std::max(y, 0);
+            const int x1 = std::min(x + w, int(d.width)), y1 = std::min(y + h, int(d.height));
             if (x0 < x1 && y0 < y1) {
-                const D3D11_BOX box{UINT(x0 - stripX), UINT(y0 - stripY), 0, UINT(x1 - stripX), UINT(y1 - stripY), 1};
-                d.context->CopySubresourceRegion(back.Get(), 0, UINT(x0), UINT(y0), 0, d.strip.Get(), 0, &box);
+                const D3D11_BOX box{UINT(x0 - x), UINT(y0 - y), 0, UINT(x1 - x), UINT(y1 - y), 1};
+                d.context->CopySubresourceRegion(back.Get(), 0, UINT(x0), UINT(y0), 0, texture, 0, &box);
             }
-        }
+        };
+        if (stripVisible && d.strip)
+            blit(d.strip.Get(), stripX, stripY, d.stripW, d.stripH);
+        if (noteVisible && d.note)
+            blit(d.note.Get(), noteX, noteY, d.noteW, d.noteH);
         if (m_overlay) {
             d.context->CopySubresourceRegion(back.Get(), 0, 16, 16, 0, d.stats.Get(), 0, nullptr);
             overlayShown = true;

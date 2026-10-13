@@ -18,7 +18,7 @@ QList<Paper> paperPresets()
     return {
         {QStringLiteral("crema"), QColor(0xF5, 0xF0, 0xE6), 2047, 20},
         {QStringLiteral("blanco"), QColor(0xFA, 0xF8, 0xF2), 2047, 20},
-        {QStringLiteral("kraft"), QColor(0xB9, 0x8F, 0x5E), 2047, 35},
+        {QStringLiteral("kraft"), QColor(0xB5, 0x98, 0x78), 2047, 35},
         {QStringLiteral("tonadoTostado"), QColor(0xD6, 0xC4, 0xA1), 1600, 20},
         {QStringLiteral("tonadoGris"), QColor(0xB8, 0xB7, 0xB0), 1600, 20},
     };

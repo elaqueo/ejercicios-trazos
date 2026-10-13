@@ -442,6 +442,31 @@ struct Lienzo::Impl {
     bool stripVisible = false, stripSent = false;
     AudioStripInfo stripShown;
     QRect stripRect;
+
+    // El aviso del costado (HU-133): se pinta de nuevo al cambiar o al reubicarse la hoja.
+    std::optional<SideNote> note;
+    bool noteSent = false;
+    void refreshNote()
+    {
+        if (!render)
+            return;
+        if (!note) {
+            if (noteSent)
+                render->hideNote();
+            noteSent = false;
+            return;
+        }
+        const double scale = screen->devicePixelRatio();
+        bool compact = false;
+        const QRect rect = sideNoteRect(*note, canvas->width(), canvas->height(),
+                                        QRect(mapping.sheetX, mapping.sheetY, mapping.sheetWidth, mapping.sheetHeight), scale,
+                                        &compact);
+        const QImage painted = paintSideNote(*note, rect.size(), scale, compact, appkit::theme::kFuera);
+        const auto* bits = reinterpret_cast<const uint32_t*>(painted.constBits());
+        render->setNote(rect.x(), rect.y(), painted.width(), painted.height(),
+                        std::vector<uint32_t>(bits, bits + size_t(painted.width()) * size_t(painted.height())));
+        noteSent = true;
+    }
     void loadAudio(const QString& dir)
     {
         stopAudio();
@@ -1088,6 +1113,8 @@ struct Lienzo::Impl {
         texture = std::clamp(config->value(QStringLiteral("paperTexture"), 20, appkit::Config::Scope::Common).toInt(), 0, 100);
         if (!options.paperTexture)
             texture = 0; // papel liso (HU-97): no se lee ni se guarda la de la familia
+        if (options.textureLevel >= 0)
+            texture = std::clamp(options.textureLevel, 0, 100); // HU-133: la del cuaderno
         if (options.colorPencils) // HU-99
             colorPencil = std::clamp(config->value(QStringLiteral("pencil"), -1).toInt(), -1, drymedia::kColorCount - 1);
     }
@@ -1097,7 +1124,8 @@ struct Lienzo::Impl {
     {
         texture = std::clamp(texture + (up ? 10 : -10), 0, 100);
         sim->setTexture(texture);
-        config->setValue(QStringLiteral("paperTexture"), texture, appkit::Config::Scope::Common);
+        if (options.textureLevel < 0) // HU-133: la del cuaderno no se guarda
+            config->setValue(QStringLiteral("paperTexture"), texture, appkit::Config::Scope::Common);
         qInfo() << "Textura del papel:" << texture << "%";
     }
 
@@ -1156,6 +1184,7 @@ struct Lienzo::Impl {
         applyGuide();   // y la guía, del tamaño nuevo
         applySheetGuides(); // HU-119: las de las hojas también
         refreshStrip(true);
+        refreshNote();
         applyLayers();
         if (!area)
             render->setOverlay(true);
@@ -1731,7 +1760,7 @@ void Lienzo::registerShortcuts()
             impl->beforeSheetChange();
             impl->post([impl] { impl->sim->requestClearSheet(); });
         });
-    else
+    else if (d->options.clearKey) // HU-133: en un cuaderno, no
         keys.add(QStringLiteral("Hoja nueva"), {{'N', true}}, [this] { clear(); });
     if (d->options.undo) {
         keys.add(QStringLiteral("Deshacer"), {{'Z'}}, [impl] { impl->requestUndo(); }); // Z sola (pedido del usuario, 10 de octubre)
@@ -1889,6 +1918,40 @@ void Lienzo::stop()
     qInfo().noquote() << QString::fromStdString(
         t.renderLockBusy.describe("render con la imagen ocupada (1 = no la tomó)", "frames"));
     qInfo().noquote() << QString::fromStdString(t.renderUploadPixels.describe("render píxeles subidos", "px"));
+}
+
+bool Lienzo::exportActiveSheet(const QString& file)
+{
+    ExportJob job;
+    job.dir = file + QStringLiteral(".export");
+    job.paper = d->paper.spec();
+    job.paperColor = d->options.paperColor;
+    const bool wasRunning = d->running;
+    if (wasRunning)
+        d->sim->stop();
+    const Stopwatch time;
+    job.sheets.push_back({d->sheets.serialize(d->paper, activeSheet()), 1, SheetRole::None});
+    if (wasRunning)
+        d->sim->start();
+    const ExportResult result = lienzo::exportTake(job);
+    const QString written = QDir(job.dir).filePath(exportFileName(1));
+    bool ok = result.ok;
+    if (ok) {
+        QFile::remove(file);
+        ok = QFile::rename(written, file);
+    }
+    QDir(job.dir).removeRecursively();
+    if (ok)
+        qInfo().noquote() << QStringLiteral("Exportar: la hoja en %1 (%2 ms)").arg(file).arg(time.ms(), 0, 'f', 0);
+    else
+        qWarning().noquote() << QStringLiteral("Exportar: la hoja no se pudo escribir en %1 %2").arg(file, result.error);
+    return ok;
+}
+
+void Lienzo::setSideNote(const std::optional<SideNote>& note)
+{
+    d->note = note;
+    d->refreshNote();
 }
 
 bool Lienzo::exportTake()
