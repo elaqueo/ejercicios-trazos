@@ -130,5 +130,5 @@ Cada una se cierra en la historia que la toca.
 
 1. ~~Dónde viven los cuadernos~~: en `Documentos\Trazos\Bocetos`, porque son dibujos del usuario y así entran en sus backups (HU-132, 13 oct 2026).
 2. Las teclas de dibujar y terminar: propuesta `D` y `Ctrl+Enter` (HU-133, HU-138).
-3. El orden dentro de un estante: propuesta por última actualización (HU-135).
+3. ~~El orden dentro de un estante~~: por última actualización, la más reciente primero (HU-135, 13 oct 2026).
 4. La paleta de colores de tapa: propuesta de seis tonos apagados que se leen con texto claro, terracota `#A9533D`, ocre `#A87A2A`, oliva `#5B7646`, pizarra `#3F5F80`, ciruela `#714765` y grafito `#4A5059` (HU-136, mesa "Bocetos · cuaderno nuevo").

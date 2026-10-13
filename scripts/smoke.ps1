@@ -756,18 +756,27 @@ finally {
     Remove-Item $nbDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-# Bocetos (HU-134): arranca con una biblioteca temporal de 2 cuadernos (--biblioteca), encuentra
-# Cartuchera al lado, Ctrl+, abre los atajos y Esc los cierra; Ctrl+Q sale.
+# Bocetos (HU-134, HU-135): una biblioteca temporal de 30 cuadernos en 3 estantes (--biblioteca) se lee
+# en menos de 500 ms (RNF-01); encuentra Cartuchera al lado; Ctrl+, abre los atajos y Esc los cierra;
+# las flechas eligen otro cuaderno y Enter lo abre; Ctrl+Q sale.
 $boc = Join-Path $root 'build\release\bocetos.exe'
 $bocLog = Join-Path $data 'bocetos.log'
 if (Get-Process bocetos -ErrorAction SilentlyContinue) { throw 'Bocetos está abierta: cerrarla antes de la prueba' }
+$bocBackup = if (Test-Path $config) { [IO.File]::ReadAllBytes($config) } else { $null } # guarda el elegido
 $libDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-bocetos-$PID"
 Remove-Item $libDir -Recurse -Force -ErrorAction SilentlyContinue
-foreach ($n in 'diarios', 'gestos') {
-    New-Item -ItemType Directory -Force (Join-Path $libDir $n) | Out-Null
-    @{ version = 1; name = $n; collection = ''; cover = '#3f5f80'; maxSheets = 10; started = '2026-10-01'; updated = '2026-10-01'
-       paper = @{ preset = 'crema'; color = '#f5f0e6'; grain = 2047; texture = 20 } } | ConvertTo-Json -Depth 4 |
-        Set-Content (Join-Path $libDir "$n\cuaderno.json") -Encoding utf8
+foreach ($i in 1..30) {
+    $dir = Join-Path $libDir "cuaderno-$i"
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    $coll = @('', 'Proyecto xxx', 'Estudios')[$i % 3]
+    @{ version = 1; name = "Cuaderno $i"; collection = $coll; cover = '#3f5f80'; maxSheets = 40; started = '2026-10-01'
+       updated = ('2026-10-{0:d2}' -f (1 + $i % 28)); paper = @{ preset = 'crema'; color = '#f5f0e6'; grain = 2047; texture = 20 } } |
+        ConvertTo-Json -Depth 4 | Set-Content (Join-Path $dir 'cuaderno.json') -Encoding utf8
+    foreach ($h in 1..($i % 5)) { # algunas hojas terminadas
+        $sheet = Join-Path $dir ('hoja-{0:d4}' -f $h)
+        New-Item -ItemType Directory -Force $sheet | Out-Null
+        New-Item -ItemType File -Force (Join-Path $sheet 'terminada.png') | Out-Null
+    }
 }
 $app = $null
 try {
@@ -780,16 +789,24 @@ try {
         [Smoke.Keys]::keybd_event($vk, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
         [Smoke.Keys]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 600
     }
+    function BoKey([byte]$vk) {
+        [Smoke.Keys]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
+        [Smoke.Keys]::keybd_event($vk, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 400
+    }
     $app = Start-Process $boc -ArgumentList '--biblioteca', "`"$libDir`"" -PassThru
     Start-Sleep 3
     $null = (New-Object -ComObject WScript.Shell).AppActivate($app.Id)
     Start-Sleep 1
     BoCtrl 0xBC # Ctrl+,
-    [Smoke.Keys]::keybd_event(0x1B, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
-    [Smoke.Keys]::keybd_event(0x1B, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 600
+    BoKey 0x1B  # Esc
     $l = @(Get-Content $bocLog -Encoding utf8) -join ' '
-    Check 'Bocetos arranca con la biblioteca de 2 cuadernos, encuentra Cartuchera y Ctrl+, abre sus atajos' `
-        ($l -match 'Bocetos: biblioteca .* · 2 cuadernos' -and $l -match 'Bocetos: Cartuchera en' -and $l -match 'Atajos: abiertos.*Atajos: cerrados') $l
+    $ms = if ($l -match 'Biblioteca: 30 cuadernos en 3 estantes, leída en ([\d.]+) ms') { [double]$Matches[1] } else { -1 }
+    Check "Bocetos lee 30 cuadernos en 3 estantes en menos de 500 ms ($ms ms), encuentra Cartuchera y Ctrl+, abre sus atajos" `
+        ($ms -ge 0 -and $ms -lt 500 -and $l -match 'Bocetos: Cartuchera en' -and $l -match 'Atajos: abiertos.*Atajos: cerrados') $l
+    BoKey 0x27; BoKey 0x27; BoKey 0x25; BoKey 0x28 # → → ← ↓: cuatro cambios, con cualquier ancho (el general tiene 10)
+    BoKey 0x0D # Enter
+    $l = @(Get-Content $bocLog -Encoding utf8 | Where-Object { $_ -match 'Bocetos: (elegido|abrir)' })
+    Check 'las flechas eligen otro cuaderno y Enter lo abre' ($l.Count -ge 5 -and ($l[-1] -match 'abrir')) ($l -join ' | ')
     BoCtrl 0x51 # Ctrl+Q
     Check 'Ctrl+Q cierra Bocetos' $app.WaitForExit(10000) ''
     $app = $null
@@ -800,6 +817,7 @@ finally {
         if (-not $app.WaitForExit(15000)) { $app.Kill() }
     }
     Remove-Item $libDir -Recurse -Force -ErrorAction SilentlyContinue
+    if ($bocBackup) { [IO.File]::WriteAllBytes($config, $bocBackup) }
 }
 
 if ($failures.Count) { Write-Host "$($failures.Count) falla(s)"; exit 1 }

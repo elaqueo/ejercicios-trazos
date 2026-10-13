@@ -13,7 +13,6 @@
 #include <appkit/ScreenChoice.h>
 #include <appkit/Shortcuts.h>
 #include <appkit/ShortcutsOverlay.h>
-#include <notebooks/Library.h>
 
 #include <QApplication>
 #include <QScreen>
@@ -32,18 +31,16 @@ int main(int argc, char* argv[])
     QScreen* screen = appkit::savedScreen(config);
 
     const QString root = bocetos::libraryRoot(QApplication::arguments());
-    const QList<notebooks::Entry> notebooks = notebooks::listNotebooks(root);
     const QString cartuchera = bocetos::findCartuchera(QApplication::applicationDirPath());
     qInfo().noquote() << QStringLiteral("Trazos %1 · Bocetos · escala de Windows %2").arg(QStringLiteral(ET_VERSION)).arg(screen->devicePixelRatio());
-    qInfo().noquote() << QStringLiteral("Bocetos: biblioteca %1 · %2 cuadernos").arg(root).arg(notebooks.size());
+    qInfo().noquote() << QStringLiteral("Bocetos: biblioteca %1").arg(root);
     if (cartuchera.isEmpty())
         qWarning() << "Bocetos: no está cartuchera.exe junto a bocetos.exe";
     else
         qInfo().noquote() << QStringLiteral("Bocetos: Cartuchera en %1").arg(cartuchera);
 
     appkit::Shortcuts shortcuts;
-    LibraryWindow window(shortcuts);
-    window.setStatus(root, int(notebooks.size()), cartuchera);
+    LibraryWindow window(shortcuts, config);
     window.setWindowFlag(Qt::FramelessWindowHint);
     window.setWindowTitle(QApplication::applicationName());
     const auto place = [&](QScreen* on) {
@@ -51,6 +48,15 @@ int main(int argc, char* argv[])
         window.setGeometry(on->geometry());
     };
     place(screen);
+    window.setLibrary(root, cartuchera); // con el ancho de la pantalla, para acomodar los libros
+
+    // La biblioteca (HU-135): las flechas eligen, Enter abre.
+    shortcuts.setGroup(QStringLiteral("Biblioteca"));
+    shortcuts.add(QStringLiteral("Cuaderno anterior"), {{VK_LEFT}}, [&] { window.move(bocetos::Move::Left); });
+    shortcuts.add(QStringLiteral("Cuaderno siguiente"), {{VK_RIGHT}}, [&] { window.move(bocetos::Move::Right); });
+    shortcuts.add(QStringLiteral("Fila de arriba"), {{VK_UP}}, [&] { window.move(bocetos::Move::Up); });
+    shortcuts.add(QStringLiteral("Fila de abajo"), {{VK_DOWN}}, [&] { window.move(bocetos::Move::Down); });
+    shortcuts.add(QStringLiteral("Abrir el cuaderno"), {{VK_RETURN}}, [&] { window.openSelected(); });
 
     // Ctrl+, (HU-78): la lista sale del registro, centrada en la pantalla.
     appkit::ShortcutsOverlay overlay(&window);

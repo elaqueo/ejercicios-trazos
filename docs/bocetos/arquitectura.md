@@ -9,7 +9,7 @@ Cómo está hecha la app definida en [idea.md](idea.md) y [requerimientos.md](re
 | Pieza | Dónde | Qué hace |
 | --- | --- | --- |
 | El cuaderno | `libs/notebooks` | `cuaderno.json`, el estado de las hojas y la biblioteca (HU-132). Solo Qt Core y Gui (por `QColor`): sin widgets ni lienzo, para que la usen Bocetos y Cartuchera. |
-| La app | `apps/bocetos` (`LibraryWindow`, `BocetosCore.h` en `bocetos_core`) | Qt Widgets a pantalla completa, sin el lienzo (RNF-06): la ventana, los atajos y dónde están los cuadernos y Cartuchera (HU-134). |
+| La app | `apps/bocetos` (`LibraryWindow`, `BocetosCore.h` en `bocetos_core`) | Qt Widgets a pantalla completa, sin el lienzo (RNF-06): la ventana, los atajos y dónde están los cuadernos y Cartuchera (HU-134); la biblioteca, con los estantes y los libros (HU-135). |
 | Cartuchera en modo cuaderno | `apps/cartuchera` (`NotebookMode.h`), `libs/lienzo` (`SideNote.h`, `exportActiveSheet`) | Abre una hoja con `--hoja`, la guarda sola con el papel del cuaderno y la termina con Ctrl+Enter (HU-133). Detalle en [medios-secos/arquitectura.md](../medios-secos/arquitectura.md#modo-cuaderno-hu-133-bocetos). |
 
 ## El formato del cuaderno (HU-132)
@@ -71,6 +71,18 @@ No se guarda en el json: sale de las carpetas, así no hay dos fuentes que pueda
 - **La biblioteca** es la de `--biblioteca <carpeta>` (la prueba de la app real, para no tocar los cuadernos del usuario) o `Documentos\Trazos\Bocetos`. **Cartuchera** es `cartuchera.exe` junto a `bocetos.exe` (`bocetos::findCartuchera`); si no está, queda en el log y en la pantalla.
 - Su log es `bocetos.log` y su sección de `config.json`, `bocetos`.
 
+## La biblioteca (HU-135)
+
+Como la mesa "Bocetos · biblioteca". Lo que no es dibujo está en `bocetos_core`, con pruebas:
+
+1. **Los estantes** (`shelvesOf`): uno por colección, el general (sin colección) primero y después por nombre; adentro, por la última actualización, la más reciente primero (decisión 3).
+2. **El libro** (`bookOf`): las hojas terminadas, si la siguiente es un borrador y si está lleno, de `libs/notebooks`. Las fechas de la tapa (`bookDates`): "desde 1 oct · última 12 oct", con el año solo si no es el de hoy; sin hojas, solo "desde".
+3. **El acomodo** (`layoutLibrary`): tapas de 232 × 148 px con 40 entre una y otra, en filas de lo que entre en el ancho (en el UltraWide, 8); un estante con más libros sigue en la fila de abajo. El nombre del estante, 40 px arriba de las tapas; la línea de la tabla, 194 px debajo del borde de arriba de su última fila; el estante siguiente, 52 más abajo.
+4. **La navegación** (`moveSelection`): ← → el libro anterior o siguiente, de fila en fila y de estante en estante; ↑ ↓ la fila de arriba o de abajo en la columna más cercana. En los bordes se queda. Si no entra todo, la vista se corre para que el elegido se vea entero.
+5. **El dibujo** (`LibraryWindow`): la tapa con su color, el lomo más oscuro, el nombre (hasta dos líneas), la marca (borrador en ámbar, lleno, sin hojas) y las fechas; debajo, el canto, que engorda de 3 a 12 px con las hojas usadas, y la cuenta "12/40"; el elegido con el marco ámbar. Sin cuadernos, "Todavía no hay cuadernos · Ctrl+N crea el primero".
+6. **Abrir**: Enter, o tocar el libro (el lápiz llega como mouse), lo elige y lo abre; el visor es HU-137 (hasta entonces queda en el log). El último elegido queda en `config.json` (`bocetos.selected`, la carpeta del cuaderno).
+7. **RNF-01**: el log dice cuánto tardó en leer la biblioteca; la prueba de la app real lo mide con 30 cuadernos.
+
 ## El viaje a Cartuchera (HU-133)
 
 Bocetos lanza `cartuchera --hoja <cuaderno>/hoja-NNNN` y espera; se hablan solo por archivos.
@@ -85,4 +97,4 @@ Bocetos lanza `cartuchera --hoja <cuaderno>/hoja-NNNN` y espera; se hablan solo 
 
 `tst_notebook_mode` (Cartuchera): el argumento `--hoja`, la siguiente hoja abre con su papel, lo que no abre (terminada, fuera de orden, fuera del máximo, fuera de un cuaderno) y que terminar actualiza la fecha. La prueba de la app real abre, deja un borrador, lo retoma, lo termina y verifica que no se vuelve a abrir.
 
-`tst_bocetos`: el argumento `--biblioteca` y encontrar Cartuchera (una carpeta con ese nombre no cuenta). La prueba de la app real arranca Bocetos con una biblioteca de 2 cuadernos, abre y cierra los atajos y la cierra con Ctrl+Q.
+`tst_bocetos`: el argumento `--biblioteca`, encontrar Cartuchera (una carpeta con ese nombre no cuenta), el orden de los estantes y los libros, lo que dice la tapa (hojas usadas, borrador, lleno, fechas), el acomodo con filas que se cortan y la navegación con las cuatro flechas. La prueba de la app real arranca Bocetos con una biblioteca de 30 cuadernos en 3 estantes (menos de 500 ms), abre y cierra los atajos, elige con las flechas, abre con Enter y cierra con Ctrl+Q.
