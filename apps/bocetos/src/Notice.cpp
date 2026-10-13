@@ -29,12 +29,19 @@ void Notice::busy(const QString& title, const QString& detail)
 
 void Notice::warn(const QString& title, const QString& detail)
 {
+    present(title, detail, false, true);
+    m_timer.start(6000);
+}
+
+void Notice::info(const QString& title, const QString& detail)
+{
     present(title, detail, false);
     m_timer.start(6000);
 }
 
-void Notice::present(const QString& title, const QString& detail, bool busy)
+void Notice::present(const QString& title, const QString& detail, bool busy, bool error)
 {
+    m_error = error;
     m_title = title;
     m_detail = detail;
     m_busy = busy;
@@ -56,7 +63,7 @@ void Notice::paintEvent(QPaintEvent*)
     QPainterPath path;
     path.addRoundedRect(box, theme::kRadioPanel, theme::kRadioPanel);
     p.fillPath(path, theme::kPanel);
-    p.setPen(QPen(m_busy ? theme::kBorde : theme::kSeleccionTexto, 1));
+    p.setPen(QPen(m_error ? theme::kSeleccionTexto : theme::kBorde, 1));
     p.drawPath(path);
     p.setFont(bocetos::themeFont(false, 18, QFont::DemiBold));
     p.setPen(theme::kTexto);

@@ -6,8 +6,10 @@
 //   (la prueba de la app real, para no tocar los del usuario).
 //   --tv <url>: T usa ese TV (la descripción UPnP) sin buscar en la red (el TV de mentira, HU-145).
 //   --krita <exe>: los cuadernos de Krita (HU-142) se dibujan con ese exe (el Krita de mentira).
+//   --exportar-en <carpeta>: Ctrl+E y Ctrl+P (HU-140, HU-141) guardan ahí sin preguntar.
 
 #include "BocetosCore.h"
+#include "BookExport.h"
 #include "LibraryWindow.h"
 #include "NotebookView.h"
 
@@ -77,6 +79,7 @@ int main(int argc, char* argv[])
     else
         qInfo().noquote() << QStringLiteral("Bocetos: Krita en %1").arg(krita);
     window.setKrita(krita);
+    window.setExportDir(bocetos::exportDirArgument(QApplication::arguments()));
     window.setLibrary(root, cartuchera); // con el ancho de la ventana, para acomodar los libros
     if (const QUrl tv = bocetos::tvArgument(QApplication::arguments()); tv.isValid()) {
         window.setTvForced(tv);
@@ -97,6 +100,8 @@ int main(int argc, char* argv[])
     shortcuts.add(QStringLiteral("Editar el cuaderno"), {{VK_F2}}, [&] { window.editSelected(); });
     shortcuts.add(QStringLiteral("Mover a otra colección"), {{'M', true}}, [&] { window.editSelected(true); });
     shortcuts.add(QStringLiteral("Borrar el cuaderno"), {{VK_DELETE}}, [&] { window.deleteSelected(); });
+    // HU-141: en la biblioteca y en el cuaderno abierto.
+    shortcuts.add(QStringLiteral("Exportar el cuaderno en PDF"), {{'P', true}}, [&] { window.exportPdf(); });
 
     // El cuaderno abierto (HU-137): pasar hojas, zoom y volver.
     shortcuts.setGroup(QStringLiteral("Cuaderno"));
@@ -119,6 +124,8 @@ int main(int argc, char* argv[])
     shortcuts.add(QStringLiteral("Volver a la biblioteca"), {{VK_ESCAPE}}, [&] { window.closeNotebook(); });
     // HU-142: el borrador de un cuaderno de Krita se termina acá.
     shortcuts.add(QStringLiteral("Terminar la hoja"), {{VK_RETURN, true}}, [&] { window.finishSheet(); });
+    // HU-140: la hoja que se mira, como PNG.
+    shortcuts.add(QStringLiteral("Exportar la hoja"), {{'E', true}}, [&] { window.exportSheet(); });
     // HU-145: la hoja en el TV de la red (DLNA).
     shortcuts.add(QStringLiteral("Mostrar en el TV"), {{'T'}}, [&] { window.toggleTv(); });
 

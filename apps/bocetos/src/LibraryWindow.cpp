@@ -1,5 +1,6 @@
 #include "LibraryWindow.h"
 
+#include "BookExport.h"
 #include "Kra.h"
 #include "NotebookDialog.h"
 #include "NotebookView.h"
@@ -15,7 +16,10 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileDialog>
 #include <QFileInfo>
+#include <QStandardPaths>
+#include <QThread>
 #include <QElapsedTimer>
 #include <QFont>
 #include <QFontMetricsF>
@@ -716,6 +720,112 @@ void LibraryWindow::finishSheet()
     qInfo().noquote() << QStringLiteral("Krita: confirmar terminar la hoja %1%2").arg(page->sheet).arg(blank ? QStringLiteral(" en blanco") : QString());
 }
 
+// Dónde guardar: con --exportar-en, ahí sin preguntar; si no, el diálogo de Windows en la última
+// carpeta (config "exportDir"; la primera vez, Imágenes). Vacío si se cancela.
+QString LibraryWindow::saveFile(const QString& title, const QString& name, const QString& filter)
+{
+    if (!m_exportDir.isEmpty()) {
+        QDir().mkpath(m_exportDir);
+        return QDir(m_exportDir).filePath(name);
+    }
+    QString dir = m_config.value(QStringLiteral("exportDir")).toString();
+    if (dir.isEmpty() || !QFileInfo(dir).isDir())
+        dir = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
+    const QString file = QFileDialog::getSaveFileName(this, title, QDir(dir).filePath(name), filter);
+    activateWindow();
+    setFocus();
+    if (!file.isEmpty())
+        m_config.setValue(QStringLiteral("exportDir"), QFileInfo(file).absolutePath());
+    return file;
+}
+
+void LibraryWindow::exportSheet()
+{
+    NotebookView* view = openNotebook();
+    if (!view || dialogOpen() || m_drawing.sheet || m_exporting)
+        return;
+    const bocetos::Page* page = view->currentPage();
+    if (!page || page->image.isEmpty())
+        return; // en blanco: no hay nada que guardar
+    const bocetos::Page sheet = *page;
+    const QString file = saveFile(QStringLiteral("Guardar la hoja"), bocetos::sheetFileName(view->book().notebook, sheet.sheet),
+                                  QStringLiteral("Imagen PNG (*.png)"));
+    if (file.isEmpty()) {
+        qInfo() << "Exportar: hoja cancelada";
+        return;
+    }
+    QString error;
+    if (!bocetos::exportSheet(sheet, file, &error)) {
+        qWarning().noquote() << QStringLiteral("Exportar: %1").arg(error);
+        m_notice->warn(QStringLiteral("La hoja %1 no se pudo guardar").arg(sheet.sheet), error);
+        return;
+    }
+    qInfo().noquote() << QStringLiteral("Exportar: hoja %1 en %2").arg(sheet.sheet).arg(QDir::toNativeSeparators(file));
+    m_notice->info(QStringLiteral("Hoja %1 guardada").arg(sheet.sheet),
+                   QStringLiteral("%1, en %2").arg(QFileInfo(file).fileName(), QDir::toNativeSeparators(QFileInfo(file).absolutePath())));
+}
+
+void LibraryWindow::exportPdf()
+{
+    if (dialogOpen() || m_drawing.sheet || m_exporting)
+        return;
+    const NotebookView* view = openNotebook();
+    const Book* selected = selectedBook();
+    if (!view && !selected)
+        return;
+    const Book book = view ? view->book() : *selected;
+    const int sheets = int(bocetos::pdfPages(book.dir, book.notebook).size());
+    if (sheets == 0) {
+        m_notice->warn(QStringLiteral("No hay hojas para el PDF"), QStringLiteral("«%1» todavía no tiene hojas terminadas.").arg(book.notebook.name));
+        return;
+    }
+    const QString file = saveFile(QStringLiteral("Guardar el cuaderno en PDF"), bocetos::pdfFileName(book.notebook), QStringLiteral("PDF (*.pdf)"));
+    if (file.isEmpty()) {
+        qInfo() << "Exportar: PDF cancelado";
+        return;
+    }
+    m_exporting = true;
+    const QString name = book.notebook.name;
+    m_notice->busy(QStringLiteral("Armando el PDF"), QStringLiteral("%1 · la tapa").arg(name));
+    qInfo().noquote() << QStringLiteral("Exportar: PDF de «%1» (%2 hojas) en %3").arg(name).arg(sheets).arg(QDir::toNativeSeparators(file));
+    QElapsedTimer* time = new QElapsedTimer;
+    time->start();
+    auto* ok = new bool(false);
+    auto* error = new QString;
+    QThread* thread = QThread::create([this, file, book, name, ok, error] {
+        *ok = bocetos::writeNotebookPdf(
+            file, book,
+            [this, name](int done, int total) {
+                QMetaObject::invokeMethod(
+                    this, [this, name, done, total] { m_notice->busy(QStringLiteral("Armando el PDF"), QStringLiteral("%1 · hoja %2 de %3").arg(name).arg(done).arg(total)); },
+                    Qt::QueuedConnection);
+            },
+            error);
+    });
+    connect(thread, &QThread::finished, this, [this, thread, file, sheets, time, ok, error] {
+        thread->deleteLater();
+        m_exporting = false;
+        m_notice->hide();
+        const double ms = time->elapsed();
+        if (*ok) {
+            const double mb = QFileInfo(file).size() / 1e6;
+            qInfo().noquote() << QStringLiteral("Exportar: PDF listo, %1 páginas, %2 MB, en %3 ms").arg(sheets + 1).arg(mb, 0, 'f', 1).arg(ms, 0, 'f', 0);
+            m_notice->info(QStringLiteral("PDF guardado"), QStringLiteral("%1 · %2 páginas, %3 MB, en %4")
+                                                               .arg(QFileInfo(file).fileName())
+                                                               .arg(sheets + 1)
+                                                               .arg(QLocale(QLocale::Spanish).toString(mb, 'f', 1))
+                                                               .arg(QDir::toNativeSeparators(QFileInfo(file).absolutePath())));
+        } else {
+            qWarning().noquote() << QStringLiteral("Exportar: el PDF no se pudo escribir: %1").arg(*error);
+            m_notice->warn(QStringLiteral("El PDF no se pudo guardar"), *error);
+        }
+        delete time;
+        delete ok;
+        delete error;
+    });
+    thread->start();
+}
+
 void LibraryWindow::toggleTv()
 {
     if (!openNotebook() || dialogOpen() || m_chooser->isVisible())
@@ -734,6 +844,11 @@ void LibraryWindow::setTvForced(const QUrl& location)
 void LibraryWindow::closeEvent(QCloseEvent* event)
 {
     // Cerrar Bocetos mataría a Cartuchera (QProcess) con la hoja abierta: primero se cierra ella.
+    if (m_exporting) { // HU-141: el PDF se está escribiendo en otro hilo
+        qInfo() << "Bocetos: no se cierra mientras se arma el PDF";
+        event->ignore();
+        return;
+    }
     if (m_drawing.sheet) {
         qInfo() << "Bocetos: no se cierra mientras se dibuja";
         event->ignore();
@@ -874,7 +989,7 @@ void LibraryWindow::paintEvent(QPaintEvent*)
 void LibraryWindow::keyPressEvent(QKeyEvent* event)
 {
     // El registro va por la tecla virtual de Windows, como en el lienzo. Las flechas repiten.
-    if (dialogOpen() || m_drawing.sheet) { // las teclas son del diálogo, o de Cartuchera
+    if (dialogOpen() || m_drawing.sheet || m_exporting) { // las teclas son del diálogo, o de Cartuchera (o se arma el PDF)
         event->accept();
         return;
     }

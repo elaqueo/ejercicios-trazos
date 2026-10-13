@@ -1,4 +1,5 @@
 #include "BocetosCore.h"
+#include "BookExport.h"
 #include "Kra.h"
 #include "SheetCache.h"
 #include "ThumbCache.h"
@@ -15,6 +16,7 @@
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -421,6 +423,63 @@ private slots:
         QVERIFY(QDir().mkpath(notebooks::sheetFolder(tmp.path(), 2)));
         touch(notebooks::sheetFolder(tmp.path(), 2) + QStringLiteral("/terminada.png"));
         QCOMPARE(drawPlan(book, QStringLiteral("c.exe")).action, DrawAction::Full);
+    }
+
+    // HU-140 y HU-141: los nombres, la hoja como PNG y el PDF.
+    void exportar()
+    {
+        notebooks::Notebook nb;
+        nb.name = QStringLiteral("Bocetos: diarios?");
+        nb.maxSheets = 40;
+        QCOMPARE(sheetFileName(nb, 7), QStringLiteral("Bocetos- diarios- - hoja 07.png"));
+        nb.maxSheets = 120;
+        QCOMPARE(sheetFileName(nb, 7), QStringLiteral("Bocetos- diarios- - hoja 007.png"));
+        nb.name = QStringLiteral("Bocetos diarios");
+        QCOMPARE(pdfFileName(nb), QStringLiteral("Bocetos diarios.pdf"));
+        QCOMPARE(exportDirArgument({"bocetos.exe", "--exportar-en", "C:/x"}), QStringLiteral("C:/x"));
+        QVERIFY(exportDirArgument({"bocetos.exe"}).isEmpty());
+
+        QTemporaryDir tmp;
+        nb.maxSheets = 5;
+        nb.collection = QStringLiteral("Proyecto xxx");
+        nb.cover = QColor(0xA9, 0x53, 0x3D);
+        nb.started = QDate(2026, 10, 1);
+        nb.updated = QDate(2026, 10, 12);
+        QImage sheet(1600, 1000, QImage::Format_RGB32);
+        sheet.fill(QColor(0x30, 0x30, 0x30));
+        for (int i = 1; i <= 2; ++i) {
+            QVERIFY(QDir().mkpath(notebooks::sheetFolder(tmp.path(), i)));
+            QVERIFY(sheet.save(QDir(notebooks::sheetFolder(tmp.path(), i)).filePath(QStringLiteral("terminada.png"))));
+        }
+        QVERIFY(QDir().mkpath(notebooks::sheetFolder(tmp.path(), 3))); // un borrador: no entra
+        const QList<Page> pages = pdfPages(tmp.path(), nb);
+        QCOMPARE(pages.size(), 2);
+
+        // La hoja: la misma imagen, reemplazando lo que había.
+        const QString png = tmp.filePath(QStringLiteral("hoja.png"));
+        touch(png);
+        QVERIFY(exportSheet(pages[1], png));
+        QCOMPARE(QFileInfo(png).size(), QFileInfo(pages[1].image).size());
+        QVERIFY(!exportSheet(pagesOf(tmp.path(), nb).last(), png)); // el borrador sin imagen
+
+        // El PDF: la tapa y una página por hoja, del tamaño de la hoja.
+        const QString pdf = tmp.filePath(QStringLiteral("cuaderno.pdf"));
+        QList<int> progress;
+        QVERIFY(writeNotebookPdf(pdf, Book{tmp.path(), nb}, [&](int done, int) { progress.append(done); }));
+        QCOMPARE(progress, QList<int>({1, 2}));
+        QFile file(pdf);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray data = file.readAll();
+        QVERIFY(data.startsWith("%PDF"));
+        QCOMPARE(QRegularExpression(QStringLiteral("/Type\\s*/Page[^s]")).globalMatch(QString::fromLatin1(data)).hasNext(), true);
+        int count = 0;
+        for (auto it = QRegularExpression(QStringLiteral("/Type\\s*/Page[^s]")).globalMatch(QString::fromLatin1(data)); it.hasNext(); it.next())
+            ++count;
+        QCOMPARE(count, 3);
+        const QRegularExpressionMatch box = QRegularExpression(QStringLiteral("/MediaBox \\[0 0 ([\\d.]+) ([\\d.]+)")).match(QString::fromLatin1(data));
+        QVERIFY2(box.hasMatch(), data.left(2000).constData());
+        QVERIFY2(std::abs(box.captured(1).toDouble() - kPdfPageWidthMm / 25.4 * 72) < 1.5, qPrintable(box.captured(0))); // en puntos
+        QVERIFY2(std::abs(box.captured(2).toDouble() - kPdfPageHeightMm / 25.4 * 72) < 1.5, qPrintable(box.captured(0)));
     }
 
     // HU-143: las últimas hojas del panel y sus miniaturas.

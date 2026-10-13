@@ -765,7 +765,9 @@ finally {
 # (fake_renderer, nunca el de verdad), T manda la hoja, AvPág la siguiente y T corta. HU-142: otra
 # biblioteca con un cuaderno de Krita y el Krita de mentira (--krita fake_krita, nunca el de verdad): D
 # arma el papel con Cartuchera, "dibuja" y guarda en Krita, Bocetos muestra el borrador y Ctrl+Enter,
-# Ctrl+Enter lo terminan. HU-143: el panel de la biblioteca arma las miniaturas del elegido.
+# Ctrl+Enter lo terminan. HU-143: el panel de la biblioteca arma las miniaturas del elegido. HU-140 y
+# HU-141: con --exportar-en (sin el diálogo de Windows), Ctrl+E guarda la hoja como PNG y Ctrl+P el
+# cuaderno como PDF (la tapa y la hoja: 2 páginas).
 $boc = Join-Path $root 'build\release\bocetos.exe'
 $bocLog = Join-Path $data 'bocetos.log'
 if (Get-Process bocetos -ErrorAction SilentlyContinue) { throw 'Bocetos está abierta: cerrarla antes de la prueba' }
@@ -959,7 +961,7 @@ try {
     @{ version = 2; app = 'krita'; name = 'Personajes en Krita'; collection = ''; cover = '#714765'; maxSheets = 10; started = '2026-10-13'
        updated = '2026-10-13'; paper = @{ preset = 'tonadoTostado'; color = '#d6c4a1'; grain = 1600; texture = 20 } } |
         ConvertTo-Json -Depth 4 | Set-Content (Join-Path $kDir 'cuaderno.json') -Encoding utf8
-    $app = Start-Process $boc -ArgumentList '--biblioteca', "`"$(Join-Path $libDir 'krita')`"", '--krita', "`"$(Join-Path $root 'build\release\fake_krita.exe')`"" -PassThru
+    $app = Start-Process $boc -ArgumentList '--biblioteca', "`"$(Join-Path $libDir 'krita')`"", '--krita', "`"$(Join-Path $root 'build\release\fake_krita.exe')`"", '--exportar-en', "`"$(Join-Path $libDir 'export')`"" -PassThru
     Start-Sleep 3
     $null = (New-Object -ComObject WScript.Shell).AppActivate($app.Id)
     Start-Sleep 1
@@ -986,6 +988,20 @@ try {
     $l = @(Get-Content $bocLog -Encoding utf8) -join ' ' # el log empieza de nuevo con cada Bocetos
     Check 'Ctrl+Enter y Ctrl+Enter terminan el borrador de Krita y Bocetos muestra la hoja terminada' `
         ((Test-Path (Join-Path $sheet1 'terminada.png')) -and $l -match 'Krita: confirmar terminar la hoja 1 .*Krita: hoja 1 terminada' -and $l -match 'Cuaderno: hoja 1 en') $l
+    $exportDir = Join-Path $libDir 'export'
+    BoCtrl 0x45 # Ctrl+E: la hoja 1, que se está mirando
+    BoCtrl 0x50 # Ctrl+P: el PDF
+    $pdf = Join-Path $exportDir 'Personajes en Krita.pdf'
+    foreach ($i in 1..40) {
+        if (@(Get-Content $bocLog -Encoding utf8) -match 'Exportar: PDF listo') { break }
+        Start-Sleep -Milliseconds 250
+    }
+    $png = Join-Path $exportDir 'Personajes en Krita - hoja 01.png'
+    $same = (Test-Path $png) -and ((Get-FileHash $png).Hash -eq (Get-FileHash (Join-Path $sheet1 'terminada.png')).Hash)
+    $pdfPages = if (Test-Path $pdf) { ([regex]::Matches([IO.File]::ReadAllText($pdf, [Text.Encoding]::GetEncoding(28591)), '/Type\s*/Page[^s]')).Count } else { 0 }
+    $l = @(Get-Content $bocLog -Encoding utf8) -join ' '
+    Check "Ctrl+E guarda la hoja como PNG (idéntica) y Ctrl+P el cuaderno como PDF ($pdfPages páginas)" ($same -and $pdfPages -eq 2 -and $l -match 'Exportar: hoja 1 en' -and $l -match 'Exportar: PDF listo, 2 páginas') $l
+    Start-Sleep 1
     BoCtrl 0x51 # Ctrl+Q
     if (-not $app.WaitForExit(10000)) { $app.Kill() }
     $app = $null

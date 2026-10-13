@@ -120,7 +120,13 @@ Se estiman y se refinan cuando la Fase 1 esté en uso. Primero, agregada el 13 d
 El resto, según lo que pida el uso:
 
 140. **HU-140 · Exportar una hoja** (Could · 2 pts). Como dibujante, quiero guardar la hoja que estoy mirando como PNG donde elija, para compartirla.
+    1. Ctrl+E, en el cuaderno abierto: el diálogo de guardar de Windows, con "Bocetos diarios - hoja 07.png" en la última carpeta usada (la primera vez, Imágenes). Se copia la imagen tal cual (600 dpi); un borrador de Krita también (lo último guardado); una hoja en blanco, no.
+    2. Un aviso dice dónde quedó.
 141. **HU-141 · Exportar el cuaderno como PDF** (Could · 3 pts). Como dibujante, quiero el cuaderno entero en un PDF, con la tapa y una hoja por página, para mostrarlo o imprimirlo.
+    1. Ctrl+P, en la biblioteca (el elegido) o en el cuaderno abierto, con el mismo diálogo ("Bocetos diarios.pdf").
+    2. Páginas del tamaño real de la hoja (325 × 203 mm, para imprimirlo a escala): la tapa (el color, la colección, el nombre, las fechas y cuántas hojas) y una hoja terminada por página, a toda la página y a 300 dpi; los borradores no entran.
+    3. Se arma en segundo plano con el cartel "Armando el PDF · hoja 7 de 12"; al terminar, un aviso con las páginas, el peso y dónde quedó.
+    4. La prueba de la app real guarda sin el diálogo (`--exportar-en <carpeta>`).
 142. **HU-142 · Cuadernos de Krita** (Could · 8 pts; estimada en 5, re-estimada al planearla: el papel lo arma Cartuchera, el `.kra` se escribe a mano y la prueba de la app real necesita un Krita de mentira). Como dibujante, quiero cuadernos cuyas hojas se dibujan en Krita, con el mismo papel, para usar sus pinceles.
     1. Al crear el cuaderno se elige la app (Cartuchera o Krita) y no cambia: un cuaderno es de una sola app.
     2. Se genera una vez `papel.png`, el papel del cuaderno con su textura. Lo arma Cartuchera (`cartuchera --papel <cuaderno>`, sin ventana), porque la textura visible es del lienzo y Bocetos no lo enlaza (RNF-06); a un cuarto de la resolución de la hoja, y Krita lo agranda. Cada hoja es un `.kra` con ese papel como capa de fondo bloqueada y una capa vacía encima.

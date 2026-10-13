@@ -48,6 +48,12 @@ public:
     void setKrita(const QString& krita);
     void finishSheet();
 
+    // HU-140: Ctrl+E en el cuaderno abierto, la hoja que se mira como PNG; HU-141: Ctrl+P, el
+    // cuaderno (abierto o elegido) como PDF, en segundo plano. `--exportar-en` guarda sin preguntar.
+    void exportSheet();
+    void exportPdf();
+    void setExportDir(const QString& dir) { m_exportDir = dir; }
+
     // HU-145: T en el cuaderno abierto: la hoja también en el TV, o cortar. --tv fuerza un TV.
     void toggleTv();
     void setTvForced(const QUrl& location);
@@ -79,12 +85,15 @@ private:
     void preview();                       // HU-143: el panel del elegido y sus miniaturas
     void paintPanel(QPainter& p) const;
     int gridWidth() const;
+    QString saveFile(const QString& title, const QString& name, const QString& filter);
     int contentTop() const;
     int viewBottom() const;
 
     appkit::Shortcuts& m_shortcuts;
     appkit::Config& m_config;
     QString m_root, m_cartuchera, m_krita;
+    QString m_exportDir;     // --exportar-en
+    bool m_exporting = false; // HU-141: armando el PDF
     QList<bocetos::Shelf> m_shelves;
     bocetos::Layout m_layout;
     int m_selected = -1;
