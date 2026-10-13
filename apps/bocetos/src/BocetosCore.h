@@ -68,4 +68,25 @@ int moveSelection(const Layout& layout, int current, Move move);
 // El libro en `point` (coordenadas del contenido; la tapa con su canto), o -1.
 int slotAt(const Layout& layout, const QPoint& point);
 
+// HU-136: lo que se elige en "Cuaderno nuevo" (y en "Editar cuaderno": nombre, colección y tapa).
+struct Draft {
+    QString name;
+    QString collection; // vacía: el estante general
+    QColor cover;
+    notebooks::Paper paper = notebooks::paperPreset(QStringLiteral("crema"));
+    int maxSheets = 40;
+};
+inline constexpr int kMinSheets = 1, kMaxSheets = 200;
+
+// "Bocetos diarios" → "Bocetos diarios 2"; "Bocetos diarios 2" → "Bocetos diarios 3".
+QString continuedName(const QString& name);
+// Las colecciones que hay (sin el general), por nombre.
+QStringList collectionsOf(const QList<Shelf>& shelves);
+// Lo que propone "Cuaderno nuevo": si el elegido está lleno, seguir en uno nuevo (el nombre
+// siguiente, el mismo papel, la misma tapa, la misma colección y la misma cantidad de hojas); si no,
+// la colección del elegido, la primera tapa, papel crema y 40 hojas.
+Draft draftFor(const Book* selected);
+// El cuaderno que sale del borrador, empezado y actualizado `today`.
+notebooks::Notebook notebookFrom(const Draft& draft, const QDate& today);
+
 } // namespace bocetos

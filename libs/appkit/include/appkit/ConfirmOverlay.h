@@ -34,6 +34,7 @@ private:
 
     QString m_title, m_detail, m_keyName, m_action;
     Qt::Key m_key = Qt::Key_unknown;
+    bool m_finishing = false; // hide() pierde el foco y volvería a cancelar (HU-136)
 };
 
 } // namespace appkit

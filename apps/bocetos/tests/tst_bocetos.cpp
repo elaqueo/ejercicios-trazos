@@ -1,5 +1,7 @@
 #include "BocetosCore.h"
 
+#include <appkit/Theme.h>
+
 #include <notebooks/Library.h>
 
 #include <QDir>
@@ -150,6 +152,67 @@ private slots:
         QCOMPARE(slotAt(layout, cover.center()), 4);
         QCOMPARE(slotAt(layout, QPoint(cover.center().x(), cover.bottom() + kCanto)), 4); // el canto
         QCOMPARE(slotAt(layout, QPoint(5, 5)), -1);
+    }
+
+    void nombreSiguiente()
+    {
+        QCOMPARE(continuedName(QStringLiteral("Bocetos diarios")), QStringLiteral("Bocetos diarios 2"));
+        QCOMPARE(continuedName(QStringLiteral("Bocetos diarios 2")), QStringLiteral("Bocetos diarios 3"));
+        QCOMPARE(continuedName(QStringLiteral("Gestos 9 ")), QStringLiteral("Gestos 10"));
+        QCOMPARE(continuedName(QStringLiteral("2026")), QStringLiteral("2026 2"));
+    }
+
+    void colecciones()
+    {
+        const QList<Shelf> shelves = shelvesOf({entry("a", "A", "", QDate(2026, 10, 2)), entry("b", "B", "Proyecto xxx", QDate(2026, 10, 2)),
+                                                entry("c", "C", "Estudios", QDate(2026, 10, 2))});
+        QCOMPARE(collectionsOf(shelves), QStringList({"Estudios", "Proyecto xxx"}));
+    }
+
+    // Cuaderno nuevo: lo de siempre, o seguir en uno nuevo si el elegido está lleno.
+    void loQuePropone()
+    {
+        const Draft empty = draftFor(nullptr);
+        QVERIFY(empty.name.isEmpty() && empty.collection.isEmpty());
+        QCOMPARE(empty.cover, appkit::theme::kTapas[0]);
+        QCOMPARE(empty.paper.preset, QStringLiteral("crema"));
+        QCOMPARE(empty.maxSheets, 40);
+
+        Book book;
+        book.notebook.name = QStringLiteral("Gestos");
+        book.notebook.collection = QStringLiteral("Estudios");
+        book.notebook.cover = appkit::theme::kTapas[3];
+        book.notebook.paper = notebooks::paperPreset(QStringLiteral("kraft"));
+        book.notebook.maxSheets = 24;
+        const Draft same = draftFor(&book);
+        QVERIFY(same.name.isEmpty());
+        QCOMPARE(same.collection, QStringLiteral("Estudios"));
+        QCOMPARE(same.paper.preset, QStringLiteral("crema"));
+
+        book.full = true;
+        const Draft next = draftFor(&book);
+        QCOMPARE(next.name, QStringLiteral("Gestos 2"));
+        QCOMPARE(next.collection, QStringLiteral("Estudios"));
+        QCOMPARE(next.cover, appkit::theme::kTapas[3]);
+        QCOMPARE(next.paper.preset, QStringLiteral("kraft"));
+        QCOMPARE(next.maxSheets, 24);
+    }
+
+    void cuadernoDelBorrador()
+    {
+        Draft draft;
+        draft.name = QStringLiteral("  Gestos ");
+        draft.collection = QStringLiteral(" Estudios ");
+        draft.cover = appkit::theme::kTapas[1];
+        draft.paper = notebooks::paperPreset(QStringLiteral("tonadoGris"));
+        draft.maxSheets = 999;
+        const notebooks::Notebook nb = notebookFrom(draft, QDate(2026, 10, 13));
+        QCOMPARE(nb.name, QStringLiteral("Gestos"));
+        QCOMPARE(nb.collection, QStringLiteral("Estudios"));
+        QCOMPARE(nb.maxSheets, kMaxSheets);
+        QCOMPARE(nb.started, QDate(2026, 10, 13));
+        QCOMPARE(nb.updated, QDate(2026, 10, 13));
+        QCOMPARE(nb.paper.preset, QStringLiteral("tonadoGris"));
     }
 };
 

@@ -52,9 +52,11 @@ void ConfirmOverlay::ask(const QString& title, const QString& detail, Qt::Key ke
 
 void ConfirmOverlay::finish(bool confirmed)
 {
-    if (!isVisible())
+    if (!isVisible() || m_finishing)
         return;
+    m_finishing = true;
     hide();
+    m_finishing = false;
     if (confirmed && onConfirm)
         onConfirm();
     else if (!confirmed && onCancel)

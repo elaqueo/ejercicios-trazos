@@ -8,6 +8,11 @@
 #include <QString>
 #include <QWidget>
 
+class NotebookDialog;
+namespace appkit {
+class ConfirmOverlay;
+}
+
 // La biblioteca de Bocetos (HU-135, mesa "Bocetos · biblioteca"): una ventana común con los
 // cuadernos como libros apaisados en estantes por colección. Las flechas eligen, Enter
 // o tocar abre (el visor llega con HU-137). Las teclas van al registro de atajos de appkit.
@@ -22,6 +27,13 @@ public:
     void move(bocetos::Move move);
     void openSelected();
 
+    // HU-136: Ctrl+N cuaderno nuevo (o seguir en uno nuevo si el elegido está lleno), F2 editarlo
+    // (Ctrl+M con el foco en la colección), Supr mandarlo a la Papelera de reciclaje (con
+    // confirmación).
+    void newNotebook();
+    void editSelected(bool focusCollection = false);
+    void deleteSelected();
+
 protected:
     void paintEvent(QPaintEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
@@ -30,6 +42,8 @@ protected:
 
 private:
     void relayout();
+    void reload(const QString& selectFolder);
+    bool dialogOpen() const;
     void select(int slot, bool log = true);
     void ensureVisible();
     const bocetos::Book* selectedBook() const;
@@ -43,4 +57,7 @@ private:
     bocetos::Layout m_layout;
     int m_selected = -1;
     int m_scroll = 0;
+    NotebookDialog* m_dialog = nullptr;
+    appkit::ConfirmOverlay* m_confirm = nullptr;
+    QString m_editing; // la carpeta del cuaderno que se edita
 };

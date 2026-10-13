@@ -99,10 +99,9 @@ Bocetos/
 | Flechas | Moverse entre cuadernos (y de estante) |
 | `Enter` / tocar | Abrir el cuaderno |
 | `Ctrl+N` | Cuaderno nuevo |
-| `Ctrl+Shift+N` | Colección nueva |
-| `F2` | Renombrar / cambiar color |
+| `F2` | Editar: nombre, colección y color (una colección nueva se escribe ahí) |
 | `Ctrl+M` | Mover a otra colección |
-| `Supr` | Borrar el cuaderno (con confirmación) |
+| `Supr` | Borrar el cuaderno, a la Papelera de reciclaje (con confirmación) |
 
 **Cuaderno abierto**
 

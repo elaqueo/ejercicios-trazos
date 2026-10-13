@@ -70,6 +70,11 @@ int main(int argc, char* argv[])
     shortcuts.add(QStringLiteral("Fila de arriba"), {{VK_UP}}, [&] { window.move(bocetos::Move::Up); });
     shortcuts.add(QStringLiteral("Fila de abajo"), {{VK_DOWN}}, [&] { window.move(bocetos::Move::Down); });
     shortcuts.add(QStringLiteral("Abrir el cuaderno"), {{VK_RETURN}}, [&] { window.openSelected(); });
+    // HU-136: crear, editar, mover de colección y borrar (a la papelera).
+    shortcuts.add(QStringLiteral("Cuaderno nuevo"), {{'N', true}}, [&] { window.newNotebook(); });
+    shortcuts.add(QStringLiteral("Editar el cuaderno"), {{VK_F2}}, [&] { window.editSelected(); });
+    shortcuts.add(QStringLiteral("Mover a otra colección"), {{'M', true}}, [&] { window.editSelected(true); });
+    shortcuts.add(QStringLiteral("Borrar el cuaderno"), {{VK_DELETE}}, [&] { window.deleteSelected(); });
 
     // Ctrl+, (HU-78): la lista sale del registro, centrada en la pantalla.
     appkit::ShortcutsOverlay overlay(&window);

@@ -1,5 +1,7 @@
 #include "BocetosCore.h"
 
+#include <appkit/Theme.h>
+
 #include <QDir>
 #include <QFileInfo>
 
@@ -147,6 +149,56 @@ int moveSelection(const Layout& layout, int current, Move move)
     }
     }
     return current;
+}
+
+QString continuedName(const QString& name)
+{
+    const QString trimmed = name.trimmed();
+    const qsizetype space = trimmed.lastIndexOf(QLatin1Char(' '));
+    bool number = false;
+    const int n = space > 0 ? trimmed.mid(space + 1).toInt(&number) : 0;
+    if (number && n >= 1)
+        return QStringLiteral("%1 %2").arg(trimmed.left(space)).arg(n + 1);
+    return trimmed + QStringLiteral(" 2");
+}
+
+QStringList collectionsOf(const QList<Shelf>& shelves)
+{
+    QStringList out;
+    for (const Shelf& shelf : shelves)
+        if (!shelf.collection.isEmpty())
+            out.append(shelf.collection);
+    std::sort(out.begin(), out.end(), [](const QString& a, const QString& b) { return QString::localeAwareCompare(a, b) < 0; });
+    return out;
+}
+
+Draft draftFor(const Book* selected)
+{
+    Draft draft;
+    draft.cover = appkit::theme::kTapas[0];
+    if (!selected)
+        return draft;
+    draft.collection = selected->notebook.collection;
+    if (selected->full) {
+        draft.name = continuedName(selected->notebook.name);
+        draft.cover = selected->notebook.cover;
+        draft.paper = selected->notebook.paper;
+        draft.maxSheets = selected->notebook.maxSheets;
+    }
+    return draft;
+}
+
+notebooks::Notebook notebookFrom(const Draft& draft, const QDate& today)
+{
+    notebooks::Notebook nb;
+    nb.name = draft.name.trimmed();
+    nb.collection = draft.collection.trimmed();
+    nb.cover = draft.cover;
+    nb.paper = draft.paper;
+    nb.maxSheets = std::clamp(draft.maxSheets, kMinSheets, kMaxSheets);
+    nb.started = today;
+    nb.updated = today;
+    return nb;
 }
 
 int slotAt(const Layout& layout, const QPoint& point)

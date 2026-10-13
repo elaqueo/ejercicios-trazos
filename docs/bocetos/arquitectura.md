@@ -83,6 +83,15 @@ Como la mesa "Bocetos · biblioteca". Lo que no es dibujo está en `bocetos_core
 6. **Abrir**: Enter, o tocar el libro (el lápiz llega como mouse), lo elige y lo abre; el visor es HU-137 (hasta entonces queda en el log). El último elegido queda en `config.json` (`bocetos.selected`, la carpeta del cuaderno).
 7. **RNF-01**: el log dice cuánto tardó en leer la biblioteca; la prueba de la app real lo mide con 30 cuadernos.
 
+## Crear y administrar (HU-136)
+
+- **Ctrl+N** abre "Cuaderno nuevo" (`NotebookDialog`, mesa "Bocetos · cuaderno nuevo"): un panel con widgets de Qt sobre la biblioteca atenuada, dentro de la ventana. Nombre, colección (desplegable editable: escribir una nueva la crea), hojas (1 a 200), tapa (`theme::kTapas`, seis tonos) y papel (desplegable con la muestra de cada uno; grano y textura arrancan en los del papel de partida; la muestra grande es ruido sobre el color, una aproximación: no es la simulación de Cartuchera). Enter crea (`notebooks::createNotebook`, empezado y actualizado hoy) y lo deja elegido; Esc cancela.
+- **Seguir en uno nuevo**: si el elegido está lleno, Ctrl+N viene con "Nombre 2" (`continuedName`), el mismo papel, tapa, colección y hojas (`draftFor`); si no, la colección del elegido.
+- **F2** abre el mismo panel para editar el nombre, la colección y la tapa (el papel y las hojas se ven deshabilitados: las hojas ya dibujadas son de ese papel). **Ctrl+M**, igual con el foco en la colección. La carpeta del cuaderno no se renombra: el nombre vive en `cuaderno.json`.
+- **No hay Ctrl+Shift+N**: una colección es un campo del cuaderno, así que una vacía no tendría estante; se crea escribiéndola en el desplegable (decidido el 13 de octubre de 2026).
+- **Supr** pide la confirmación de la suite (`appkit::ConfirmOverlay`: "¿Borrar «X»? Tiene N hojas terminadas") y manda la carpeta entera a la **Papelera de reciclaje** (`QFile::moveToTrash`), no la borra para siempre. Queda elegido el vecino.
+- Mientras el panel o la confirmación están abiertos, las teclas son de ellos: la biblioteca de atrás no se mueve.
+
 ## El viaje a Cartuchera (HU-133)
 
 Bocetos lanza `cartuchera --hoja <cuaderno>/hoja-NNNN` y espera; se hablan solo por archivos.
@@ -97,4 +106,4 @@ Bocetos lanza `cartuchera --hoja <cuaderno>/hoja-NNNN` y espera; se hablan solo 
 
 `tst_notebook_mode` (Cartuchera): el argumento `--hoja`, la siguiente hoja abre con su papel, lo que no abre (terminada, fuera de orden, fuera del máximo, fuera de un cuaderno) y que terminar actualiza la fecha. La prueba de la app real abre, deja un borrador, lo retoma, lo termina y verifica que no se vuelve a abrir.
 
-`tst_bocetos`: el argumento `--biblioteca`, encontrar Cartuchera (una carpeta con ese nombre no cuenta), el orden de los estantes y los libros, lo que dice la tapa (hojas usadas, borrador, lleno, fechas), el acomodo con filas que se cortan y la navegación con las cuatro flechas. La prueba de la app real arranca Bocetos con una biblioteca de 30 cuadernos en 3 estantes (menos de 500 ms), abre y cierra los atajos, elige con las flechas, abre con Enter y cierra con Ctrl+Q.
+`tst_bocetos`: el argumento `--biblioteca`, encontrar Cartuchera (una carpeta con ese nombre no cuenta), el orden de los estantes y los libros, lo que dice la tapa (hojas usadas, borrador, lleno, fechas), el acomodo con filas que se cortan, la navegación con las cuatro flechas, el nombre siguiente, las colecciones, lo que propone "Cuaderno nuevo" (también lleno) y el cuaderno que sale del panel. La prueba de la app real arranca Bocetos con una biblioteca de 30 cuadernos en 3 estantes (menos de 500 ms), abre y cierra los atajos, elige con las flechas, abre con Enter, crea un cuaderno con Ctrl+N, lo renombra con F2, lo manda a la papelera con Supr y Supr, y cierra con Ctrl+Q.

@@ -73,8 +73,8 @@ Cada historia indica tipo, prioridad MoSCoW y estimación; debajo, sus criterios
 136. **HU-136 · Crear y administrar cuadernos** (Must · 5 pts). Como dibujante, quiero crear, renombrar, mover y borrar cuadernos y colecciones, para ordenar mi biblioteca.
     1. **Ctrl+N** abre "Cuaderno nuevo": nombre, colección, color de tapa (una paleta corta), papel (un desplegable con los papeles, cada uno con su muestra de color, más grano y textura y una muestra grande) y máximo de hojas (por defecto 40).
     2. Los papeles: crema, blanco, **kraft** (papel madera, más grano) y **tonado tostado** y **tonado gris** (como el Strathmore Toned); cada uno es un color y un grano de partida para `drymedia::PaperSpec`, y el grafito se ve bien sobre todos.
-    3. **Ctrl+Shift+N** crea una colección; **F2** renombra el cuaderno o le cambia el color (el papel no cambia); **Ctrl+M** lo mueve a otra colección.
-    4. **Supr** borra el cuaderno entero, con la confirmación de la suite (dice cuántas hojas tiene); no hay borrar hojas sueltas.
+    3. **F2** edita el elegido: nombre, colección y tapa (el papel y las hojas se ven pero no cambian); **Ctrl+M** abre lo mismo con el foco en la colección. Una colección nueva se crea escribiéndola en el desplegable (editable); no hay Ctrl+Shift+N, porque una colección vacía no tendría estante (decidido el 13 oct 2026).
+    4. **Supr** borra el cuaderno entero, con la confirmación de la suite (dice cuántas hojas tiene), mandándolo a la Papelera de reciclaje (decidido el 13 oct 2026); no hay borrar hojas sueltas.
     5. Un cuaderno lleno ofrece "Seguir en uno nuevo": crea "Nombre 2" con el mismo papel, color y colección.
     6. Diseño primero en el canvas (mesa "Bocetos · cuaderno nuevo").
 
@@ -131,4 +131,4 @@ Cada una se cierra en la historia que la toca.
 1. ~~Dónde viven los cuadernos~~: en `Documentos\Trazos\Bocetos`, porque son dibujos del usuario y así entran en sus backups (HU-132, 13 oct 2026).
 2. Las teclas de dibujar y terminar: propuesta `D` y `Ctrl+Enter` (HU-133, HU-138).
 3. ~~El orden dentro de un estante~~: por última actualización, la más reciente primero (HU-135, 13 oct 2026).
-4. La paleta de colores de tapa: propuesta de seis tonos apagados que se leen con texto claro, terracota `#A9533D`, ocre `#A87A2A`, oliva `#5B7646`, pizarra `#3F5F80`, ciruela `#714765` y grafito `#4A5059` (HU-136, mesa "Bocetos · cuaderno nuevo").
+4. ~~La paleta de colores de tapa~~ (`theme::kTapas`, HU-136): seis tonos apagados que se leen con texto claro, terracota `#A9533D`, ocre `#A87A2A`, oliva `#5B7646`, pizarra `#3F5F80`, ciruela `#714765` y grafito `#4A5059` (HU-136, mesa "Bocetos · cuaderno nuevo").

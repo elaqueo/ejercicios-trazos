@@ -1,8 +1,13 @@
 #include "LibraryWindow.h"
 
+#include "NotebookDialog.h"
+
+#include <appkit/ConfirmOverlay.h>
+
 #include <appkit/Theme.h>
 
 #include <QDir>
+#include <QFile>
 #include <QElapsedTimer>
 #include <QFont>
 #include <QFontMetricsF>
@@ -147,6 +152,119 @@ LibraryWindow::LibraryWindow(appkit::Shortcuts& shortcuts, appkit::Config& confi
     , m_config(config)
 {
     setFocusPolicy(Qt::StrongFocus);
+    m_dialog = new NotebookDialog(this);
+    m_dialog->onCancel = [this] {
+        qInfo() << "Bocetos: diálogo cancelado";
+        setFocus();
+    };
+    m_dialog->onAccept = [this](const bocetos::Draft& draft) {
+        setFocus();
+        if (m_editing.isEmpty()) { // nuevo
+            const QString dir = notebooks::createNotebook(m_root, bocetos::notebookFrom(draft, QDate::currentDate()));
+            if (dir.isEmpty()) {
+                qWarning().noquote() << QStringLiteral("Bocetos: no se pudo crear «%1» en %2").arg(draft.name, m_root);
+                return;
+            }
+            qInfo().noquote() << QStringLiteral("Bocetos: cuaderno nuevo «%1» en %2").arg(draft.name, QDir(dir).dirName());
+            reload(QDir(dir).dirName());
+            return;
+        }
+        // Editar: el nombre, la colección y la tapa; la carpeta no cambia.
+        std::optional<notebooks::Notebook> nb = notebooks::loadNotebook(m_editing);
+        if (!nb) {
+            qWarning().noquote() << QStringLiteral("Bocetos: no se pudo leer %1 para editarlo").arg(m_editing);
+            return;
+        }
+        nb->name = draft.name;
+        nb->collection = draft.collection;
+        nb->cover = draft.cover;
+        if (!notebooks::saveNotebook(m_editing, *nb)) {
+            qWarning().noquote() << QStringLiteral("Bocetos: no se pudo guardar %1").arg(m_editing);
+            return;
+        }
+        qInfo().noquote() << QStringLiteral("Bocetos: editado «%1» · colección «%2»").arg(nb->name, nb->collection);
+        reload(QDir(m_editing).dirName());
+    };
+    m_confirm = new appkit::ConfirmOverlay(this);
+    m_confirm->onCancel = [this] {
+        qInfo() << "Bocetos: borrar cancelado";
+        activateWindow();
+        setFocus();
+    };
+    m_confirm->onConfirm = [this] {
+        activateWindow();
+        setFocus();
+        const Book* book = selectedBook();
+        if (!book)
+            return;
+        const QString name = book->notebook.name, dir = book->dir;
+        // A la Papelera de reciclaje, no borrado para siempre (decidido el 13 de octubre de 2026).
+        if (!QFile::moveToTrash(dir)) {
+            qWarning().noquote() << QStringLiteral("Bocetos: no se pudo mandar «%1» a la papelera").arg(name);
+            return;
+        }
+        qInfo().noquote() << QStringLiteral("Bocetos: «%1» a la papelera").arg(name);
+        // Queda elegido el vecino (el que ocupa su lugar o el anterior).
+        const int at = m_selected;
+        reload(QString());
+        if (!m_layout.items.isEmpty())
+            select(std::min(at, int(m_layout.items.size()) - 1), false);
+    };
+}
+
+bool LibraryWindow::dialogOpen() const
+{
+    return m_dialog->isVisible() || m_confirm->isVisible();
+}
+
+void LibraryWindow::reload(const QString& selectFolder)
+{
+    if (!selectFolder.isEmpty())
+        m_config.setValue(QStringLiteral("selected"), selectFolder);
+    setLibrary(m_root, m_cartuchera);
+}
+
+void LibraryWindow::newNotebook()
+{
+    m_editing.clear();
+    const Book* selected = selectedBook();
+    if (selected && selected->full)
+        qInfo().noquote() << QStringLiteral("Bocetos: «%1» está lleno: seguir en uno nuevo").arg(selected->notebook.name);
+    m_dialog->open(NotebookDialog::Mode::Create, bocetos::draftFor(selected), bocetos::collectionsOf(m_shelves));
+    qInfo() << "Bocetos: cuaderno nuevo (diálogo)";
+}
+
+void LibraryWindow::editSelected(bool focusCollection)
+{
+    const Book* book = selectedBook();
+    if (!book)
+        return;
+    m_editing = book->dir;
+    bocetos::Draft draft;
+    draft.name = book->notebook.name;
+    draft.collection = book->notebook.collection;
+    draft.cover = book->notebook.cover;
+    draft.paper = book->notebook.paper;
+    draft.maxSheets = book->notebook.maxSheets;
+    m_dialog->open(NotebookDialog::Mode::Edit, draft, bocetos::collectionsOf(m_shelves), focusCollection);
+    qInfo().noquote() << QStringLiteral("Bocetos: editar «%1» (diálogo)").arg(book->notebook.name);
+}
+
+void LibraryWindow::deleteSelected()
+{
+    const Book* book = selectedBook();
+    if (!book)
+        return;
+    const QString sheets = book->used == 1 ? QStringLiteral("1 hoja terminada") : QStringLiteral("%1 hojas terminadas").arg(book->used);
+    m_confirm->ask(QStringLiteral("¿Borrar «%1»?").arg(book->notebook.name),
+                   QStringLiteral("Tiene %1. Va a la Papelera de reciclaje.").arg(sheets), Qt::Key_Delete, QStringLiteral("Supr"),
+                   QStringLiteral("lo borra"));
+    m_confirm->move(mapToGlobal(rect().center() - QPoint(m_confirm->width() / 2, m_confirm->height() / 2)));
+    m_confirm->show();
+    m_confirm->raise();
+    m_confirm->activateWindow();
+    m_confirm->setFocus();
+    qInfo().noquote() << QStringLiteral("Bocetos: confirmar borrar «%1»").arg(book->notebook.name);
 }
 
 void LibraryWindow::setLibrary(const QString& root, const QString& cartuchera)
@@ -319,6 +437,9 @@ void LibraryWindow::paintEvent(QPaintEvent*)
         hint({QStringLiteral("←"), QStringLiteral("→"), QStringLiteral("↑"), QStringLiteral("↓")}, QStringLiteral("elegir"));
         hint({QStringLiteral("Enter")}, QStringLiteral("abrir"));
     }
+    hint({QStringLiteral("Ctrl+N")}, QStringLiteral("cuaderno nuevo"));
+    if (books > 0)
+        hint({QStringLiteral("F2")}, QStringLiteral("editar"));
     hint({QStringLiteral("Ctrl+,")}, QStringLiteral("atajos"));
     hint({QStringLiteral("Ctrl+Q")}, QStringLiteral("salir"));
     if (m_cartuchera.isEmpty()) {
@@ -332,6 +453,10 @@ void LibraryWindow::paintEvent(QPaintEvent*)
 void LibraryWindow::keyPressEvent(QKeyEvent* event)
 {
     // El registro va por la tecla virtual de Windows, como en el lienzo. Las flechas repiten.
+    if (dialogOpen()) { // las teclas son del diálogo
+        event->accept();
+        return;
+    }
     const unsigned key = event->nativeVirtualKey();
     const bool arrow = key >= VK_LEFT && key <= VK_DOWN;
     if ((!event->isAutoRepeat() || arrow) && m_shortcuts.trigger(key, event->modifiers() & Qt::ControlModifier))
@@ -342,6 +467,8 @@ void LibraryWindow::keyPressEvent(QKeyEvent* event)
 // Tocar un libro con el lápiz o el mouse lo elige y lo abre.
 void LibraryWindow::mousePressEvent(QMouseEvent* event)
 {
+    if (dialogOpen())
+        return;
     const QPoint content = event->position().toPoint() - QPoint(0, contentTop() - m_scroll);
     if (event->position().y() < contentTop() - 24 || event->position().y() > viewBottom())
         return;
@@ -354,5 +481,7 @@ void LibraryWindow::mousePressEvent(QMouseEvent* event)
 
 void LibraryWindow::resizeEvent(QResizeEvent*)
 {
+    if (m_dialog->isVisible())
+        m_dialog->setGeometry(rect());
     relayout();
 }

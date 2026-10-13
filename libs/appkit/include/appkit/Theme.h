@@ -44,6 +44,11 @@ inline const QColor kHojaFija{0x3A, 0x3A, 0x3E};   // la hoja fija debajo de tod
 inline constexpr float kHojaFijaOpacidad = 0.35f;
 inline constexpr float kGuiaCampoOpacidad = 0.45f; // la guía de campo, en gris tinta (HU-103; el azul se confundía con el lápiz azul)
 inline constexpr float kGhostOpacidad = 0.5f; // el ghost del prisma que gira, en gris tinta (HU-123, Ejercicios de animación)
+// Tapas de los cuadernos de Bocetos (HU-136, mesa "Bocetos · cuaderno nuevo"): tonos apagados que se
+// leen con texto claro: terracota, ocre, oliva, pizarra, ciruela y grafito.
+inline const QColor kTapas[] = {{0xA9, 0x53, 0x3D}, {0xA8, 0x7A, 0x2A}, {0x5B, 0x76, 0x46},
+                                {0x3F, 0x5F, 0x80}, {0x71, 0x47, 0x65}, {0x4A, 0x50, 0x59}};
+inline constexpr const char* kTapasNombres[] = {"Terracota", "Ocre", "Oliva", "Pizarra", "Ciruela", "Grafito"};
 
 // Medidas (px).
 inline constexpr int kEspacio[] = {4, 8, 12, 16, 24, 32};

@@ -807,6 +807,41 @@ try {
     BoKey 0x0D # Enter
     $l = @(Get-Content $bocLog -Encoding utf8 | Where-Object { $_ -match 'Bocetos: (elegido|abrir)' })
     Check 'las flechas eligen otro cuaderno y Enter lo abre' ($l.Count -ge 5 -and ($l[-1] -match 'abrir')) ($l -join ' | ')
+    # HU-136: Ctrl+N, un nombre y Enter crean el cuaderno; F2, otro nombre y Enter lo renombran; Supr y
+    # Supr lo mandan a la papelera.
+    function BoType([string]$text) {
+        foreach ($ch in $text.ToCharArray()) {
+            $vk = [byte][char]::ToUpper($ch)
+            [Smoke.Keys]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 20
+            [Smoke.Keys]::keybd_event($vk, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
+        }
+        Start-Sleep -Milliseconds 300
+    }
+    BoCtrl 0x4E # Ctrl+N
+    BoType 'PRUEBA'
+    BoKey 0x0D
+    $created = Test-Path (Join-Path $libDir 'prueba\cuaderno.json')
+    $l = @(Get-Content $bocLog -Encoding utf8) -join ' '
+    Check 'Ctrl+N crea un cuaderno' ($created -and $l -match 'cuaderno nuevo «prueba» en prueba') $l
+    BoKey 0x71 # F2: el nuevo queda elegido
+    BoKey 0x23 # Fin: el nombre viene seleccionado
+    BoType 'X'
+    BoKey 0x0D
+    $name = if ($created) { (Get-Content (Join-Path $libDir 'prueba\cuaderno.json') -Raw | ConvertFrom-Json).name } else { '' }
+    Check 'F2 lo renombra' ($name -eq 'pruebax') "nombre: $name"
+    # Supr y Supr, como tecla extendida (sin esa marca llega como el Supr del teclado numérico, con
+    # el modificador del teclado numérico, y la confirmación lo toma como otra tecla: cancela).
+    foreach ($n in 1..2) {
+        [Smoke.Keys]::keybd_event(0x2E, 0, 1, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
+        [Smoke.Keys]::keybd_event(0x2E, 0, 3, [UIntPtr]::Zero); Start-Sleep -Milliseconds 500
+    }
+    foreach ($i in 1..20) { # mandar a la papelera tarda un momento
+        $l = @(Get-Content $bocLog -Encoding utf8) -join ' '
+        if ($l -match 'a la papelera') { break }
+        Start-Sleep -Milliseconds 250
+    }
+    Check 'Supr y Supr lo mandan a la papelera' (-not (Test-Path (Join-Path $libDir 'prueba')) -and $l -match '«pruebax» a la papelera') $l
+
     BoCtrl 0x51 # Ctrl+Q
     Check 'Ctrl+Q cierra Bocetos' $app.WaitForExit(10000) ''
     $app = $null
