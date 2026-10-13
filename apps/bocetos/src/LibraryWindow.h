@@ -6,10 +6,13 @@
 #include <appkit/Shortcuts.h>
 
 #include <QString>
+#include <QUrl>
 #include <QWidget>
 
 class NotebookDialog;
 class Notice;
+class TvChooser;
+class TvLink;
 class NotebookView;
 namespace appkit {
 class ConfirmOverlay;
@@ -37,6 +40,10 @@ public:
     // HU-138: D dibuja la siguiente hoja del elegido en Cartuchera y espera; al volver relee el
     // cuaderno y, si la hoja quedó terminada, la muestra. Lleno: ofrece seguir en uno nuevo.
     void draw();
+
+    // HU-145: T en el cuaderno abierto: la hoja también en el TV, o cortar. --tv fuerza un TV.
+    void toggleTv();
+    void setTvForced(const QUrl& location);
 
     // HU-136: Ctrl+N cuaderno nuevo (o seguir en uno nuevo si el elegido está lleno), F2 editarlo
     // (Ctrl+M con el foco en la colección), Supr mandarlo a la Papelera de reciclaje (con
@@ -73,6 +80,8 @@ private:
     NotebookDialog* m_dialog = nullptr;
     NotebookView* m_view = nullptr;
     Notice* m_notice = nullptr;
+    TvLink* m_tv = nullptr;
+    TvChooser* m_chooser = nullptr;
     struct Drawing {
         QString dir, name;
         int sheet = 0; // 0: no se está dibujando

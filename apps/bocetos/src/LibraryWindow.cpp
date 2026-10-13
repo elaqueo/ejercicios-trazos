@@ -3,6 +3,8 @@
 #include "NotebookDialog.h"
 #include "NotebookView.h"
 #include "Notice.h"
+#include "TvChooser.h"
+#include "TvLink.h"
 #include "Paint.h"
 
 #include <appkit/ConfirmOverlay.h>
@@ -135,6 +137,29 @@ LibraryWindow::LibraryWindow(appkit::Shortcuts& shortcuts, appkit::Config& confi
     m_view = new NotebookView(m_shortcuts, this);
     m_view->hide();
     m_notice = new Notice(this);
+    // HU-145: el TV.
+    m_tv = new TvLink(m_config, this);
+    m_chooser = new TvChooser(this);
+    m_view->onPageShown = [this](const bocetos::Page& page) {
+        m_tv->show(page, m_view->book().notebook.paper.color, QStringLiteral("%1 · hoja %2").arg(m_view->book().notebook.name).arg(page.sheet));
+    };
+    m_view->tvLine = [this] { return NotebookView::TvLine{m_tv->name(), m_tv->status()}; };
+    m_tv->onChanged = [this] { m_view->update(); };
+    m_tv->onWarn = [this](const QString& title, const QString& detail) { m_notice->warn(title, detail); };
+    m_tv->onBusy = [this](const QString& title, const QString& detail) { m_notice->busy(title, detail); };
+    m_tv->onIdle = [this] {
+        if (m_notice->isBusy() && !m_drawing.sheet)
+            m_notice->hide();
+    };
+    m_tv->onChoose = [this](const QList<cast::Renderer>& renderers) { m_chooser->choose(renderers); };
+    m_chooser->onPick = [this](const cast::Renderer& renderer) {
+        setFocus();
+        m_tv->choose(renderer);
+    };
+    m_chooser->onCancel = [this] {
+        setFocus();
+        m_tv->disconnect();
+    };
     m_dialog = new NotebookDialog(this);
     m_dialog->onCancel = [this] {
         qInfo() << "Bocetos: diálogo cancelado";
@@ -410,6 +435,21 @@ void LibraryWindow::drawn(int exitCode, bool crashed)
     setFocus();
 }
 
+void LibraryWindow::toggleTv()
+{
+    if (!openNotebook() || dialogOpen() || m_chooser->isVisible())
+        return;
+    if (const bocetos::Page* page = m_view->currentPage())
+        m_tv->show(*page, m_view->book().notebook.paper.color,
+                   QStringLiteral("%1 · hoja %2").arg(m_view->book().notebook.name).arg(page->sheet));
+    m_tv->toggle();
+}
+
+void LibraryWindow::setTvForced(const QUrl& location)
+{
+    m_tv->setForced(location);
+}
+
 void LibraryWindow::closeEvent(QCloseEvent* event)
 {
     // Cerrar Bocetos mataría a Cartuchera (QProcess) con la hoja abierta: primero se cierra ella.
@@ -425,6 +465,7 @@ void LibraryWindow::closeNotebook()
 {
     if (!openNotebook())
         return;
+    m_tv->disconnect(); // HU-145: volver a la biblioteca corta el TV
     m_view->hide();
     m_view->release();
     qInfo() << "Bocetos: vuelve a la biblioteca";
@@ -555,7 +596,7 @@ void LibraryWindow::keyPressEvent(QKeyEvent* event)
         event->accept();
         return;
     }
-    if (m_notice->isVisible()) { // un aviso: cualquier tecla lo saca
+    if (m_notice->isVisible() && !m_notice->isBusy()) { // un aviso: cualquier tecla lo saca
         m_notice->hide();
         event->accept();
         return;
@@ -589,5 +630,7 @@ void LibraryWindow::resizeEvent(QResizeEvent*)
     m_view->setGeometry(rect());
     if (m_notice->isVisible())
         m_notice->setGeometry(rect());
+    if (m_chooser->isVisible())
+        m_chooser->setGeometry(rect());
     relayout();
 }

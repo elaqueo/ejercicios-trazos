@@ -8,6 +8,8 @@
 #include <QPointF>
 #include <QWidget>
 
+#include <functional>
+
 namespace appkit {
 class Shortcuts;
 }
@@ -32,6 +34,15 @@ public:
     void last();
     void zoomIn();
     void zoomOut();
+
+    // HU-145: la hoja que se mira (para el TV) y la línea del TV en la barra.
+    const bocetos::Book& book() const { return m_book; }
+    const bocetos::Page* currentPage() const { return m_page >= 0 ? &m_pages[m_page] : nullptr; }
+    std::function<void(const bocetos::Page&)> onPageShown;
+    struct TvLine {
+        QString name, status; // vacíos: sin TV
+    };
+    std::function<TvLine()> tvLine;
 
 protected:
     void paintEvent(QPaintEvent* event) override;

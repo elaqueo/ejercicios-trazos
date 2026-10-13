@@ -761,7 +761,8 @@ finally {
 # las flechas eligen otro cuaderno y Enter lo abre; Ctrl+Q sale. HU-137: cada cuaderno tiene de 2 a 4
 # hojas terminadas de tamaño real (7680 × 4800, como las de Cartuchera); AvPág y RePág pasan de hoja
 # en menos de 100 ms (RNF-02), + y − acercan y alejan, Esc vuelve a la biblioteca. HU-138: D dibuja la
-# siguiente hoja en Cartuchera; F11 pantalla completa.
+# siguiente hoja en Cartuchera; F11 pantalla completa. HU-145: con --tv apuntando a un TV de mentira
+# (fake_renderer, nunca el de verdad), T manda la hoja, AvPág la siguiente y T corta.
 $boc = Join-Path $root 'build\release\bocetos.exe'
 $bocLog = Join-Path $data 'bocetos.log'
 if (Get-Process bocetos -ErrorAction SilentlyContinue) { throw 'Bocetos está abierta: cerrarla antes de la prueba' }
@@ -792,6 +793,8 @@ foreach ($i in 1..30) {
     }
 }
 $app = $null
+$tvLog = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-tv-$PID.log"
+$tvProc = Start-Process (Join-Path $root 'build\release\fake_renderer.exe') -ArgumentList '--port', '8799', '--log', "`"$tvLog`"" -PassThru -WindowStyle Hidden
 try {
     if (-not ('Smoke.Keys' -as [type])) {
         Add-Type -Namespace Smoke -Name Keys -MemberDefinition '[DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, System.UIntPtr extra);'
@@ -806,7 +809,7 @@ try {
         [Smoke.Keys]::keybd_event($vk, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 30
         [Smoke.Keys]::keybd_event($vk, 0, 2, [UIntPtr]::Zero); Start-Sleep -Milliseconds 400
     }
-    $app = Start-Process $boc -ArgumentList '--biblioteca', "`"$libDir`"" -PassThru
+    $app = Start-Process $boc -ArgumentList '--biblioteca', "`"$libDir`"", '--tv', 'http://127.0.0.1:8799/dmr' -PassThru
     Start-Sleep 3
     $null = (New-Object -ComObject WScript.Shell).AppActivate($app.Id)
     Start-Sleep 1
@@ -827,6 +830,9 @@ try {
     BoKey 0x21; BoKey 0x22; BoKey 0x22 # RePág AvPág AvPág
     BoKey 0x24; BoKey 0x23; BoKey 0x21 # Inicio Fin RePág
     BoKey 0xBB; BoKey 0xBB; Start-Sleep 2; BoKey 0xBD # + + (espera la entera) −
+    BoKey 0x54; Start-Sleep 3 # T: al TV de mentira
+    BoKey 0x22; Start-Sleep 2 # AvPág: la siguiente (la de aviso, el papel)
+    BoKey 0x54                # T: corta
     BoKey 0x1B # Esc
     $all = @(Get-Content $bocLog -Encoding utf8)
     $opened = ($all | Where-Object { $_ -match 'Cuaderno: (abierto|hoja \d+ en)' } | Select-Object -First 2) -join ' | '
@@ -842,6 +848,11 @@ try {
     Check "RePág y AvPág pasan de hoja en menos de 100 ms ($($flips -join ' y ') ms) y AvPág llega a la siguiente en blanco" `
         ($flipsOk -and $pages.Count -ge 3 -and $pages[2] -match 'en blanco') ($pages -join ' | ')
     $l = $l -join ' '
+    $tv = @(if (Test-Path $tvLog) { Get-Content $tvLog -Encoding utf8 })
+    $sets = @($tv | Where-Object { $_ -match '^SetAVTransportURI http://127\.0\.0\.1:8766/hoja/' })
+    $gets = @($tv | Where-Object { $_ -match '^GET http://127\.0\.0\.1:8766/hoja/\S+ 200 \d+ image/jpeg' })
+    $tvOk = $l -match 'TV: conectado a «TV de prueba»' -and $sets.Count -ge 2 -and $gets.Count -ge 2 -and ($tv -contains 'Play') -and ($tv -contains 'Stop') -and $l -match 'TV: cortado'
+    Check "T muestra la hoja en el TV (de mentira), AvPág manda la siguiente y T corta ($($sets.Count) hojas, $($gets.Count) descargadas)" $tvOk ($tv -join ' | ')
     Check 'Inicio, Fin, + + − sobre una terminada (se lee entera) y Esc vuelve a la biblioteca' `
         ($l -match 'Cuaderno: hoja 1 en' -and $l -match 'zoom 150 %.*zoom 225 %.*zoom 150 %' -and $l -match 'entera, leída' -and $l -match 'vuelve a la biblioteca') $l
     # HU-138: D abre la siguiente hoja en Cartuchera (--hoja) y Bocetos espera; Ctrl+Q la cierra sin
@@ -934,6 +945,8 @@ try {
 }
 finally {
     Get-Process cartuchera -ErrorAction SilentlyContinue | Stop-Process -Force # la que lanzó D, si quedó (Bocetos no se cierra mientras se dibuja)
+    if ($tvProc -and -not $tvProc.HasExited) { $tvProc.Kill() }
+    Remove-Item $tvLog -Force -ErrorAction SilentlyContinue
     if ($app -and -not $app.HasExited) {
         $null = $app.CloseMainWindow()
         if (-not $app.WaitForExit(15000)) { $app.Kill() }

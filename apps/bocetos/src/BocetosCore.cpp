@@ -4,6 +4,8 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QBuffer>
+#include <QImageReader>
 #include <QDateTime>
 
 #include <algorithm>
@@ -332,6 +334,37 @@ QRectF viewerArea(const QSize& window)
 {
     return QRectF(kViewerMargin, kViewerMargin, std::max(1, window.width() - kViewerBar - 2 * kViewerMargin),
                   std::max(1, window.height() - 2 * kViewerMargin));
+}
+
+QImage tvImage(const Page& page, const QColor& paper, const QSize& bound)
+{
+    if (page.state == notebooks::SheetState::Finished) {
+        QImageReader reader(page.image);
+        const QSize size = reader.size();
+        if (size.isValid())
+            reader.setScaledSize(size.scaled(bound, Qt::KeepAspectRatio).boundedTo(size));
+        QImage image = reader.read();
+        if (!image.isNull())
+            return image;
+    }
+    QImage blank(QSize(1600, 1000).scaled(bound, Qt::KeepAspectRatio), QImage::Format_RGB32);
+    blank.fill(paper.isValid() ? paper : QColor(0xF5, 0xF0, 0xE6));
+    return blank;
+}
+
+QByteArray jpegOf(const QImage& image, int quality)
+{
+    QByteArray out;
+    QBuffer buffer(&out);
+    buffer.open(QIODevice::WriteOnly);
+    image.convertToFormat(QImage::Format_RGB32).save(&buffer, "JPG", quality);
+    return out;
+}
+
+QUrl tvArgument(const QStringList& args)
+{
+    const qsizetype at = args.indexOf(QStringLiteral("--tv"));
+    return at >= 0 && at + 1 < args.size() ? QUrl(args[at + 1]) : QUrl();
 }
 
 } // namespace bocetos

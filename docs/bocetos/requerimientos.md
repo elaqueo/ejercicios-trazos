@@ -110,12 +110,12 @@ Agregada el 13 de octubre de 2026, a pedido del usuario:
 
 Se estiman y se refinan cuando la Fase 1 esté en uso. Primero, agregada el 13 de octubre de 2026 a pedido del usuario:
 
-145. **HU-145 · Mostrar la hoja en el TV** (Should · 5 pts). Como dibujante, quiero mandar la hoja que estoy mirando al TV del living (un Samsung en el mismo wifi), para verla grande y mostrarla (pedido del usuario del 13 oct 2026).
+145. **HU-145 · Mostrar la hoja en el TV** (Should · 8 pts; estimada en 5, re-estimada al planearla: la biblioteca nueva, el TV de mentira y la prueba de la app real). Como dibujante, quiero mandar la hoja que estoy mirando al TV del living (un Samsung en el mismo wifi), para verla grande y mostrarla (pedido del usuario del 13 oct 2026).
     1. En el cuaderno abierto, **T** busca los TVs de la red (DLNA/UPnP: SSDP, la descripción del dispositivo y su servicio AVTransport) y manda la hoja; si hay más de uno, se elige de una lista. El último TV queda en la config y la próxima vez va directo.
-    2. Mientras está conectado, pasar de hoja (RePág, AvPág, Inicio, Fin) la cambia también en el TV; T otra vez lo corta. El pie dice a qué TV se manda.
+    2. Mientras está conectado, pasar de hoja (RePág, AvPág, Inicio, Fin) la cambia también en el TV; T otra vez, o volver a la biblioteca, lo corta. La barra del cuaderno (HU-144) dice a qué TV se manda.
     3. La hoja va como JPEG de hasta 4096 px por lado (el límite de DLNA `JPEG_LRG`), servida por un servidor HTTP chico de Bocetos en un puerto fijo (el firewall de Windows lo pregunta una vez); el TV la pide por ahí.
     4. En C++ con Qt Network (`QUdpSocket`, `QTcpServer`, `QNetworkAccessManager`), sin Python: el protocolo es el de `pdfcast`, probado con el Samsung QN85. Va en una biblioteca propia (`libs/cast`), para que la usen otras apps de la suite (el pencil test de la Mesa, por ejemplo).
-    5. Si no encuentra el TV, o el TV no responde, lo dice y queda en el log. Pruebas: el mensaje de búsqueda, leer la descripción, el SOAP y el servidor HTTP contra un TV de mentira en la misma máquina.
+    5. Si no encuentra el TV, o el TV no responde, lo dice y queda en el log. Pruebas: el mensaje de búsqueda, leer la descripción, el SOAP y el servidor HTTP contra un TV de mentira en la misma máquina; la prueba de la app real usa ese TV de mentira (`--tv`), nunca el de verdad.
 
 El resto, según lo que pida el uso:
 
@@ -132,7 +132,7 @@ El resto, según lo que pida el uso:
 1. **Fase 1 — MVP: llenar y recorrer un cuaderno** (HU-132 a HU-139 y HU-144; 30 pts)
     1. El formato, Cartuchera en modo cuaderno, la app, la biblioteca, administrar cuadernos, recorrer, dibujar la siguiente hoja, la barra del cuaderno a la derecha, instalador.
     2. Salida: un cuaderno "Bocetos diarios" con varias hojas dibujadas y terminadas en Cartuchera, recorrido con PgUp y PgDn.
-2. **Fase 2 — Compartir y más apps** (HU-145 y HU-140 a HU-143; 17 pts)
+2. **Fase 2 — Compartir y más apps** (HU-145 y HU-140 a HU-143; 20 pts)
     1. Primero la hoja en el TV (HU-145); después exportar, cuadernos de Krita y miniaturas, según lo que pida el uso.
 
 Las fases son milestones propios de la app ("Bocetos · Fase N"). El orden dentro de la Fase 1 es el numérico: primero la plataforma (HU-132 a HU-134), después la biblioteca y el cuaderno; HU-144 va después de HU-138 y antes del instalador (HU-139), para que la primera entrega ya tenga la barra a la derecha.

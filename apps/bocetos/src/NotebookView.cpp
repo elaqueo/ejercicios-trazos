@@ -107,6 +107,8 @@ void NotebookView::showPage(int page)
         m_sizes.insert(p.image, QImageReader(p.image).size());
     request();
     update();
+    if (onPageShown)
+        onPageShown(p);
 }
 
 void NotebookView::request()
@@ -293,6 +295,23 @@ void NotebookView::paintEvent(QPaintEvent*)
     y += 14;
     for (const QString& part : bocetos::usageText(m_pages, m_book.notebook.maxSheets).split(QStringLiteral(" · ")))
         line(part, themeFont(true, 13), theme::kTextoSecundario, 20);
+    // HU-145: el TV, si está conectado (o buscando).
+    const TvLine tv = tvLine ? tvLine() : TvLine{};
+    const bool tvOn = !tv.status.isEmpty();
+    if (tvOn) {
+        y += 18;
+        p.fillRect(QRectF(left, y, inner, 1), theme::kBorde);
+        y += 14;
+        line(QStringLiteral("TV"), label, theme::kTextoSecundario, 18);
+        y += 4;
+        if (!tv.name.isEmpty()) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(theme::kGuardado);
+            p.drawEllipse(QPointF(left + 4, y + 11), 4, 4);
+            line(tv.name, themeFont(false, 14), theme::kTexto, 22, 16);
+        }
+        line(tv.status, themeFont(true, 13), theme::kTextoSecundario, 20);
+    }
 
     // Las teclas, del registro, una debajo de la otra al pie de la barra.
     struct Hint {
@@ -305,6 +324,7 @@ void NotebookView::paintEvent(QPaintEvent*)
                        m_zoom > 1.0 ? QStringLiteral("zoom %1 %").arg(std::lround(m_zoom * 100)) : QStringLiteral("zoom")}};
     if (m_pages.last().state != SheetState::Finished) // HU-138; lleno, no hay siguiente
         hints.append({{QStringLiteral("Dibujar la siguiente hoja")}, QStringLiteral("dibujar la hoja %1").arg(m_pages.last().sheet)});
+    hints.append({{QStringLiteral("Mostrar en el TV")}, tvOn ? QStringLiteral("cortar el TV") : QStringLiteral("mostrar en el TV")});
     hints.append({{QStringLiteral("Volver a la biblioteca")}, QStringLiteral("biblioteca")});
     double ky = height() - 28 - hints.size() * 38 + 10;
     for (const Hint& hint : hints) {

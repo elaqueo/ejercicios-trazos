@@ -2,7 +2,12 @@
 
 #include <notebooks/Library.h>
 
+#include <QByteArray>
+#include <QColor>
 #include <QDate>
+#include <QImage>
+#include <QSize>
+#include <QUrl>
 #include <QList>
 #include <QPoint>
 #include <QRect>
@@ -122,6 +127,14 @@ QRectF sheetRect(const QSizeF& sheet, const QRectF& area, double zoom, const QPo
 // 24 px de margen (mesa "Bocetos · cuaderno abierto").
 inline constexpr int kViewerBar = 300, kViewerMargin = 24;
 QRectF viewerArea(const QSize& window);
+
+// HU-145: la hoja para el TV: la terminada achicada para que entre en `bound` (3840 × 2400, en un
+// TV 4K; DLNA acepta hasta 4096 por lado), o el papel del cuaderno si es la de aviso. En JPEG.
+inline constexpr QSize kTvBound{3840, 2400};
+QImage tvImage(const Page& page, const QColor& paper, const QSize& bound = kTvBound);
+QByteArray jpegOf(const QImage& image, int quality = 90);
+// `--tv <url de la descripción>`: ese TV, sin buscar en la red (el TV de mentira del smoke).
+QUrl tvArgument(const QStringList& args);
 
 // HU-138: D dibuja la siguiente hoja en Cartuchera (`--hoja`, HU-133).
 enum class DrawAction { Launch, Full, NoCartuchera };

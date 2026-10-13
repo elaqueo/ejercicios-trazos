@@ -298,6 +298,36 @@ private slots:
         QCOMPARE(sheetRect(QSizeF(7680, 4800), viewerArea(QSize(2560, 1080)), 1.0, {}).height(), 1032.0);
     }
 
+    // HU-145: la hoja para el TV (achicada a 3840 × 2400, o el papel si es la de aviso), su JPEG y --tv.
+    void hojaParaElTv()
+    {
+        QTemporaryDir tmp;
+        const QString png = tmp.filePath(QStringLiteral("terminada.png"));
+        QImage sheet(7680, 4800, QImage::Format_RGB32);
+        sheet.fill(Qt::white);
+        QVERIFY(sheet.save(png));
+        Page finished{3, notebooks::SheetState::Finished, png, {}};
+        const QImage big = tvImage(finished, Qt::red);
+        QCOMPARE(big.size(), QSize(3840, 2400));
+        QCOMPARE(big.pixelColor(10, 10), QColor(Qt::white));
+        // Una más chica que el TV no se agranda.
+        QImage small(800, 500, QImage::Format_RGB32);
+        small.fill(Qt::white);
+        QVERIFY(small.save(png));
+        QCOMPARE(tvImage(finished, Qt::red).size(), QSize(800, 500));
+        // La de aviso: el papel, del tamaño del TV.
+        const QImage blank = tvImage(Page{4, notebooks::SheetState::Empty, {}, {}}, QColor(0xB5, 0x98, 0x78));
+        QCOMPARE(blank.size(), QSize(3840, 2400));
+        QCOMPARE(blank.pixelColor(100, 100), QColor(0xB5, 0x98, 0x78));
+        const QByteArray jpeg = jpegOf(blank);
+        QVERIFY2(!jpeg.isEmpty(), "sin JPEG: falta el plugin qjpeg");
+        QCOMPARE(jpeg.left(2).toHex(), QByteArray("ffd8")); // SOI de JPEG
+        QCOMPARE(QImage::fromData(jpeg).size(), QSize(3840, 2400));
+        QCOMPARE(tvArgument({QStringLiteral("bocetos"), QStringLiteral("--tv"), QStringLiteral("http://127.0.0.1:8799/dmr")}),
+                 QUrl(QStringLiteral("http://127.0.0.1:8799/dmr")));
+        QVERIFY(!tvArgument({QStringLiteral("bocetos")}).isValid());
+    }
+
     // La carga en segundo plano: achicada al tamaño pedido, o entera.
     void cargaEnSegundoPlano()
     {

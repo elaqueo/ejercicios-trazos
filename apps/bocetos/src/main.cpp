@@ -4,6 +4,7 @@
 //   Ctrl+, atajos · F10 monitor siguiente · Ctrl+Q sale
 //   --biblioteca <carpeta>: los cuadernos de esa carpeta en lugar de Documentos\Trazos\Bocetos
 //   (la prueba de la app real, para no tocar los del usuario).
+//   --tv <url>: T usa ese TV (la descripción UPnP) sin buscar en la red (el TV de mentira, HU-145).
 
 #include "BocetosCore.h"
 #include "LibraryWindow.h"
@@ -66,6 +67,10 @@ int main(int argc, char* argv[])
             saveGeometry();
     });
     window.setLibrary(root, cartuchera); // con el ancho de la ventana, para acomodar los libros
+    if (const QUrl tv = bocetos::tvArgument(QApplication::arguments()); tv.isValid()) {
+        window.setTvForced(tv);
+        qInfo().noquote() << QStringLiteral("Bocetos: TV forzado en %1").arg(tv.toString());
+    }
 
     // La biblioteca (HU-135): las flechas eligen, Enter abre.
     shortcuts.setGroup(QStringLiteral("Biblioteca"));
@@ -101,6 +106,8 @@ int main(int argc, char* argv[])
     shortcuts.joinWithPrevious(QStringLiteral("Acercar y alejar"));
     shortcuts.note(QStringLiteral("Arrastrar"), QStringLiteral("Mover la hoja acercada"));
     shortcuts.add(QStringLiteral("Volver a la biblioteca"), {{VK_ESCAPE}}, [&] { window.closeNotebook(); });
+    // HU-145: la hoja en el TV de la red (DLNA).
+    shortcuts.add(QStringLiteral("Mostrar en el TV"), {{'T'}}, [&] { window.toggleTv(); });
 
     // Ctrl+, (HU-78): la lista sale del registro, centrada en la pantalla.
     appkit::ShortcutsOverlay overlay(&window);
