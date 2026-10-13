@@ -67,7 +67,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Cuaderno nuevo (Bocetos, Ctrl+N / F2) | Como la mesa "Bocetos · cuaderno nuevo": panel de 680 px sobre la biblioteca atenuada; nombre, colección (desplegable editable), hojas, las seis tapas (`kTapas`: terracota, ocre, oliva, pizarra, ciruela, grafito; la elegida con borde ámbar) y el papel en un desplegable con su muestra, grano y textura, con la muestra grande al lado; al pie, Enter en ámbar y Esc. Para editar (F2), el mismo panel con el papel y las hojas deshabilitados. Borrar usa la confirmación | HU-136 |
 | Cartuchera en modo cuaderno (Bocetos) | Como la mesa "Cartuchera en modo cuaderno": en el costado libre a la derecha de la hoja, "CUADERNO", la muestra de la tapa y el nombre, "hoja 13 de 40" en ámbar mono, las teclas (Ctrl+Enter resaltada: terminar; Ctrl+Q: queda el borrador; Z) y el papel al pie (`lienzo/SideNote.h`, lo pone el render como la franja del audio). Sin costado libre, una línea en la esquina superior izquierda de la hoja. Terminar en blanco usa la confirmación | HU-133 |
 
-## Teclas (v1.5.2)
+## Teclas (v1.6.0)
 
 Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden la misma tecla, la app avisa al iniciar.
 
