@@ -9,13 +9,15 @@
 #include <QWidget>
 
 class NotebookDialog;
+class NotebookView;
 namespace appkit {
 class ConfirmOverlay;
 }
 
 // La biblioteca de Bocetos (HU-135, mesa "Bocetos · biblioteca"): una ventana común con los
 // cuadernos como libros apaisados en estantes por colección. Las flechas eligen, Enter
-// o tocar abre (el visor llega con HU-137). Las teclas van al registro de atajos de appkit.
+// o tocar abre el cuaderno (HU-137) encima, y Esc vuelve. Las teclas van al registro de atajos de
+// appkit; las de la biblioteca no hacen nada con el cuaderno abierto, y al revés.
 class LibraryWindow : public QWidget {
 public:
     LibraryWindow(appkit::Shortcuts& shortcuts, appkit::Config& config);
@@ -26,6 +28,10 @@ public:
 
     void move(bocetos::Move move);
     void openSelected();
+
+    // HU-137: el cuaderno abierto, o nullptr si se ve la biblioteca.
+    NotebookView* openNotebook() const;
+    void closeNotebook();
 
     // HU-136: Ctrl+N cuaderno nuevo (o seguir en uno nuevo si el elegido está lleno), F2 editarlo
     // (Ctrl+M con el foco en la colección), Supr mandarlo a la Papelera de reciclaje (con
@@ -58,6 +64,7 @@ private:
     int m_selected = -1;
     int m_scroll = 0;
     NotebookDialog* m_dialog = nullptr;
+    NotebookView* m_view = nullptr;
     appkit::ConfirmOverlay* m_confirm = nullptr;
     QString m_editing; // la carpeta del cuaderno que se edita
 };

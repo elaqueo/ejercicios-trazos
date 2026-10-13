@@ -7,6 +7,7 @@
 
 #include "BocetosCore.h"
 #include "LibraryWindow.h"
+#include "NotebookView.h"
 
 #include <appkit/Config.h>
 #include <appkit/Log.h>
@@ -75,6 +76,26 @@ int main(int argc, char* argv[])
     shortcuts.add(QStringLiteral("Editar el cuaderno"), {{VK_F2}}, [&] { window.editSelected(); });
     shortcuts.add(QStringLiteral("Mover a otra colección"), {{'M', true}}, [&] { window.editSelected(true); });
     shortcuts.add(QStringLiteral("Borrar el cuaderno"), {{VK_DELETE}}, [&] { window.deleteSelected(); });
+
+    // El cuaderno abierto (HU-137): pasar hojas, zoom y volver.
+    shortcuts.setGroup(QStringLiteral("Cuaderno"));
+    const auto onBook = [&](auto action) {
+        return [&window, action] {
+            if (NotebookView* view = window.openNotebook())
+                action(*view);
+        };
+    };
+    shortcuts.add(QStringLiteral("Hoja anterior"), {{VK_PRIOR}}, onBook([](NotebookView& v) { v.step(-1); }));
+    shortcuts.add(QStringLiteral("Hoja siguiente"), {{VK_NEXT}}, onBook([](NotebookView& v) { v.step(1); }));
+    shortcuts.joinWithPrevious(QStringLiteral("Pasar de hoja"));
+    shortcuts.add(QStringLiteral("Primera hoja"), {{VK_HOME}}, onBook([](NotebookView& v) { v.first(); }));
+    shortcuts.add(QStringLiteral("Última hoja"), {{VK_END}}, onBook([](NotebookView& v) { v.last(); }));
+    shortcuts.joinWithPrevious(QStringLiteral("Primera o última hoja"));
+    shortcuts.add(QStringLiteral("Acercar"), {{VK_OEM_PLUS}, {VK_ADD}}, onBook([](NotebookView& v) { v.zoomIn(); }));
+    shortcuts.add(QStringLiteral("Alejar"), {{VK_OEM_MINUS}, {VK_SUBTRACT}}, onBook([](NotebookView& v) { v.zoomOut(); }));
+    shortcuts.joinWithPrevious(QStringLiteral("Acercar y alejar"));
+    shortcuts.note(QStringLiteral("Arrastrar"), QStringLiteral("Mover la hoja acercada"));
+    shortcuts.add(QStringLiteral("Volver a la biblioteca"), {{VK_ESCAPE}}, [&] { window.closeNotebook(); });
 
     // Ctrl+, (HU-78): la lista sale del registro, centrada en la pantalla.
     appkit::ShortcutsOverlay overlay(&window);

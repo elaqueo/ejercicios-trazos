@@ -758,13 +758,24 @@ finally {
 
 # Bocetos (HU-134, HU-135): una biblioteca temporal de 30 cuadernos en 3 estantes (--biblioteca) se lee
 # en menos de 500 ms (RNF-01); encuentra Cartuchera al lado; Ctrl+, abre los atajos y Esc los cierra;
-# las flechas eligen otro cuaderno y Enter lo abre; Ctrl+Q sale.
+# las flechas eligen otro cuaderno y Enter lo abre; Ctrl+Q sale. HU-137: cada cuaderno tiene de 2 a 4
+# hojas terminadas de tamaño real (7680 × 4800, como las de Cartuchera); AvPág y RePág pasan de hoja
+# en menos de 100 ms (RNF-02), + y − acercan y alejan, Esc vuelve a la biblioteca.
 $boc = Join-Path $root 'build\release\bocetos.exe'
 $bocLog = Join-Path $data 'bocetos.log'
 if (Get-Process bocetos -ErrorAction SilentlyContinue) { throw 'Bocetos está abierta: cerrarla antes de la prueba' }
 $bocBackup = if (Test-Path $config) { [IO.File]::ReadAllBytes($config) } else { $null } # guarda el elegido
 $libDir = Join-Path ([IO.Path]::GetTempPath()) "trazos-smoke-bocetos-$PID"
 Remove-Item $libDir -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force $libDir | Out-Null
+Add-Type -AssemblyName System.Drawing
+$sheetPng = Join-Path $libDir 'hoja.png' # una hoja de verdad, copiada a todas
+$bmp = New-Object System.Drawing.Bitmap 7680, 4800, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+$gfx = [System.Drawing.Graphics]::FromImage($bmp)
+$gfx.Clear([System.Drawing.Color]::FromArgb(0xF5, 0xF0, 0xE6))
+$pen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(0x2A, 0x2A, 0x2A)), 12
+foreach ($k in 0..40) { $gfx.DrawLine($pen, 400 + $k * 160, 600, 1200 + $k * 140, 4200) }
+$gfx.Dispose(); $bmp.Save($sheetPng, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
 foreach ($i in 1..30) {
     $dir = Join-Path $libDir "cuaderno-$i"
     New-Item -ItemType Directory -Force $dir | Out-Null
@@ -772,10 +783,10 @@ foreach ($i in 1..30) {
     @{ version = 1; name = "Cuaderno $i"; collection = $coll; cover = '#3f5f80'; maxSheets = 40; started = '2026-10-01'
        updated = ('2026-10-{0:d2}' -f (1 + $i % 28)); paper = @{ preset = 'crema'; color = '#f5f0e6'; grain = 2047; texture = 20 } } |
         ConvertTo-Json -Depth 4 | Set-Content (Join-Path $dir 'cuaderno.json') -Encoding utf8
-    foreach ($h in 1..($i % 5)) { # algunas hojas terminadas
+    foreach ($h in 1..(2 + $i % 3)) { # de 2 a 4 hojas terminadas
         $sheet = Join-Path $dir ('hoja-{0:d4}' -f $h)
         New-Item -ItemType Directory -Force $sheet | Out-Null
-        New-Item -ItemType File -Force (Join-Path $sheet 'terminada.png') | Out-Null
+        Copy-Item $sheetPng (Join-Path $sheet 'terminada.png')
     }
 }
 $app = $null
@@ -807,6 +818,26 @@ try {
     BoKey 0x0D # Enter
     $l = @(Get-Content $bocLog -Encoding utf8 | Where-Object { $_ -match 'Bocetos: (elegido|abrir)' })
     Check 'las flechas eligen otro cuaderno y Enter lo abre' ($l.Count -ge 5 -and ($l[-1] -match 'abrir')) ($l -join ' | ')
+    # HU-137: abre en la última terminada; RePág y AvPág muestran la vecina ya cargada; AvPág llega al
+    # aviso de la siguiente; Inicio, Fin, RePág (a la última terminada), + + − y Esc.
+    Start-Sleep 3 # la actual y las vecinas se leen en segundo plano
+    $mark = @(Get-Content $bocLog -Encoding utf8).Count
+    BoKey 0x21; BoKey 0x22; BoKey 0x22 # RePág AvPág AvPág
+    BoKey 0x24; BoKey 0x23; BoKey 0x21 # Inicio Fin RePág
+    BoKey 0xBB; BoKey 0xBB; Start-Sleep 2; BoKey 0xBD # + + (espera la entera) −
+    BoKey 0x1B # Esc
+    $all = @(Get-Content $bocLog -Encoding utf8)
+    $opened = ($all | Where-Object { $_ -match 'Cuaderno: (abierto|hoja \d+ en)' } | Select-Object -First 2) -join ' | '
+    Check "abre el cuaderno en la última hoja terminada, ocupando la ventana ($opened)" ($opened -match 'abierto .*\| .*Cuaderno: hoja [234] en') $opened
+    $l = @($all | Select-Object -Skip $mark)
+    $pages = @($l | Where-Object { $_ -match 'Cuaderno: hoja \d+ (en|·)' })
+    $flips = @($pages | Select-Object -First 2 | ForEach-Object { if ($_ -match 'en ([\d.]+) ms \(precargada\)') { [double]$Matches[1] } else { 999 } })
+    $flipsOk = $flips.Count -eq 2 -and ($flips | Where-Object { $_ -ge 100 }).Count -eq 0
+    Check "RePág y AvPág pasan de hoja en menos de 100 ms ($($flips -join ' y ') ms) y AvPág llega a la siguiente en blanco" `
+        ($flipsOk -and $pages.Count -ge 3 -and $pages[2] -match 'en blanco') ($pages -join ' | ')
+    $l = $l -join ' '
+    Check 'Inicio, Fin, + + − sobre una terminada (se lee entera) y Esc vuelve a la biblioteca' `
+        ($l -match 'Cuaderno: hoja 1 en' -and $l -match 'zoom 150 %.*zoom 225 %.*entera, leída.*zoom 150 %' -and $l -match 'vuelve a la biblioteca') $l
     # HU-136: Ctrl+N, un nombre y Enter crean el cuaderno; F2, otro nombre y Enter lo renombran; Supr y
     # Supr lo mandan a la papelera.
     function BoType([string]$text) {
@@ -820,7 +851,12 @@ try {
     BoCtrl 0x4E # Ctrl+N
     BoType 'PRUEBA'
     BoKey 0x0D
-    $created = Test-Path (Join-Path $libDir 'prueba\cuaderno.json')
+    foreach ($i in 1..20) { # crearlo puede tardar un momento
+        $created = Test-Path (Join-Path $libDir 'prueba\cuaderno.json')
+        if ($created) { break }
+        Start-Sleep -Milliseconds 250
+    }
+    Start-Sleep -Milliseconds 300
     $l = @(Get-Content $bocLog -Encoding utf8) -join ' '
     Check 'Ctrl+N crea un cuaderno' ($created -and $l -match 'cuaderno nuevo «prueba» en prueba') $l
     BoKey 0x71 # F2: el nuevo queda elegido

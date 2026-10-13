@@ -4,6 +4,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QDateTime>
 
 #include <algorithm>
 #include <cstdlib>
@@ -67,12 +68,13 @@ QString shelfTitle(const Shelf& shelf)
 
 namespace {
 
+const char* const kMonths[] = {"ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"};
+
 QString shortDate(const QDate& date, const QDate& today)
 {
-    static const char* const months[] = {"ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"};
     if (!date.isValid())
         return QStringLiteral("?");
-    QString out = QStringLiteral("%1 %2").arg(date.day()).arg(QLatin1String(months[date.month() - 1]));
+    QString out = QStringLiteral("%1 %2").arg(date.day()).arg(QLatin1String(kMonths[date.month() - 1]));
     if (date.year() != today.year())
         out += QStringLiteral(" %1").arg(date.year());
     return out;
@@ -207,6 +209,93 @@ int slotAt(const Layout& layout, const QPoint& point)
         if (layout.items[i].cover.adjusted(0, 0, 0, kCanto).contains(point))
             return i;
     return -1;
+}
+
+QList<Page> pagesOf(const QString& dir, const notebooks::Notebook& notebook)
+{
+    QList<Page> pages;
+    // Se llena en orden: las terminadas son las primeras.
+    for (int i = 1; i <= notebook.maxSheets; ++i) {
+        const notebooks::SheetState state = notebooks::sheetState(dir, i);
+        Page page{i, state, {}, {}};
+        if (state == notebooks::SheetState::Finished) {
+            page.image = QDir(notebooks::sheetFolder(dir, i)).filePath(QString::fromLatin1(notebooks::kFinishedImage));
+            page.finished = QFileInfo(page.image).lastModified().date();
+            pages.append(page);
+            continue;
+        }
+        pages.append(page); // la siguiente: el aviso
+        break;
+    }
+    return pages;
+}
+
+int openingPage(const QList<Page>& pages)
+{
+    for (int i = int(pages.size()) - 1; i >= 0; --i)
+        if (pages[i].state == notebooks::SheetState::Finished)
+            return i;
+    return pages.isEmpty() ? -1 : 0;
+}
+
+QString longDate(const QDate& date)
+{
+    if (!date.isValid())
+        return QStringLiteral("?");
+    return QStringLiteral("%1 %2 %3").arg(date.day()).arg(QLatin1String(kMonths[date.month() - 1])).arg(date.year());
+}
+
+QString usageText(const QList<Page>& pages, int maxSheets)
+{
+    int used = 0;
+    for (const Page& page : pages)
+        used += page.state == notebooks::SheetState::Finished;
+    QString out = QStringLiteral("%1 de %2 usadas").arg(used).arg(maxSheets);
+    if (!pages.isEmpty() && pages.last().state == notebooks::SheetState::Draft)
+        out += QStringLiteral(" · borrador en la %1").arg(pages.last().sheet);
+    else if (!pages.isEmpty() && pages.last().state == notebooks::SheetState::Empty)
+        out += QStringLiteral(" · sigue la %1").arg(pages.last().sheet);
+    else
+        out += QStringLiteral(" · lleno");
+    return out;
+}
+
+double fitScale(const QSizeF& sheet, const QSizeF& area)
+{
+    if (sheet.isEmpty() || area.isEmpty())
+        return 1.0;
+    return std::min(area.width() / sheet.width(), area.height() / sheet.height());
+}
+
+double maxZoom(const QSizeF& sheet, const QSizeF& area)
+{
+    return std::max(1.0, 1.0 / fitScale(sheet, area));
+}
+
+double zoomIn(double zoom, const QSizeF& sheet, const QSizeF& area)
+{
+    return std::min(zoom * kZoomStep, maxZoom(sheet, area));
+}
+
+double zoomOut(double zoom)
+{
+    return std::max(1.0, zoom / kZoomStep);
+}
+
+QPointF clampPan(const QSizeF& sheet, const QRectF& area, double zoom, const QPointF& pan)
+{
+    const QSizeF size = sheet * (fitScale(sheet, area.size()) * zoom);
+    const double freeX = std::max(0.0, (size.width() - area.width()) / 2);
+    const double freeY = std::max(0.0, (size.height() - area.height()) / 2);
+    return {std::clamp(pan.x(), -freeX, freeX), std::clamp(pan.y(), -freeY, freeY)};
+}
+
+QRectF sheetRect(const QSizeF& sheet, const QRectF& area, double zoom, const QPointF& pan)
+{
+    const QSizeF size = sheet * (fitScale(sheet, area.size()) * zoom);
+    QRectF rect(QPointF(), size);
+    rect.moveCenter(area.center() + clampPan(sheet, area, zoom, pan));
+    return rect;
 }
 
 } // namespace bocetos

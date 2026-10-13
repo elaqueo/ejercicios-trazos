@@ -1,4 +1,5 @@
 #include "BocetosCore.h"
+#include "SheetCache.h"
 
 #include <appkit/Theme.h>
 
@@ -6,6 +7,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QImage>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -213,6 +215,102 @@ private slots:
         QCOMPARE(nb.started, QDate(2026, 10, 13));
         QCOMPARE(nb.updated, QDate(2026, 10, 13));
         QCOMPARE(nb.paper.preset, QStringLiteral("tonadoGris"));
+    }
+    // HU-137: las páginas del cuaderno abierto: las terminadas y la siguiente como aviso.
+    void paginas()
+    {
+        QTemporaryDir tmp;
+        notebooks::Notebook nb;
+        nb.name = QStringLiteral("Gestos");
+        nb.maxSheets = 4;
+        const QString dir = tmp.path();
+        // Sin hojas: solo la 1 en blanco, y abre ahí.
+        QList<Page> pages = pagesOf(dir, nb);
+        QCOMPARE(pages.size(), 1);
+        QCOMPARE(pages[0].sheet, 1);
+        QCOMPARE(pages[0].state, notebooks::SheetState::Empty);
+        QCOMPARE(openingPage(pages), 0);
+        QCOMPARE(usageText(pages, 4), QStringLiteral("0 de 4 usadas · sigue la 1"));
+        // Dos terminadas y un borrador: abre en la segunda terminada.
+        for (int i = 1; i <= 3; ++i)
+            QVERIFY(QDir().mkpath(notebooks::sheetFolder(dir, i)));
+        touch(notebooks::sheetFolder(dir, 1) + QStringLiteral("/terminada.png"));
+        touch(notebooks::sheetFolder(dir, 2) + QStringLiteral("/terminada.png"));
+        pages = pagesOf(dir, nb);
+        QCOMPARE(pages.size(), 3);
+        QCOMPARE(pages[1].state, notebooks::SheetState::Finished);
+        QVERIFY(pages[1].image.endsWith(QStringLiteral("hoja-0002/terminada.png")));
+        QCOMPARE(pages[1].finished, QDate::currentDate());
+        QCOMPARE(pages[2].state, notebooks::SheetState::Draft);
+        QCOMPARE(openingPage(pages), 1);
+        QCOMPARE(usageText(pages, 4), QStringLiteral("2 de 4 usadas · borrador en la 3"));
+        // Lleno: sin aviso.
+        QVERIFY(QDir().mkpath(notebooks::sheetFolder(dir, 4)));
+        touch(notebooks::sheetFolder(dir, 3) + QStringLiteral("/terminada.png"));
+        touch(notebooks::sheetFolder(dir, 4) + QStringLiteral("/terminada.png"));
+        pages = pagesOf(dir, nb);
+        QCOMPARE(pages.size(), 4);
+        QCOMPARE(openingPage(pages), 3);
+        QCOMPARE(usageText(pages, 4), QStringLiteral("4 de 4 usadas · lleno"));
+        QCOMPARE(longDate(QDate(2026, 10, 7)), QStringLiteral("7 oct 2026"));
+    }
+
+    // El ajuste, los pasos del zoom y el corrimiento.
+    void vista()
+    {
+        const QSizeF sheet(7680, 4800);
+        const QRectF area(24, 24, 1232, 680);
+        QCOMPARE(fitScale(sheet, area.size()), 680.0 / 4800);
+        // Ajustada: entra entera y centrada en el área.
+        const QRectF fit = sheetRect(sheet, area, 1.0, QPointF(500, 500));
+        QCOMPARE(fit.height(), 680.0);
+        QCOMPARE(fit.center(), area.center());
+        // Acercar en pasos de 1,5 hasta un píxel de la hoja por píxel de pantalla; alejar hasta 1.
+        QCOMPARE(zoomIn(1.0, sheet, area.size()), 1.5);
+        QCOMPARE(maxZoom(sheet, area.size()), 4800.0 / 680);
+        double zoom = 1.0;
+        for (int i = 0; i < 20; ++i)
+            zoom = zoomIn(zoom, sheet, area.size());
+        QCOMPARE(zoom, 4800.0 / 680);
+        QCOMPARE(zoomOut(1.2), 1.0);
+        QCOMPARE(zoomOut(3.0), 2.0);
+        // Una hoja chica no se acerca más que su tamaño real.
+        QCOMPARE(maxZoom(QSizeF(400, 250), area.size()), 1.0);
+        // Acercada, el corrimiento llega hasta el borde de la hoja y no más.
+        const QRectF zoomed = sheetRect(sheet, area, 2.0, QPointF(1e6, -1e6));
+        QCOMPARE(zoomed.left(), area.left());
+        QCOMPARE(zoomed.bottom(), area.bottom());
+        QCOMPARE(clampPan(sheet, area, 2.0, QPointF(10, -20)), QPointF(10, -20));
+    }
+
+    // La carga en segundo plano: achicada al tamaño pedido, o entera.
+    void cargaEnSegundoPlano()
+    {
+        QTemporaryDir tmp;
+        const QString path = tmp.filePath(QStringLiteral("terminada.png"));
+        QImage source(800, 500, QImage::Format_RGB32);
+        source.fill(QColor(0xB5, 0x98, 0x78));
+        QVERIFY(source.save(path));
+
+        SheetCache cache;
+        cache.setBound(QSize(200, 200));
+        QStringList ready;
+        cache.onReady = [&](const QString& p, bool full, double) { ready.append((full ? QStringLiteral("F ") : QStringLiteral("S ")) + p); };
+        QVERIFY(cache.get(path).isNull()); // empieza a cargar
+        QTRY_COMPARE(ready.size(), 1);
+        QCOMPARE(cache.get(path).size(), QSize(200, 125));
+        QVERIFY(cache.get(path, true).isNull());
+        QTRY_COMPARE(ready.size(), 2);
+        QCOMPARE(cache.peek(path, true).size(), QSize(800, 500));
+        // Lo que no se pide más se suelta.
+        cache.keepOnly({path});
+        QVERIFY(cache.peek(path, true).isNull());
+        QVERIFY(!cache.peek(path).isNull());
+        cache.keepOnly({});
+        QVERIFY(cache.peek(path).isNull());
+        // Un archivo que no es una imagen avisa igual, con la imagen vacía.
+        QVERIFY(cache.get(tmp.filePath(QStringLiteral("no.png"))).isNull());
+        QTRY_COMPARE(ready.size(), 3);
     }
 };
 

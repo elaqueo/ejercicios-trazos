@@ -1,6 +1,8 @@
 #include "LibraryWindow.h"
 
 #include "NotebookDialog.h"
+#include "NotebookView.h"
+#include "Paint.h"
 
 #include <appkit/ConfirmOverlay.h>
 
@@ -23,6 +25,8 @@
 
 namespace theme = appkit::theme;
 using bocetos::Book;
+using bocetos::drawKey;
+using bocetos::themeFont;
 
 namespace {
 
@@ -31,37 +35,10 @@ constexpr int kHeaderTop = 48, kContentTop = 150, kFooter = 96, kSpine = 14;
 const QColor kTapaTexto{0xF4, 0xF1, 0xEA};
 const QColor kCantoLinea{0xDC, 0xD5, 0xC6};
 
-QFont themeFont(bool mono, double px, int weight = QFont::Normal)
-{
-    QFont f;
-    f.setFamilies(mono ? QStringList{QString::fromLatin1(theme::kFuenteMono), QStringLiteral("Consolas")}
-                       : QStringList{QString::fromLatin1(theme::kFuente), QStringLiteral("Segoe UI")});
-    f.setPixelSize(std::max(1, int(std::lround(px))));
-    f.setWeight(QFont::Weight(weight));
-    return f;
-}
-
 // El canto engorda con las hojas usadas: de 3 a 12 px.
 int cantoOf(const Book& book)
 {
     return 3 + int(std::lround(9.0 * book.used / std::max(1, book.notebook.maxSheets)));
-}
-
-// Una tecla como las de la página de atajos.
-double drawKey(QPainter& p, double x, double y, const QString& key)
-{
-    const QFont mono = themeFont(true, 13);
-    const double w = std::max(28.0, QFontMetricsF(mono).horizontalAdvance(key) + 16);
-    const QRectF box(x, y, w, 28);
-    QPainterPath path;
-    path.addRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), theme::kRadioTecla, theme::kRadioTecla);
-    p.fillPath(path, theme::kPanelAlto);
-    p.setPen(QPen(theme::kBorde, 1));
-    p.drawPath(path);
-    p.setFont(mono);
-    p.setPen(theme::kTexto);
-    p.drawText(box, Qt::AlignCenter, key);
-    return w;
 }
 
 void drawChip(QPainter& p, double x, double y, const QString& text, const QColor& color, bool dot)
@@ -152,6 +129,8 @@ LibraryWindow::LibraryWindow(appkit::Shortcuts& shortcuts, appkit::Config& confi
     , m_config(config)
 {
     setFocusPolicy(Qt::StrongFocus);
+    m_view = new NotebookView(m_shortcuts, this);
+    m_view->hide();
     m_dialog = new NotebookDialog(this);
     m_dialog->onCancel = [this] {
         qInfo() << "Bocetos: diálogo cancelado";
@@ -217,6 +196,11 @@ bool LibraryWindow::dialogOpen() const
     return m_dialog->isVisible() || m_confirm->isVisible();
 }
 
+NotebookView* LibraryWindow::openNotebook() const
+{
+    return m_view->isVisible() ? m_view : nullptr;
+}
+
 void LibraryWindow::reload(const QString& selectFolder)
 {
     if (!selectFolder.isEmpty())
@@ -226,6 +210,8 @@ void LibraryWindow::reload(const QString& selectFolder)
 
 void LibraryWindow::newNotebook()
 {
+    if (openNotebook())
+        return;
     m_editing.clear();
     const Book* selected = selectedBook();
     if (selected && selected->full)
@@ -236,6 +222,8 @@ void LibraryWindow::newNotebook()
 
 void LibraryWindow::editSelected(bool focusCollection)
 {
+    if (openNotebook())
+        return;
     const Book* book = selectedBook();
     if (!book)
         return;
@@ -252,6 +240,8 @@ void LibraryWindow::editSelected(bool focusCollection)
 
 void LibraryWindow::deleteSelected()
 {
+    if (openNotebook())
+        return;
     const Book* book = selectedBook();
     if (!book)
         return;
@@ -324,15 +314,33 @@ void LibraryWindow::select(int slot, bool log)
 
 void LibraryWindow::move(bocetos::Move move)
 {
-    if (m_layout.items.isEmpty())
+    if (m_layout.items.isEmpty() || openNotebook())
         return;
     select(bocetos::moveSelection(m_layout, m_selected, move));
 }
 
 void LibraryWindow::openSelected()
 {
-    if (const Book* book = selectedBook())
-        qInfo().noquote() << QStringLiteral("Bocetos: abrir «%1» (el visor llega con HU-137)").arg(book->notebook.name);
+    const Book* book = selectedBook();
+    if (!book || openNotebook())
+        return;
+    qInfo().noquote() << QStringLiteral("Bocetos: abrir «%1»").arg(book->notebook.name);
+    m_view->setGeometry(rect());
+    m_view->open(*book);
+    m_view->show();
+    m_view->raise();
+    setFocus();
+}
+
+void LibraryWindow::closeNotebook()
+{
+    if (!openNotebook())
+        return;
+    m_view->hide();
+    m_view->release();
+    qInfo() << "Bocetos: vuelve a la biblioteca";
+    setFocus();
+    update();
 }
 
 int LibraryWindow::contentTop() const
@@ -467,7 +475,7 @@ void LibraryWindow::keyPressEvent(QKeyEvent* event)
 // Tocar un libro con el lápiz o el mouse lo elige y lo abre.
 void LibraryWindow::mousePressEvent(QMouseEvent* event)
 {
-    if (dialogOpen())
+    if (dialogOpen() || openNotebook())
         return;
     const QPoint content = event->position().toPoint() - QPoint(0, contentTop() - m_scroll);
     if (event->position().y() < contentTop() - 24 || event->position().y() > viewBottom())
@@ -483,5 +491,6 @@ void LibraryWindow::resizeEvent(QResizeEvent*)
 {
     if (m_dialog->isVisible())
         m_dialog->setGeometry(rect());
+    m_view->setGeometry(rect());
     relayout();
 }

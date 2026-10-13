@@ -62,6 +62,7 @@ La interfaz es grafito y se retira: lo único claro en la pantalla es la hoja de
 | Cono y cabeza que giran (Ejercicios de animación) | Como la mesa "Cono y cabeza que giran", con el ghost del prisma. El cono: la base en elipse, la silueta del vértice y la costura; por defecto sobre el eje horizontal. La cabeza: Loomis simplificada, solo la estructura (la esfera, la línea media y la de las cejas, los cortes laterales, la línea de la cara y la mandíbula), sin nariz ni boca; por defecto sobre el eje vertical | HU-131 |
 | Panel de hojas (Ejercicios de animación) | Como la variante de la mesa "Panel de hojas": en vez de la toma, "EJERCICIO" y el título del ejercicio, con "modo mixto" a la derecha si está prendido; sin estado de guardado (la pila no se guarda) | HU-120, HU-121 |
 | Biblioteca (Bocetos) | Como la mesa "Bocetos · biblioteca": encabezado "Bocetos" y cuántos cuadernos en cuántos estantes; un estante por colección (el general primero) con su nombre en versalitas y la línea de la tabla; libros apaisados de 232 × 148 px: la tapa del color del cuaderno con el lomo más oscuro, el nombre, la marca (borrador en ámbar, lleno, sin hojas) y las fechas en mono; debajo, el canto que engorda con las hojas y la cuenta "12/40"; el elegido con marco ámbar; las teclas al pie | HU-135 |
+| Cuaderno abierto (Bocetos) | Como la mesa "Bocetos · cuaderno abierto": la hoja ocupando la ventana (el PNG ajustado, 24 px de margen) sobre el fondo; al pie, el nombre, "hoja 7 de 12" en ámbar mono y "terminada el 7 oct 2026", y a la derecha "12 de 40 usadas · borrador en la 13" en mono; debajo, las teclas. La siguiente hoja (borrador o en blanco) se ve como el papel del cuaderno con un aviso; mientras una hoja carga, el papel | HU-137 |
 | Cuaderno nuevo (Bocetos, Ctrl+N / F2) | Como la mesa "Bocetos · cuaderno nuevo": panel de 680 px sobre la biblioteca atenuada; nombre, colección (desplegable editable), hojas, las seis tapas (`kTapas`: terracota, ocre, oliva, pizarra, ciruela, grafito; la elegida con borde ámbar) y el papel en un desplegable con su muestra, grano y textura, con la muestra grande al lado; al pie, Enter en ámbar y Esc. Para editar (F2), el mismo panel con el papel y las hojas deshabilitados. Borrar usa la confirmación | HU-136 |
 | Cartuchera en modo cuaderno (Bocetos) | Como la mesa "Cartuchera en modo cuaderno": en el costado libre a la derecha de la hoja, "CUADERNO", la muestra de la tapa y el nombre, "hoja 13 de 40" en ámbar mono, las teclas (Ctrl+Enter resaltada: terminar; Ctrl+Q: queda el borrador; Z) y el papel al pie (`lienzo/SideNote.h`, lo pone el render como la franja del audio). Sin costado libre, una línea en la esquina superior izquierda de la hoja. Terminar en blanco usa la confirmación | HU-133 |
 
@@ -136,3 +137,14 @@ Todas se declaran en el registro único de atajos (HU-14); si dos acciones piden
 | G | Mostrar u ocultar las guías de todas las hojas, para comparar (HU-121). Con el ghost solo en las keys (F2), muestra el de todas las hojas y otra G vuelve a solo las keys (HU-125) |
 | F4 | Menú de ejercicios: el prisma, el cilindro, el cono y la cabeza que giran (Volumen), los trazos en pila (Líneas, Curvas, Elipses, Perspectiva) y el modo mixto (HU-121, HU-122, HU-123, HU-130, HU-131) |
 | F2 | Panel: los parámetros del ejercicio (las hojas y el ghost solo en las keys, entre ellos) y qué ejercicios entran en el modo mixto (HU-121, HU-125) |
+
+**Bocetos:** una ventana común, sin el lienzo. Las teclas de la biblioteca no hacen nada con el cuaderno abierto, y al revés.
+
+| Tecla | Qué hace |
+| --- | --- |
+| ← → ↑ ↓ · Enter | Biblioteca: elegir un cuaderno · abrirlo (también tocándolo) (HU-135) |
+| Ctrl+N · F2 · Ctrl+M · Supr | Biblioteca: cuaderno nuevo (o seguir en uno nuevo si el elegido está lleno) · editarlo · moverlo de colección · mandarlo a la papelera (HU-136) |
+| RePág / AvPág · Inicio / Fin | Cuaderno: hoja anterior o siguiente · primera o última (HU-137) |
+| + / − · arrastrar | Cuaderno: acercar o alejar hacia el centro, en pasos de ×1,5 hasta un píxel de la hoja por píxel de pantalla · mover la hoja acercada (HU-137) |
+| Esc | Cuaderno: volver a la biblioteca (HU-137) |
+| Ctrl+, · F10 · Ctrl+Q | Atajos · monitor siguiente · salir |

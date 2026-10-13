@@ -6,6 +6,8 @@
 #include <QList>
 #include <QPoint>
 #include <QRect>
+#include <QRectF>
+#include <QSizeF>
 #include <QString>
 #include <QStringList>
 
@@ -88,5 +90,32 @@ QStringList collectionsOf(const QList<Shelf>& shelves);
 Draft draftFor(const Book* selected);
 // El cuaderno que sale del borrador, empezado y actualizado `today`.
 notebooks::Notebook notebookFrom(const Draft& draft, const QDate& today);
+
+// HU-137: el cuaderno abierto. Las páginas que se recorren: las hojas terminadas, en orden, y al
+// final la siguiente (el borrador o la primera en blanco) como aviso; un cuaderno lleno no la tiene.
+struct Page {
+    int sheet = 0; // desde 1
+    notebooks::SheetState state = notebooks::SheetState::Empty;
+    QString image; // terminada.png (solo las terminadas)
+    QDate finished; // la fecha de terminada.png
+};
+QList<Page> pagesOf(const QString& dir, const notebooks::Notebook& notebook);
+// Abre en la última terminada; sin terminadas, en la siguiente (la hoja 1 en blanco).
+int openingPage(const QList<Page>& pages);
+// "7 oct 2026".
+QString longDate(const QDate& date);
+// Al pie, a la derecha: "12 de 40 usadas · borrador en la 13" (o "· sigue la 13", o "· lleno").
+QString usageText(const QList<Page>& pages, int maxSheets);
+
+// La vista de la hoja: ajustada al área (zoom 1) y acercada en pasos de ×1,5 hasta un píxel de la
+// hoja por píxel de pantalla; `pan` corre el centro de la hoja (px de pantalla) y no deja que se
+// vea fondo de un lado si la hoja es más grande que el área en ese eje.
+inline constexpr double kZoomStep = 1.5;
+double fitScale(const QSizeF& sheet, const QSizeF& area);
+double maxZoom(const QSizeF& sheet, const QSizeF& area);
+double zoomIn(double zoom, const QSizeF& sheet, const QSizeF& area);
+double zoomOut(double zoom);
+QPointF clampPan(const QSizeF& sheet, const QRectF& area, double zoom, const QPointF& pan);
+QRectF sheetRect(const QSizeF& sheet, const QRectF& area, double zoom, const QPointF& pan);
 
 } // namespace bocetos
