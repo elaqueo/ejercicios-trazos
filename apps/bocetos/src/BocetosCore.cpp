@@ -328,4 +328,10 @@ DrawResult drawResult(const QString& bookDir, int sheet, int exitCode, bool cras
     return state == notebooks::SheetState::Draft ? DrawResult::Draft : DrawResult::Untouched;
 }
 
+QRectF viewerArea(const QSize& window)
+{
+    return QRectF(kViewerMargin, kViewerMargin, std::max(1, window.width() - kViewerBar - 2 * kViewerMargin),
+                  std::max(1, window.height() - 2 * kViewerMargin));
+}
+
 } // namespace bocetos

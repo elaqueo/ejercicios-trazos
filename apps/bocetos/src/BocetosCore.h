@@ -118,6 +118,11 @@ double zoomOut(double zoom);
 QPointF clampPan(const QSizeF& sheet, const QRectF& area, double zoom, const QPointF& pan);
 QRectF sheetRect(const QSizeF& sheet, const QRectF& area, double zoom, const QPointF& pan);
 
+// HU-144: la barra del cuaderno va vertical a la derecha; la hoja, en el resto de la ventana con
+// 24 px de margen (mesa "Bocetos · cuaderno abierto").
+inline constexpr int kViewerBar = 300, kViewerMargin = 24;
+QRectF viewerArea(const QSize& window);
+
 // HU-138: D dibuja la siguiente hoja en Cartuchera (`--hoja`, HU-133).
 enum class DrawAction { Launch, Full, NoCartuchera };
 struct DrawPlan {

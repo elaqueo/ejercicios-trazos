@@ -22,9 +22,6 @@ using notebooks::SheetState;
 
 namespace {
 
-// Medidas de la mesa "Bocetos · cuaderno abierto" (px a escala 1): la hoja con 24 de margen y el
-// pie de 96 debajo.
-constexpr int kMargin = 24, kFooter = 96;
 
 } // namespace
 
@@ -54,7 +51,14 @@ void NotebookView::open(const bocetos::Book& book)
     m_cache.setBound(on ? (on->size() * on->devicePixelRatio()) : QSize(1920, 1080));
     m_cache.keepOnly({});
     m_page = -1;
-    qInfo().noquote() << QStringLiteral("Cuaderno: abierto «%1» · %2").arg(book.notebook.name, bocetos::usageText(m_pages, book.notebook.maxSheets));
+    const QRectF a = area();
+    qInfo().noquote() << QStringLiteral("Cuaderno: abierto «%1» · %2 · hoja en %3,%4 %5 x %6, barra desde x %7")
+                             .arg(book.notebook.name, bocetos::usageText(m_pages, book.notebook.maxSheets))
+                             .arg(a.left())
+                             .arg(a.top())
+                             .arg(a.width())
+                             .arg(a.height())
+                             .arg(width() - bocetos::kViewerBar);
     showPage(bocetos::openingPage(m_pages));
 }
 
@@ -151,7 +155,7 @@ void NotebookView::logShown(const QString& how)
 
 QRectF NotebookView::area() const
 {
-    return QRectF(kMargin, kMargin, std::max(1, width() - 2 * kMargin), std::max(1, height() - kMargin - kFooter));
+    return bocetos::viewerArea(size());
 }
 
 QSizeF NotebookView::sheetSize() const
@@ -251,55 +255,67 @@ void NotebookView::paintEvent(QPaintEvent*)
     }
     p.restore();
 
-    // El pie, alineado con la hoja ajustada.
-    const QRectF fit = bocetos::sheetRect(sheet, area, 1.0, {});
-    const double left = fit.left(), right = fit.right();
-    const double y = area.bottom() + 18;
-    double x = left;
-    const auto text = [&](const QString& s, const QFont& font, const QColor& color) {
+    // La barra (HU-144): vertical a la derecha, como el aviso de Cartuchera en modo cuaderno.
+    const QRectF bar(width() - bocetos::kViewerBar, 0, bocetos::kViewerBar, height());
+    p.fillRect(bar, theme::kPanel);
+    p.fillRect(QRectF(bar.left(), 0, 1, height()), theme::kBorde);
+    const double left = bar.left() + 28, inner = bar.width() - 56;
+    double y = 32;
+    const auto line = [&](const QString& s, const QFont& font, const QColor& color, double h, double x0 = 0) {
         p.setFont(font);
         p.setPen(color);
-        const double w = QFontMetricsF(font).horizontalAdvance(s);
-        p.drawText(QRectF(x, y, w + 2, 22), Qt::AlignLeft | Qt::AlignVCenter, s);
-        x += w + 12;
+        p.drawText(QRectF(left + x0, y, inner - x0, h), Qt::AlignLeft | Qt::AlignVCenter,
+                   QFontMetricsF(font).elidedText(s, Qt::ElideRight, inner - x0));
+        y += h;
     };
-    text(m_book.notebook.name, themeFont(false, 16, QFont::DemiBold), theme::kTexto);
+    QFont label = themeFont(false, 12, QFont::DemiBold);
+    label.setLetterSpacing(QFont::AbsoluteSpacing, 1);
+    line(QStringLiteral("CUADERNO"), label, theme::kTextoSecundario, 18);
+    y += 12;
+    const QRectF swatch(left, y, 22, 30);
+    p.fillRect(swatch, m_book.notebook.cover.isValid() ? m_book.notebook.cover : QColor(0x4A, 0x50, 0x59));
+    p.fillRect(QRectF(swatch.left(), swatch.top(), 4, swatch.height()), QColor(0, 0, 0, 56));
+    line(m_book.notebook.name, themeFont(false, 18, QFont::DemiBold), theme::kTexto, 30, 34);
+    y += 18;
     int finished = 0;
     for (const Page& pg : m_pages)
         finished += pg.state == SheetState::Finished;
     if (page.state == SheetState::Finished) {
-        text(QStringLiteral("hoja %1 de %2").arg(page.sheet).arg(finished), themeFont(true, 14), theme::kSeleccionTexto);
-        text(QStringLiteral("terminada el %1").arg(bocetos::longDate(page.finished)), themeFont(false, 14), theme::kTextoSecundario);
+        line(QStringLiteral("hoja %1 de %2").arg(page.sheet).arg(finished), themeFont(true, 15), theme::kSeleccionTexto, 22);
+        line(QStringLiteral("terminada el %1").arg(bocetos::longDate(page.finished)), themeFont(false, 14), theme::kTextoSecundario, 22);
     } else {
-        text(QStringLiteral("hoja %1").arg(page.sheet), themeFont(true, 14), theme::kSeleccionTexto);
-        text(page.state == SheetState::Draft ? QStringLiteral("borrador") : QStringLiteral("en blanco"), themeFont(false, 14),
-             theme::kTextoSecundario);
+        line(QStringLiteral("hoja %1").arg(page.sheet), themeFont(true, 15), theme::kSeleccionTexto, 22);
+        line(page.state == SheetState::Draft ? QStringLiteral("borrador") : QStringLiteral("en blanco"), themeFont(false, 14),
+             theme::kTextoSecundario, 22);
     }
-    p.setFont(themeFont(true, 13));
-    p.setPen(theme::kTextoSecundario);
-    p.drawText(QRectF(x, y, std::max(0.0, right - x), 22), Qt::AlignRight | Qt::AlignVCenter,
-               bocetos::usageText(m_pages, m_book.notebook.maxSheets));
+    y += 18;
+    p.fillRect(QRectF(left, y, inner, 1), theme::kBorde);
+    y += 14;
+    for (const QString& part : bocetos::usageText(m_pages, m_book.notebook.maxSheets).split(QStringLiteral(" · ")))
+        line(part, themeFont(true, 13), theme::kTextoSecundario, 20);
 
-    // Las teclas, del registro.
-    x = left;
-    const double ky = height() - 20 - 28;
-    const auto hint = [&](const QStringList& names, const QString& what, bool dot) {
-        for (const QString& name : names)
-            x += drawKey(p, x, ky, m_shortcuts.keyOf(name)) + 6;
+    // Las teclas, del registro, una debajo de la otra al pie de la barra.
+    struct Hint {
+        QStringList names;
+        QString what;
+    };
+    QList<Hint> hints{{{QStringLiteral("Hoja anterior"), QStringLiteral("Hoja siguiente")}, QStringLiteral("hojas")},
+                      {{QStringLiteral("Primera hoja"), QStringLiteral("Última hoja")}, QStringLiteral("primera / última")},
+                      {{QStringLiteral("Acercar"), QStringLiteral("Alejar")},
+                       m_zoom > 1.0 ? QStringLiteral("zoom %1 %").arg(std::lround(m_zoom * 100)) : QStringLiteral("zoom")}};
+    if (m_pages.last().state != SheetState::Finished) // HU-138; lleno, no hay siguiente
+        hints.append({{QStringLiteral("Dibujar la siguiente hoja")}, QStringLiteral("dibujar la hoja %1").arg(m_pages.last().sheet)});
+    hints.append({{QStringLiteral("Volver a la biblioteca")}, QStringLiteral("biblioteca")});
+    double ky = height() - 28 - hints.size() * 38 + 10;
+    for (const Hint& hint : hints) {
+        double x = left;
+        for (const QString& name : hint.names)
+            x += drawKey(p, x, ky, m_shortcuts.keyOf(name)) + 8;
         p.setFont(themeFont(false, 14));
         p.setPen(theme::kTextoSecundario);
-        const QString s = dot ? what + QStringLiteral("  ·") : what;
-        const double w = QFontMetricsF(p.font()).horizontalAdvance(s);
-        p.drawText(QRectF(x + 2, ky, w + 2, 28), Qt::AlignLeft | Qt::AlignVCenter, s);
-        x += w + 18;
-    };
-    hint({QStringLiteral("Hoja anterior"), QStringLiteral("Hoja siguiente")}, QStringLiteral("hojas"), true);
-    hint({QStringLiteral("Primera hoja"), QStringLiteral("Última hoja")}, QStringLiteral("primera / última"), true);
-    hint({QStringLiteral("Acercar"), QStringLiteral("Alejar")},
-         m_zoom > 1.0 ? QStringLiteral("zoom %1 %").arg(std::lround(m_zoom * 100)) : QStringLiteral("zoom"), true);
-    if (m_pages.last().state != SheetState::Finished) // HU-138; lleno, no hay siguiente
-        hint({QStringLiteral("Dibujar la siguiente hoja")}, QStringLiteral("dibujar la hoja %1").arg(m_pages.last().sheet), true);
-    hint({QStringLiteral("Volver a la biblioteca")}, QStringLiteral("biblioteca"), false);
+        p.drawText(QRectF(x + 4, ky, std::max(0.0, left + inner - x - 4), 28), Qt::AlignLeft | Qt::AlignVCenter, hint.what);
+        ky += 38;
+    }
 }
 
 // Arrastrar con el mouse o el lápiz mueve la hoja acercada.

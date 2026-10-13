@@ -831,6 +831,10 @@ try {
     $all = @(Get-Content $bocLog -Encoding utf8)
     $opened = ($all | Where-Object { $_ -match 'Cuaderno: (abierto|hoja \d+ en)' } | Select-Object -First 2) -join ' | '
     Check "abre el cuaderno en la última hoja terminada, ocupando la ventana ($opened)" ($opened -match 'abierto .*\| .*Cuaderno: hoja [234] en') $opened
+    # HU-144: la hoja queda a la izquierda de la barra vertical.
+    $bar = ($all | Where-Object { $_ -match 'Cuaderno: abierto' } | Select-Object -First 1)
+    $barOk = $bar -match 'hoja en ([\d.]+),[\d.]+ ([\d.]+) x [\d.]+, barra desde x (\d+)' -and ([double]$Matches[1] + [double]$Matches[2]) -le [double]$Matches[3]
+    Check 'la hoja se ve a la izquierda de la barra del cuaderno' $barOk $bar
     $l = @($all | Select-Object -Skip $mark)
     $pages = @($l | Where-Object { $_ -match 'Cuaderno: hoja \d+ (en|·)' })
     $flips = @($pages | Select-Object -First 2 | ForEach-Object { if ($_ -match 'en ([\d.]+) ms \(precargada\)') { [double]$Matches[1] } else { 999 } })
@@ -839,7 +843,7 @@ try {
         ($flipsOk -and $pages.Count -ge 3 -and $pages[2] -match 'en blanco') ($pages -join ' | ')
     $l = $l -join ' '
     Check 'Inicio, Fin, + + − sobre una terminada (se lee entera) y Esc vuelve a la biblioteca' `
-        ($l -match 'Cuaderno: hoja 1 en' -and $l -match 'zoom 150 %.*zoom 225 %.*entera, leída.*zoom 150 %' -and $l -match 'vuelve a la biblioteca') $l
+        ($l -match 'Cuaderno: hoja 1 en' -and $l -match 'zoom 150 %.*zoom 225 %.*zoom 150 %' -and $l -match 'entera, leída' -and $l -match 'vuelve a la biblioteca') $l
     # HU-138: D abre la siguiente hoja en Cartuchera (--hoja) y Bocetos espera; Ctrl+Q la cierra sin
     # tocar y Bocetos sigue en la biblioteca. En el cuaderno abierto, D otra vez, Ctrl+Enter y Ctrl+Enter
     # (en blanco pregunta) la terminan y Bocetos la muestra. F11 entra y sale de pantalla completa.

@@ -283,6 +283,21 @@ private slots:
         QCOMPARE(clampPan(sheet, area, 2.0, QPointF(10, -20)), QPointF(10, -20));
     }
 
+    // HU-144: la hoja va a la izquierda de la barra, con su margen, en ventanas chicas y anchas.
+    void areaConBarra()
+    {
+        QCOMPARE(viewerArea(QSize(1280, 800)), QRectF(24, 24, 1280 - 300 - 48, 752));
+        for (const QSize window : {QSize(800, 560), QSize(1920, 810), QSize(2560, 1080), QSize(100, 100)}) {
+            const QRectF area = viewerArea(window);
+            QVERIFY(area.right() <= window.width() - kViewerBar || area.width() == 1);
+            QVERIFY(area.width() >= 1 && area.height() >= 1);
+            // Ajustada, la hoja nunca pasa debajo de la barra.
+            QVERIFY(sheetRect(QSizeF(7680, 4800), area, 1.0, {}).right() <= area.right() + 1e-9);
+        }
+        // En el UltraWide a pantalla completa la hoja gana alto: la ajusta la altura.
+        QCOMPARE(sheetRect(QSizeF(7680, 4800), viewerArea(QSize(2560, 1080)), 1.0, {}).height(), 1032.0);
+    }
+
     // La carga en segundo plano: achicada al tamaño pedido, o entera.
     void cargaEnSegundoPlano()
     {
